@@ -14,12 +14,12 @@ if (MSVC)
     target_link_libraries(airspyhf_source PRIVATE airspyhf)
 elseif (ANDROID)
     target_include_directories(airspyhf_source PUBLIC
-        /sdr-kit/${ANDROID_ABI}/include/libairspyhf
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/include/libairspyhf
     )
 
     target_link_libraries(airspyhf_source PUBLIC
-        /sdr-kit/${ANDROID_ABI}/lib/libusb1.0.so
-        /sdr-kit/${ANDROID_ABI}/lib/libairspyhf.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libusb1.0.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libairspyhf.so
     )
 else (MSVC)
     find_package(PkgConfig)

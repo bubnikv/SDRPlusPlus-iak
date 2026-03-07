@@ -15,11 +15,11 @@ if (MSVC)
     target_link_libraries(m17_decoder PRIVATE libcodec2)
 elseif (ANDROID)
     target_include_directories(m17_decoder PUBLIC
-        /sdr-kit/${ANDROID_ABI}/include/codec2
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/include/codec2
     )
 
     target_link_libraries(m17_decoder PUBLIC
-        /sdr-kit/${ANDROID_ABI}/lib/libcodec2.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libcodec2.so
     )
 else ()
     find_package(PkgConfig)

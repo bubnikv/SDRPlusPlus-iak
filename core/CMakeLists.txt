@@ -103,14 +103,14 @@ if (MSVC)
     target_link_libraries(sdrpp_core PUBLIC zstd::libzstd_shared)
 elseif (ANDROID)
     target_include_directories(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/include
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/include
         ${ANDROID_NDK}/sources/android/native_app_glue
     )
 
     target_link_libraries(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/lib/libvolk.so
-        /sdr-kit/${ANDROID_ABI}/lib/libfftw3f.so
-        /sdr-kit/${ANDROID_ABI}/lib/libzstd.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libvolk.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libfftw3f.so
+        ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libzstd.so
         android
         EGL
         GLESv3

@@ -5,6 +5,14 @@ project(sdrpp)
 option(OPT_BACKEND_GLFW "Use the GLFW backend" ON)
 option(OPT_BACKEND_ANDROID "Use the Android backend" OFF)
 
+# Paths
+if(DEFINED ENV{SDR_KIT_ROOT} AND NOT DEFINED SDR_KIT_ROOT)
+    set(SDR_KIT_ROOT_DEFAULT "$ENV{SDR_KIT_ROOT}")
+else()
+    set(SDR_KIT_ROOT_DEFAULT "/sdr-kit")
+endif()
+set(SDR_KIT_ROOT "${SDR_KIT_ROOT_DEFAULT}" CACHE PATH "Root path for the SDR kit libraries")
+
 # Compatibility Options
 option(OPT_OVERRIDE_STD_FILESYSTEM "Use a local version of std::filesystem on systems that don't have it yet" OFF)
 
@@ -25,6 +33,7 @@ option(OPT_BUILD_LIMESDR_SOURCE "Build LimeSDR Source Module (Dependencies: libl
 option(OPT_BUILD_NETWORK_SOURCE "Build Network Source Module (no dependencies required)" ON)
 option(OPT_BUILD_PERSEUS_SOURCE "Build Perseus Source Module (Dependencies: libperseus-sdr)" OFF)
 option(OPT_BUILD_PLUTOSDR_SOURCE "Build PlutoSDR Source Module (Dependencies: libiio, libad9361)" ON)
+option(OPT_BUILD_QMXSERVER_SOURCE "Build QMX server Source Module (Dependencies: enet)" ON)
 option(OPT_BUILD_RFNM_SOURCE "Build RFNM Source Module (Dependencies: librfnm)" OFF)
 option(OPT_BUILD_RFSPACE_SOURCE "Build RFspace Source Module (no dependencies required)" ON)
 option(OPT_BUILD_RTL_SDR_SOURCE "Build RTL-SDR Source Module (Dependencies: librtlsdr)" ON)
@@ -91,9 +100,15 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
 else()
     # Normal Flags
     if (MSVC)
-        set(SDRPP_COMPILER_FLAGS /O2 /Ob2 /std:c++17 /EHsc)
+        set(SDRPP_COMPILER_FLAGS
+            /std:c++17
+            /EHsc
+            $<$<CONFIG:Release>:/O2 /Ob2>
+            $<$<CONFIG:RelWithDebInfo>:/O2 /Ob2>
+            $<$<CONFIG:Debug>:/Od>
+        )
     elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(SDRPP_COMPILER_FLAGS -O3 -std=c++17 -Wno-unused-command-line-argument -undefined dynamic_lookup)
+    set(SDRPP_COMPILER_FLAGS -O3 -std=c++17 -Wno-unused-command-line-argument -undefined dynamic_lookup)
     else ()
         set(SDRPP_COMPILER_FLAGS -O3 -std=c++17)
     endif ()
@@ -186,6 +201,10 @@ endif (OPT_BUILD_PERSEUS_SOURCE)
 if (OPT_BUILD_PLUTOSDR_SOURCE)
 add_subdirectory("source_modules/plutosdr_source")
 endif (OPT_BUILD_PLUTOSDR_SOURCE)
+
+if (OPT_BUILD_QMXSERVER_SOURCE)
+add_subdirectory("source_modules/qmxserver_source")
+endif (OPT_BUILD_QMXSERVER_SOURCE)
 
 if (OPT_BUILD_RFNM_SOURCE)
 add_subdirectory("source_modules/rfnm_source")
@@ -351,7 +370,7 @@ target_compile_options(sdrpp PRIVATE ${SDRPP_COMPILER_FLAGS})
 # Copy dynamic libs over
 if (MSVC)
     add_custom_target(do_always ALL xcopy /s \"$<TARGET_FILE_DIR:sdrpp_core>\\*.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
-    add_custom_target(do_always_volk ALL xcopy /s \"C:/Program Files/PothosSDR/bin\\volk.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
+    add_custom_target(do_always_volk ALL xcopy /s \"D:/src/volk/build/lib/Release\\volk.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
 
     if (COPY_MSVC_REDISTRIBUTABLES)
         # Get the list of Visual C++ runtime DLLs
