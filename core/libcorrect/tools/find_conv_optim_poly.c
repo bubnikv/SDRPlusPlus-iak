@@ -16,7 +16,7 @@ static conv_t*(*conv_create)(size_t, size_t, const uint16_t *) = correct_convolu
 static void(*conv_destroy)(conv_t *) = correct_convolutional_sse_destroy;
 static size_t(*conv_enclen)(void *, size_t) = conv_correct_sse_enclen;
 static void(*conv_encode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_sse_encode;
-static void(*conv_decode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_sse_decode;
+static ssize_t(*conv_decode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_sse_decode;
 #else
 #include "correct/util/error-sim.h"
 typedef correct_convolutional conv_t;
@@ -24,7 +24,7 @@ static conv_t*(*conv_create)(size_t, size_t, const uint16_t *) = correct_convolu
 static void(*conv_destroy)(conv_t *) = correct_convolutional_destroy;
 static size_t(*conv_enclen)(void *, size_t) = conv_correct_enclen;
 static void(*conv_encode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_encode;
-static void(*conv_decode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_decode;
+static ssize_t(*conv_decode)(void *, uint8_t *, size_t, uint8_t *) = conv_correct_decode;
 #endif
 
 typedef struct {

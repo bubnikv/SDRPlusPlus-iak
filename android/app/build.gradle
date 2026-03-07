@@ -1,20 +1,19 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 28
-    buildToolsVersion "30.0.3"
-    ndkVersion "25.1.8937393"
+    namespace = 'org.sdrpp.sdrpp'
+    compileSdk 36
+    ndkVersion "29.0.14206865"
     defaultConfig {
         applicationId "org.sdrpp.sdrpp"
-        minSdkVersion 28
-        targetSdkVersion 28
+        minSdk 26
+        targetSdk 36
         versionCode 1
         versionName "1.2.1"
 
         externalNativeBuild {
             cmake {
-                arguments "-DOPT_BACKEND_GLFW=OFF", "-DOPT_BACKEND_ANDROID=ON", "-DOPT_BUILD_SOAPY_SOURCE=OFF", "-DOPT_BUILD_ANDROID_AUDIO_SINK=ON", "-DOPT_BUILD_AUDIO_SINK=OFF", "-DOPT_BUILD_DISCORD_PRESENCE=OFF", "-DOPT_BUILD_M17_DECODER=ON", "-DOPT_BUILD_PLUTOSDR_SOURCE=ON", "-DOPT_BUILD_AUDIO_SOURCE=OFF", "-DOPT_BUILD_HYDRASDR_SOURCE=ON"
+                arguments "-DSDR_KIT_ROOT=${project.findProperty('sdrKitRoot') ?: '/sdr-kit'}", "-DOPT_BACKEND_GLFW=OFF", "-DOPT_BACKEND_ANDROID=ON", "-DOPT_BUILD_SOAPY_SOURCE=OFF", "-DOPT_BUILD_ANDROID_AUDIO_SINK=ON", "-DOPT_BUILD_AUDIO_SINK=OFF", "-DOPT_BUILD_DISCORD_PRESENCE=OFF", "-DOPT_BUILD_M17_DECODER=ON", "-DOPT_BUILD_PLUTOSDR_SOURCE=ON", "-DOPT_BUILD_AUDIO_SOURCE=OFF", "-DOPT_BUILD_HYDRASDR_SOURCE=ON"
             }
         }
     }
@@ -34,13 +33,18 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
         }
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     externalNativeBuild {
         cmake {
-            version "3.18.1"
+            version = "3.22.1"
             path "../../CMakeLists.txt"
         }
     }
@@ -68,8 +72,8 @@ repositories {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation 'androidx.appcompat:appcompat:1.7.0'
 }
 
 copyResources.dependsOn deleteTempAssets
