@@ -178,11 +178,10 @@ namespace backend {
                 int32_t action = AMotionEvent_getAction(inputEvent) & AMOTION_EVENT_ACTION_MASK;
                 if (action == AMOTION_EVENT_ACTION_DOWN) {
                     flog::info("Sleep: touch detected, resetting to active");
-                    bool wasRenderPaused = sleepRenderPaused;
                     resetSleepToActive();
-                    if (wasRenderPaused) return 1;  // consume only during DARK phase
                 }
             }
+            return 1;  // consume all input while screen is dimmed or dark
         }
         return ImGui_ImplAndroid_HandleInputEvent(inputEvent);
     }
