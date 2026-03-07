@@ -11,14 +11,23 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.hardware.usb.*;
 import android.Manifest;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.KeyEvent;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.util.Log;
+import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
+import android.content.res.Configuration;
 
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.IntentCompat;
 
 import androidx.core.content.PermissionChecker;
 
@@ -32,7 +41,7 @@ private val usbReceiver = object : BroadcastReceiver() {
         if (ACTION_USB_PERMISSION == intent.action) {
             synchronized(this) {
                 var _this = context as MainActivity;
-                _this.SDR_device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                _this.SDR_device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
                 if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                     _this.SDR_conn = _this.usbManager!!.openDevice(_this.SDR_device);
                     
@@ -61,6 +70,44 @@ class MainActivity : NativeActivity() {
     public var SDR_PID : Int = -1;
     public var SDR_FD : Int = -1;
 
+    // Sleep timer
+    private lateinit var sleepTimer: SleepTimerManager;
+    private var wakeLock: PowerManager.WakeLock? = null;
+
+    companion object {
+        init {
+            System.loadLibrary("sdrpp_core")
+        }
+
+        /**
+         * Returns the file descriptor for a USB device matching the given VID and PID.
+         * If multiple devices match, returns the first one found.
+         * Returns -1 if not found or permission denied.
+         * This can be called from JNI/native code.
+         */
+        @JvmStatic
+        fun getDeviceFDByVidPid(context: Context, vid: Int, pid: Int): Int {
+            val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return -1
+            val devList = usbManager.deviceList
+            for ((_, dev) in devList) {
+                if (dev.vendorId == vid && dev.productId == pid) {
+                    // Check permission
+                    if (!usbManager.hasPermission(dev)) {
+                        // Optionally, request permission here if needed
+                        return -1
+                    }
+                    val conn = usbManager.openDevice(dev)
+                    if (conn != null) {
+                        val fd = conn.fileDescriptor
+                        conn.close() // Optionally keep open if needed
+                        return fd
+                    }
+                }
+            }
+            return -1
+        }
+    }
+
     fun checkAndAsk(permission: String) {
         if (PermissionChecker.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(permission), 1);
@@ -74,6 +121,15 @@ class MainActivity : NativeActivity() {
     }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
+        // Force landscape orientation on phone-sized devices (smaller than large/tablet)
+        val screenLayout = resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK
+        if (screenLayout < Configuration.SCREENLAYOUT_SIZE_LARGE) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+
+        // Initialize sleep timer
+        sleepTimer = SleepTimerManager(this);
+
         // Hide bars
         hideSystemBars();
 
@@ -85,9 +141,19 @@ class MainActivity : NativeActivity() {
 
         // Register events
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager;
-        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
+        val permissionRequestIntent = Intent(ACTION_USB_PERMISSION).setPackage(packageName)
+        val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val permissionIntent = PendingIntent.getBroadcast(this, 0, permissionRequestIntent, pendingIntentFlags)
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        registerReceiver(usbReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(usbReceiver, filter)
+        }
 
         // Get permission for all USB devices
         val devList = usbManager!!.getDeviceList();
@@ -105,6 +171,156 @@ class MainActivity : NativeActivity() {
         // Hide bars again
         hideSystemBars();
         super.onResume();
+    }
+
+    public override fun onDestroy() {
+        sleepTimer.stop();
+        super.onDestroy();
+    }
+
+    // ── Sleep timer API ──────────────────────────────────────────────
+
+    /**
+     * Start the sleep timer.  Callable from native code via JNI.
+     */
+    fun startSleepTimer() {
+        runOnUiThread { sleepTimer.start() }
+    }
+
+    /**
+     * Stop the sleep timer and restore normal behavior.
+     * Callable from native code via JNI.
+     */
+    fun stopSleepTimer() {
+        runOnUiThread { sleepTimer.stop() }
+    }
+
+    /** Set screen brightness. -1f = system default, 0f = off, 0.01f = dim. */
+    fun applySleepBrightness(brightness: Float) {
+        runOnUiThread {
+            val lp = window.attributes
+            lp.screenBrightness = brightness
+            window.attributes = lp
+        }
+    }
+
+    /** Add FLAG_KEEP_SCREEN_ON and acquire a WakeLock to prevent the system from suspending. */
+    fun applyKeepScreenOn() {
+        runOnUiThread {
+            Log.i("SleepTimer", "applyKeepScreenOn: setting FLAG_KEEP_SCREEN_ON and acquiring WakeLock")
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (wakeLock == null) {
+                val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = pm.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "SDRPlusPlus:SleepTimer"
+                )
+            }
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire(60L * 60 * 1000)  // 1 hour timeout as safety net
+                Log.i("SleepTimer", "WakeLock acquired")
+            }
+        }
+    }
+
+    /** Remove FLAG_KEEP_SCREEN_ON and release the WakeLock — system idle timer resumes. */
+    fun clearKeepScreenOn() {
+        runOnUiThread {
+            Log.i("SleepTimer", "clearKeepScreenOn: clearing FLAG_KEEP_SCREEN_ON and releasing WakeLock")
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                Log.i("SleepTimer", "WakeLock released")
+            }
+        }
+    }
+
+    /** Tell the native render loop to pause or resume. Zero-cost JNI: directly sets C++ flag. */
+    fun setSleepRenderPaused(paused: Boolean) {
+        nativeSetSleepRenderPaused(paused)
+    }
+
+    /** Mark the screen as dimmed (DIM or DARK phase). Guards touch/resume wake in C++. */
+    fun setSleepScreenDimmed(dimmed: Boolean) {
+        nativeSetSleepScreenDimmed(dimmed)
+    }
+
+    /** Native method that directly writes backend::sleepRenderPaused in C++. */
+    private external fun nativeSetSleepRenderPaused(paused: Boolean)
+
+    /** Native method that directly writes backend::sleepScreenDimmed in C++. */
+    private external fun nativeSetSleepScreenDimmed(dimmed: Boolean)
+
+    /**
+     * Find the SurfaceView used by NativeActivity by walking the view hierarchy.
+     */
+    private fun findSurfaceView(view: View): SurfaceView? {
+        if (view is SurfaceView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                val result = findSurfaceView(view.getChildAt(i))
+                if (result != null) return result
+            }
+        }
+        return null
+    }
+
+    /**
+     * Hint the display to drop to 1 Hz refresh rate (LTPO panels).
+     * Only effective on API 30+ (Android 11+); no-op on older devices.
+     */
+    fun setLowFrameRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runOnUiThread {
+                try {
+                    val sv = findSurfaceView(window.decorView)
+                    val surface = sv?.holder?.surface
+                    if (surface != null && surface.isValid) {
+                        surface.setFrameRate(
+                            1.0f,
+                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
+                        )
+                        Log.i("SleepTimer", "setFrameRate(1.0) applied")
+                    } else {
+                        Log.w("SleepTimer", "setFrameRate: no valid Surface found")
+                    }
+                } catch (e: Exception) {
+                    Log.w("SleepTimer", "setFrameRate failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Restore the default frame rate (remove the 1 Hz hint).
+     * Only effective on API 30+ (Android 11+); no-op on older devices.
+     */
+    fun restoreFrameRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runOnUiThread {
+                try {
+                    val sv = findSurfaceView(window.decorView)
+                    val surface = sv?.holder?.surface
+                    if (surface != null && surface.isValid) {
+                        surface.setFrameRate(
+                            0.0f,
+                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
+                        )
+                        Log.i("SleepTimer", "setFrameRate(0.0) – restored default")
+                    }
+                } catch (e: Exception) {
+                    Log.w("SleepTimer", "restoreFrameRate failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Reset the sleep timer to Active phase.
+     * Called from native code on touch-to-wake or phone resume.
+     */
+    fun resetSleepToActive() {
+        runOnUiThread { sleepTimer.resetToActive() }
     }
 
     fun showSoftInput() {
@@ -147,7 +363,7 @@ class MainActivity : NativeActivity() {
     }
 
     public fun extractDir(aman: AssetManager, local: String, rsrc: String): Int {
-        val flist = aman.list(rsrc);
+        val flist = aman.list(rsrc) ?: return 0;
         var ecount = 0;
         for (fp in flist) {
             val lpath = local + "/" + fp;

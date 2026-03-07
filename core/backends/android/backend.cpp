@@ -11,6 +11,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <stdint.h>
+#include <atomic>
 #include <gui/icons.h>
 #include <gui/style.h>
 #include <gui/menus/theme.h>
@@ -27,11 +28,102 @@ namespace backend {
     char _LogTag[] = "SDR++";
     bool initialized = false;
     bool pauseRendering = false;
+    std::atomic<bool> sleepScreenDimmed{false};   // True during DIM and DARK phases (set via JNI)
+    std::atomic<bool> sleepRenderPaused{false};   // True during DARK phase only (set via JNI)
+    std::atomic<bool> sleepBlackFrameSent{false}; // Ensures one black frame before pausing
     bool exited = false;
 
     // Forward declaration
     int ShowSoftKeyboardInput();
     int PollUnicodeChars();
+
+    int startSleepTimer() {
+        if (!app || !app->activity || !app->activity->vm) return -1;
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR) return -1;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK) return -2;
+
+        jclass clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (clazz == NULL) { java_vm->DetachCurrentThread(); return -3; }
+
+        jmethodID method = java_env->GetMethodID(clazz, "startSleepTimer", "()V");
+        if (method == NULL) { java_vm->DetachCurrentThread(); return -4; }
+
+        java_env->CallVoidMethod(app->activity->clazz, method);
+        java_vm->DetachCurrentThread();
+        return 0;
+    }
+
+    int stopSleepTimer() {
+        if (!app || !app->activity || !app->activity->vm) return -1;
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR) return -1;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK) return -2;
+
+        jclass clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (clazz == NULL) { java_vm->DetachCurrentThread(); return -3; }
+
+        jmethodID method = java_env->GetMethodID(clazz, "stopSleepTimer", "()V");
+        if (method == NULL) { java_vm->DetachCurrentThread(); return -4; }
+
+        java_env->CallVoidMethod(app->activity->clazz, method);
+        java_vm->DetachCurrentThread();
+        return 0;
+    }
+
+    bool isSleepTimerRunning() {
+        if (!app || !app->activity || !app->activity->vm) return false;
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR) return false;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK) return false;
+
+        jclass clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (clazz == NULL) { java_vm->DetachCurrentThread(); return false; }
+
+        jmethodID method = java_env->GetMethodID(clazz, "isSleepTimerRunning", "()Z");
+        if (method == NULL) { java_vm->DetachCurrentThread(); return false; }
+
+        jboolean result = java_env->CallBooleanMethod(app->activity->clazz, method);
+        java_vm->DetachCurrentThread();
+        return (bool)result;
+    }
+
+    int resetSleepToActive() {
+        if (!app || !app->activity || !app->activity->vm) return -1;
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR) return -1;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK) return -2;
+
+        jclass clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (clazz == NULL) { java_vm->DetachCurrentThread(); return -3; }
+
+        jmethodID method = java_env->GetMethodID(clazz, "resetSleepToActive", "()V");
+        if (method == NULL) { java_vm->DetachCurrentThread(); return -4; }
+
+        java_env->CallVoidMethod(app->activity->clazz, method);
+        java_vm->DetachCurrentThread();
+        return 0;
+    }
 
     void doPartialInit() {
         std::string root = (std::string)core::args["root"];
@@ -67,10 +159,31 @@ namespace backend {
         case APP_CMD_LOST_FOCUS:
             flog::warn("APP_CMD_LOST_FOCUS");
             break;
+        case APP_CMD_RESUME:
+            flog::warn("APP_CMD_RESUME");
+            // If the user woke the phone via power button / fingerprint,
+            // reset the sleep timer back to the Active phase.
+            if (sleepScreenDimmed) {
+                resetSleepToActive();
+            }
+            break;
         }
     }
 
     int32_t handleInputEvent(struct android_app* app, AInputEvent* inputEvent) {
+        // If the sleep timer has dimmed/darkened the screen, intercept touch to wake
+        if (sleepScreenDimmed) {
+            int32_t type = AInputEvent_getType(inputEvent);
+            if (type == AINPUT_EVENT_TYPE_MOTION) {
+                int32_t action = AMotionEvent_getAction(inputEvent) & AMOTION_EVENT_ACTION_MASK;
+                if (action == AMOTION_EVENT_ACTION_DOWN) {
+                    flog::info("Sleep: touch detected, resetting to active");
+                    bool wasRenderPaused = sleepRenderPaused;
+                    resetSleepToActive();
+                    if (wasRenderPaused) return 1;  // consume only during DARK phase
+                }
+            }
+        }
         return ImGui_ImplAndroid_HandleInputEvent(inputEvent);
     }
 
@@ -80,7 +193,12 @@ namespace backend {
             int out_events;
             struct android_poll_source* out_data;
 
-            while (ALooper_pollAll(0, NULL, &out_events, (void**)&out_data) >= 0) {
+            while (true) {
+                int poll_result = ALooper_pollOnce(0, NULL, &out_events, (void**)&out_data);
+                if (poll_result == ALOOPER_POLL_TIMEOUT || poll_result == ALOOPER_POLL_WAKE || poll_result == ALOOPER_POLL_ERROR) {
+                    break;
+                }
+
                 // Process one event
                 if (out_data != NULL) { out_data->process(app, out_data); }
 
@@ -177,7 +295,12 @@ namespace backend {
             int out_events;
             struct android_poll_source* out_data;
 
-            while (ALooper_pollAll(0, NULL, &out_events, (void**)&out_data) >= 0) {
+            while (true) {
+                int poll_result = ALooper_pollOnce(0, NULL, &out_events, (void**)&out_data);
+                if (poll_result == ALOOPER_POLL_TIMEOUT || poll_result == ALOOPER_POLL_WAKE || poll_result == ALOOPER_POLL_ERROR) {
+                    break;
+                }
+
                 // Process one event
                 if (out_data != NULL) { out_data->process(app, out_data); }
 
@@ -194,7 +317,9 @@ namespace backend {
 
             if (_EglDisplay == EGL_NO_DISPLAY) { continue; }
 
-            if (!pauseRendering) {
+            if (!pauseRendering && !sleepRenderPaused) {
+                sleepBlackFrameSent = false;
+
                 // Initiate a new frame
                 ImGuiIO& io = ImGui::GetIO();
                 auto dsize = io.DisplaySize;
@@ -218,6 +343,17 @@ namespace backend {
                     gui::mainWindow.draw();
                 }
                 render();
+            }
+            else if (sleepRenderPaused && !pauseRendering) {
+                // Sleep-mode pause: submit one black frame, then idle.
+                // EGL surface stays alive, GPU goes idle.
+                if (!sleepBlackFrameSent) {
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT);
+                    eglSwapBuffers(_EglDisplay, _EglSurface);
+                    sleepBlackFrameSent = true;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(30));
@@ -295,32 +431,34 @@ namespace backend {
         if (native_activity_clazz == NULL)
             return -1;
 
-        jfieldID fd_field_id = java_env->GetFieldID(native_activity_clazz, "SDR_FD", "I");
-        jfieldID vid_field_id = java_env->GetFieldID(native_activity_clazz, "SDR_VID", "I");
-        jfieldID pid_field_id = java_env->GetFieldID(native_activity_clazz, "SDR_PID", "I");
-        
-        if (!vid_field_id || !vid_field_id || !pid_field_id)
+        // Find the static method getDeviceFDByVidPid(Context, int, int): int
+        jmethodID get_fd_method = java_env->GetStaticMethodID(
+            native_activity_clazz,
+            "getDeviceFDByVidPid",
+            "(Landroid/content/Context;II)I"
+        );
+        if (!get_fd_method)
             return -1;
 
-        int fd = java_env->GetIntField(app->activity->clazz, fd_field_id);
-        vid = java_env->GetIntField(app->activity->clazz, vid_field_id);
-        pid = java_env->GetIntField(app->activity->clazz, pid_field_id);
-
-        jni_return = java_vm->DetachCurrentThread();
-        if (jni_return != JNI_OK)
-            return -1;
-
-        // If no vid/pid was given, just return successfully
-        if (allowedVidPids.empty()) {
-            return fd;
+        // For each allowed VID/PID, try to get the FD
+        jobject context_obj = app->activity->clazz; // NativeActivity is a Context
+        for (const auto& vp : allowedVidPids) {
+            jint fd = java_env->CallStaticIntMethod(
+                native_activity_clazz,
+                get_fd_method,
+                context_obj,
+                (jint)vp.vid,
+                (jint)vp.pid
+            );
+            if (fd > 0) {
+                vid = vp.vid;
+                pid = vp.pid;
+                java_vm->DetachCurrentThread();
+                return fd;
+            }
         }
 
-        // Otherwise, check that the vid/pid combo is allowed
-        for (auto const& vp : allowedVidPids) {
-            if (vp.vid != vid || vp.pid != pid) { continue; }
-            return fd;
-        }
-
+        java_vm->DetachCurrentThread();
         return -1;
     }
 
@@ -484,5 +622,22 @@ extern "C" {
         strcpy(rootpath, appdir.c_str());
         char* dummy[] = { "", "-r", rootpath };
         sdrpp_main(3, dummy);
+    }
+
+    // JNI native method: MainActivity.nativeSetSleepRenderPaused(boolean)
+    // Directly sets the C++ flag — zero overhead, no JNI field lookup.
+    JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeSetSleepRenderPaused(
+        JNIEnv* env, jobject thiz, jboolean paused) {
+        backend::sleepRenderPaused = (bool)paused;
+        if (!paused) {
+            backend::sleepBlackFrameSent = false;
+        }
+    }
+
+    // JNI native method: MainActivity.nativeSetSleepScreenDimmed(boolean)
+    // True during DIM and DARK phases; used as guard for touch/resume wake.
+    JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeSetSleepScreenDimmed(
+        JNIEnv* env, jobject thiz, jboolean dimmed) {
+        backend::sleepScreenDimmed = (bool)dimmed;
     }
 }

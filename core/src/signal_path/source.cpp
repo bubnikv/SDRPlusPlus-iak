@@ -3,6 +3,9 @@
 #include <utils/flog.h>
 #include <signal_path/signal_path.h>
 #include <core.h>
+#ifdef __ANDROID__
+#include <android_backend.h>
+#endif
 
 SourceManager::SourceManager() {
 }
@@ -71,6 +74,9 @@ void SourceManager::start() {
         return;
     }
     selectedHandler->startHandler(selectedHandler->ctx);
+#ifdef __ANDROID__
+    backend::startSleepTimer();
+#endif
 }
 
 void SourceManager::stop() {
@@ -78,6 +84,9 @@ void SourceManager::stop() {
         return;
     }
     selectedHandler->stopHandler(selectedHandler->ctx);
+#ifdef __ANDROID__
+    backend::stopSleepTimer();
+#endif
 }
 
 void SourceManager::tune(double freq) {

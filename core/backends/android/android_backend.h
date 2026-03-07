@@ -15,4 +15,9 @@ namespace backend {
     extern const std::vector<DevVIDPID> RTL_SDR_VIDPIDS;
 
     int getDeviceFD(int& vid, int& pid, const std::vector<DevVIDPID>& allowedVidPids);
+
+    // Sleep timer control (calls into MainActivity via JNI)
+    int startSleepTimer();
+    int stopSleepTimer();
+    int resetSleepToActive();
 }
