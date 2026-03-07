@@ -4,6 +4,7 @@
 #include <dsp/stream.h>
 #include <dsp/types.h>
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <cstdint>
