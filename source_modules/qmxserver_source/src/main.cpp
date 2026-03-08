@@ -103,16 +103,18 @@ private:
         return std::string(buf);
     }
 
+    // called when the source is selected (activated)
     static void menuSelected(void* ctx) {
         QmxServerSourceModule* _this = (QmxServerSourceModule*)ctx;
         core::setInputSampleRate(_this->sampleRate);
-        gui::mainWindow.playButtonLocked = !(_this->client && _this->client->isOpen());
+//        gui::mainWindow.playButtonLocked = !(_this->client && _this->client->isOpen());
         flog::info("QmxServerSourceModule '{0}': Menu Select!", _this->name);
     }
 
+    // called when the source is deselected (deactivated)
     static void menuDeselected(void* ctx) {
         QmxServerSourceModule* _this = (QmxServerSourceModule*)ctx;
-        gui::mainWindow.playButtonLocked = false;
+//        gui::mainWindow.playButtonLocked = false;
         flog::info("QmxServerSourceModule '{0}': Menu Deselect!", _this->name);
     }
 
@@ -144,6 +146,8 @@ private:
         if (!_this->running) { return; }
 
         _this->client->stopStream();
+        _this->client->close();
+        _this->client = nullptr;
 
         _this->running = false;
         flog::info("QmxServerSourceModule '{0}': Stop!", _this->name);
@@ -163,7 +167,7 @@ private:
         QmxServerSourceModule* _this = (QmxServerSourceModule*)ctx;
 
         bool connected = (_this->client && _this->client->isOpen());
-        gui::mainWindow.playButtonLocked = !connected;
+//        gui::mainWindow.playButtonLocked = !connected;
 
         if (connected) { SmGui::BeginDisabled(); }
         if (SmGui::InputText(CONCAT("##_qmxserver_srv_host_", _this->name), _this->hostname, 1023)) {
@@ -180,6 +184,7 @@ private:
         }
         if (connected) { SmGui::EndDisabled(); }
 
+        /*
         if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
         SmGui::ForceSync();
@@ -228,16 +233,21 @@ private:
                     config.release(true);
                 }
             }
+            */
 
             SmGui::Text("Status:");
             SmGui::SameLine();
-//            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", deviceTypesStr[_this->client->devInfo.DeviceType]);
+            if (_this->client && _this->client->isOpen())
+                SmGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected");
+            else
+                SmGui::Text("Not connected");
+            /*
         }
         else {
             SmGui::Text("Status:");
             SmGui::SameLine();
-            SmGui::Text("Not connected");
         }
+        */
     }
 
     void tryConnect() {
