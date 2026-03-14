@@ -1,8 +1,12 @@
-#include <qmxserver_client.h>
 #include <volk/volk.h>
 #include <cstring>
 #include <chrono>
 #include <cassert>
+
+#define ENET_IMPLEMENTATION
+#include <enet/enet.h>
+
+#include <qmxserver_client.h>
 
 enum class CatCommandID : uint16_t {
     // Set local oscillator frequency in Hz.
@@ -312,7 +316,7 @@ namespace qmxserver {
         }
 
         ENetAddress address;
-        enet_address_set_host(&address, host.c_str());
+        enet_address_set_host_new(&address, host.c_str());
         address.port = port;
 
         // Connect and user service
