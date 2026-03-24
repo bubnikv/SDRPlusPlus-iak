@@ -50,6 +50,10 @@
 #define ENET_VERSION_GET_PATCH(version) ((version)&0xFF)
 #define ENET_VERSION ENET_VERSION_CREATE(ENET_VERSION_MAJOR, ENET_VERSION_MINOR, ENET_VERSION_PATCH)
 
+#ifndef ENET_ENABLE_IPV6_RECVPKTINFO
+#define ENET_ENABLE_IPV6_RECVPKTINFO 1
+#endif
+
 #define ENET_TIME_OVERFLOW 86400000
 #define ENET_TIME_LESS(a, b) ((a) - (b) >= ENET_TIME_OVERFLOW)
 #define ENET_TIME_GREATER(a, b) ((b) - (a) >= ENET_TIME_OVERFLOW)
@@ -94,6 +98,7 @@
 
     #include <winsock2.h>
     #include <ws2tcpip.h>
+    #include <mswsock.h>
     #include <mmsystem.h>
     #include <ws2ipdef.h>
 
@@ -145,6 +150,11 @@
     #include <sys/types.h>
     #include <sys/ioctl.h>
     #include <sys/time.h>
+    #ifdef __APPLE__
+    #ifndef __APPLE_USE_RFC_3542
+    #define __APPLE_USE_RFC_3542
+    #endif
+    #endif
     #include <sys/socket.h>
     #include <poll.h>
     #include <arpa/inet.h>
@@ -517,6 +527,9 @@ extern "C" {
         ENET_SOCKOPT_NODELAY   = 9,
         ENET_SOCKOPT_IPV6_V6ONLY = 10,
         ENET_SOCKOPT_TTL       = 11,
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        ENET_SOCKOPT_IPV6_RECVPKTINFO = 12,
+#endif
     } ENetSocketOption;
 
     typedef enum _ENetSocketShutdown {
@@ -693,6 +706,9 @@ extern "C" {
         enet_uint8        outgoingSessionID;
         enet_uint8        incomingSessionID;
         ENetAddress       address; /**< Internet address of the peer */
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        ENetAddress       localAddress; /**< Local interface address used to talk to the peer */
+#endif
         void *            data;    /**< Application private data, may be freely modified */
         ENetPeerState     state;
         ENetChannel *     channels;
@@ -812,6 +828,9 @@ extern "C" {
         ENetCompressor        compressor;
         enet_uint8            packetData[2][ENET_PROTOCOL_MAXIMUM_MTU];
         ENetAddress           receivedAddress;
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        ENetAddress           localAddress;
+#endif
         enet_uint8 *          receivedData;
         size_t                receivedDataLength;
         enet_uint32           totalSentData;        /**< total data sent, user should reset to 0 as needed to prevent overflow */
@@ -916,8 +935,16 @@ extern "C" {
     ENET_API int        enet_socket_listen(ENetSocket, int);
     ENET_API ENetSocket enet_socket_accept(ENetSocket, ENetAddress *);
     ENET_API int        enet_socket_connect(ENetSocket, const ENetAddress *);
-    ENET_API int        enet_socket_send(ENetSocket, const ENetAddress *, const ENetBuffer *, size_t);
-    ENET_API int        enet_socket_receive(ENetSocket, ENetAddress *, ENetBuffer *, size_t);
+    ENET_API int        enet_socket_send(ENetSocket, const ENetAddress *, const ENetBuffer *, size_t
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *
+#endif
+    );
+    ENET_API int        enet_socket_receive(ENetSocket, ENetAddress *, ENetBuffer *, size_t
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , ENetAddress *
+#endif
+    );
     ENET_API int        enet_socket_wait(ENetSocket, enet_uint32 *, enet_uint64);
     ENET_API int        enet_socket_set_option(ENetSocket, ENetSocketOption, int);
     ENET_API int        enet_socket_get_option(ENetSocket, ENetSocketOption, int *);
@@ -1016,8 +1043,16 @@ extern "C" {
     ENET_API ENetPeer * enet_host_connect(ENetHost *, const ENetAddress *, size_t, enet_uint32);
     ENET_API int        enet_host_check_events(ENetHost *, ENetEvent *);
     ENET_API int        enet_host_service(ENetHost *, ENetEvent *, enet_uint32);
-    ENET_API int        enet_host_send_raw(ENetHost *, const ENetAddress *, enet_uint8 *, size_t);
-    ENET_API int        enet_host_send_raw_ex(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t skipBytes, size_t bytesToSend);
+    ENET_API int        enet_host_send_raw(ENetHost *, const ENetAddress *, enet_uint8 *, size_t
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *
+#endif
+    );
+    ENET_API int        enet_host_send_raw_ex(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t skipBytes, size_t bytesToSend
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *sourceAddress
+#endif
+    );
     ENET_API void       enet_host_set_intercept(ENetHost *, const ENetInterceptCallback);
     ENET_API void       enet_host_flush(ENetHost *);
     ENET_API void       enet_host_broadcast(ENetHost *, enet_uint8, ENetPacket *);
@@ -1061,6 +1096,31 @@ extern "C" {
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+static void enet_address_set_any(ENetAddress *address) {
+    address->host = ENET_HOST_ANY;
+    address->port = 0;
+    address->sin6_scope_id = 0;
+}
+
+static int enet_address_is_v4_mapped(const ENetAddress *address) {
+    return address != NULL && IN6_IS_ADDR_V4MAPPED(&address->host);
+}
+
+static void enet_address_extract_v4(const ENetAddress *address, struct in_addr *out) {
+    memcpy(out, &address->host.s6_addr[12], sizeof(*out));
+}
+
+static void enet_address_set_v4(ENetAddress *address, const struct in_addr *in) {
+    address->host = enet_v4_anyaddr;
+    memcpy(&address->host.s6_addr[12], in, sizeof(*in));
+}
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+static int enet_address_has_source(const ENetAddress *address) {
+    return address != NULL && (!in6_equal(address->host, ENET_HOST_ANY) || address->sin6_scope_id != 0);
+}
 #endif
 
 // =======================================================================//
@@ -1882,6 +1942,9 @@ extern "C" {
         peer->state                      = ENET_PEER_STATE_ACKNOWLEDGING_CONNECT;
         peer->connectID                  = command->connect.connectID;
         peer->address                    = host->receivedAddress;
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        peer->localAddress               = host->localAddress;
+#endif
         peer->mtu                        = host->mtu;
         peer->outgoingPeerID             = ENET_NET_TO_HOST_16(command->connect.outgoingPeerID);
         peer->incomingBandwidth          = ENET_NET_TO_HOST_32(command->connect.incomingBandwidth);
@@ -2643,8 +2706,10 @@ extern "C" {
         }
 
         if (peer != NULL) {
-            peer->address.host       = host->receivedAddress.host;
-            peer->address.port       = host->receivedAddress.port;
+            peer->address            = host->receivedAddress;
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            peer->localAddress       = host->localAddress;
+#endif
             peer->incomingDataTotal += host->receivedDataLength;
             peer->totalDataReceived += host->receivedDataLength;
         }
@@ -2809,7 +2874,11 @@ extern "C" {
             // buffer.dataLength = sizeof (host->packetData[0]);
             buffer.dataLength = host->mtu;
 
-            receivedLength    = enet_socket_receive(host->socket, &host->receivedAddress, &buffer, 1);
+            receivedLength    = enet_socket_receive(host->socket, &host->receivedAddress, &buffer, 1
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+                , &host->localAddress
+#endif
+            );
 
             if (receivedLength == -2)
                 continue;
@@ -3286,7 +3355,11 @@ extern "C" {
                 }
 
                 currentPeer->lastSendTime = host->serviceTime;
-                sentLength = enet_socket_send(host->socket, &currentPeer->address, host->buffers, host->bufferCount);
+                sentLength = enet_socket_send(host->socket, &currentPeer->address, host->buffers, host->bufferCount
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+                    , &currentPeer->localAddress
+#endif
+                );
                 enet_protocol_remove_sent_unreliable_commands(currentPeer, &sentUnreliableCommands);
 
                 if (sentLength < 0) {
@@ -4562,6 +4635,9 @@ extern "C" {
         host->socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
         if (host->socket != ENET_SOCKET_NULL) {
             enet_socket_set_option (host->socket, ENET_SOCKOPT_IPV6_V6ONLY, 0);
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            enet_socket_set_option(host->socket, ENET_SOCKOPT_IPV6_RECVPKTINFO, 1);
+#endif
         }
 
         if (host->socket == ENET_SOCKET_NULL || (address != NULL && enet_socket_bind(host->socket, address) < 0)) {
@@ -4602,8 +4678,10 @@ extern "C" {
         host->commandCount                  = 0;
         host->bufferCount                   = 0;
         host->checksum                      = NULL;
-        host->receivedAddress.host          = ENET_HOST_ANY;
-        host->receivedAddress.port          = 0;
+        enet_address_set_any(&host->receivedAddress);
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        enet_address_set_any(&host->localAddress);
+#endif
         host->receivedData                  = NULL;
         host->receivedDataLength            = 0;
         host->totalSentData                 = 0;
@@ -4712,6 +4790,9 @@ extern "C" {
         currentPeer->channelCount = channelCount;
         currentPeer->state        = ENET_PEER_STATE_CONNECTING;
         currentPeer->address      = *address;
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        enet_address_set_any(&currentPeer->localAddress);
+#endif
         currentPeer->connectID    = enet_host_random(host);
         currentPeer->mtu          = host->mtu;
 
@@ -4787,15 +4868,26 @@ extern "C" {
      *  @param address destination address
      *  @param data data pointer
      *  @param dataLength length of data to send
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+     *  @param sourceAddress local/source address to send from
+#endif
      *  @retval >=0 bytes sent
      *  @retval <0 error
      *  @sa enet_socket_send
      */
-    int enet_host_send_raw(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t dataLength) {
+    int enet_host_send_raw(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t dataLength
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *sourceAddress
+#endif
+    ) {
         ENetBuffer buffer;
         buffer.data = data;
         buffer.dataLength = dataLength;
-        return enet_socket_send(host->socket, address, &buffer, 1);
+        return enet_socket_send(host->socket, address, &buffer, 1
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            , sourceAddress
+#endif
+        );
     }
 
     /** Sends raw data to specified address with extended arguments. Allows to send only part of data, handy for other programming languages.
@@ -4805,15 +4897,26 @@ extern "C" {
      *  @param data data pointer
      *  @param skipBytes number of bytes to skip from start of data
      *  @param bytesToSend number of bytes to send
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+     *  @param sourceAddress local/source address to send from
+#endif
      *  @retval >=0 bytes sent
      *  @retval <0 error
      *  @sa enet_socket_send
      */
-    int enet_host_send_raw_ex(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t skipBytes, size_t bytesToSend) {
+    int enet_host_send_raw_ex(ENetHost *host, const ENetAddress* address, enet_uint8* data, size_t skipBytes, size_t bytesToSend
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *sourceAddress
+#endif
+    ) {
         ENetBuffer buffer;
         buffer.data = data + skipBytes;
         buffer.dataLength = bytesToSend;
-        return enet_socket_send(host->socket, address, &buffer, 1);
+        return enet_socket_send(host->socket, address, &buffer, 1
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            , sourceAddress
+#endif
+        );
     }
 
     /** Sets intercept callback for the host.
@@ -5650,6 +5753,28 @@ extern "C" {
                 result = setsockopt(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&value, sizeof(int));
                 break;
 
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            case ENET_SOCKOPT_IPV6_RECVPKTINFO:
+            {
+                int ipv6Result = -1;
+                int ipv4Result = -1;
+#ifdef IPV6_RECVPKTINFO
+                ipv6Result = setsockopt(socket, IPPROTO_IPV6, IPV6_RECVPKTINFO, (char *)&value, sizeof(int));
+#elif defined(IPV6_PKTINFO)
+                ipv6Result = setsockopt(socket, IPPROTO_IPV6, IPV6_PKTINFO, (char *)&value, sizeof(int));
+#endif
+#if defined(IP_PKTINFO) && defined(__linux__)
+                ipv4Result = setsockopt(socket, IPPROTO_IP, IP_PKTINFO, (char *)&value, sizeof(int));
+#endif
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+                result = (ipv6Result == -1 && ipv4Result == -1) ? -1 : 0;
+#else
+                result = ipv4Result;
+#endif
+                break;
+            }
+#endif
+
             case ENET_SOCKOPT_TTL:
                 result = setsockopt(socket, IPPROTO_IP, IP_TTL, (char *)&value, sizeof(int));
                 break;
@@ -5730,24 +5855,101 @@ extern "C" {
         }
     }
 
-    int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, size_t bufferCount) {
+    int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, size_t bufferCount
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *sourceAddress
+#endif
+    ) {
         struct msghdr msgHdr;
-        struct sockaddr_in6 sin;
+        union {
+            struct sockaddr_in6 ipv6;
+            struct sockaddr_in ipv4;
+        } sin;
         int sentLength;
+#if ENET_ENABLE_IPV6_RECVPKTINFO && defined(IPV6_PKTINFO)
+        struct cmsghdr *controlMsg;
+        union {
+            struct cmsghdr header;
+            char ipv6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+#if defined(IP_PKTINFO) && defined(__linux__)
+            char ipv4[CMSG_SPACE(sizeof(struct in_pktinfo))];
+#endif
+        } controlBuffer;
+#endif
 
         memset(&msgHdr, 0, sizeof(struct msghdr));
 
         if (address != NULL) {
-            memset(&sin, 0, sizeof(struct sockaddr_in6));
+            memset(&sin, 0, sizeof(sin));
 
-            sin.sin6_family     = AF_INET6;
-            sin.sin6_port       = ENET_HOST_TO_NET_16(address->port);
-            sin.sin6_addr       = address->host;
-            sin.sin6_scope_id   = address->sin6_scope_id;
+            if (enet_address_is_v4_mapped(address)) {
+                struct in_addr addr4;
 
-            msgHdr.msg_name    = &sin;
-            msgHdr.msg_namelen = sizeof(struct sockaddr_in6);
+                enet_address_extract_v4(address, &addr4);
+                sin.ipv4.sin_family = AF_INET;
+                sin.ipv4.sin_port = ENET_HOST_TO_NET_16(address->port);
+                sin.ipv4.sin_addr = addr4;
+
+                msgHdr.msg_name = &sin.ipv4;
+                msgHdr.msg_namelen = sizeof(struct sockaddr_in);
+            } else {
+                sin.ipv6.sin6_family   = AF_INET6;
+                sin.ipv6.sin6_port     = ENET_HOST_TO_NET_16(address->port);
+                sin.ipv6.sin6_addr     = address->host;
+                sin.ipv6.sin6_scope_id = address->sin6_scope_id;
+
+                msgHdr.msg_name = &sin.ipv6;
+                msgHdr.msg_namelen = sizeof(struct sockaddr_in6);
+            }
         }
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO && defined(IPV6_PKTINFO)
+        if (enet_address_has_source(sourceAddress)) {
+#if !defined(IP_PKTINFO) || !defined(__linux__)
+            if (enet_address_is_v4_mapped(sourceAddress)) {
+                msgHdr.msg_control = NULL;
+                msgHdr.msg_controllen = 0;
+            } else
+#endif
+            {
+                msgHdr.msg_control = controlBuffer.ipv6;
+                msgHdr.msg_controllen = sizeof(controlBuffer);
+
+                controlMsg = CMSG_FIRSTHDR(&msgHdr);
+#if defined(IP_PKTINFO) && defined(__linux__)
+                if (enet_address_is_v4_mapped(sourceAddress)) {
+                    struct in_pktinfo *packet;
+                    struct in_addr addr4;
+
+                    controlMsg->cmsg_level = IPPROTO_IP;
+                    controlMsg->cmsg_type = IP_PKTINFO;
+                    controlMsg->cmsg_len = CMSG_LEN(sizeof(*packet));
+
+                    packet = (struct in_pktinfo *) CMSG_DATA(controlMsg);
+                    memset(packet, 0, sizeof(*packet));
+                    enet_address_extract_v4(sourceAddress, &addr4);
+                    packet->ipi_spec_dst = addr4;
+                    packet->ipi_ifindex = sourceAddress->sin6_scope_id;
+                } else
+#endif
+                {
+                    struct in6_pktinfo *packet;
+
+                    controlMsg->cmsg_level = IPPROTO_IPV6;
+                    controlMsg->cmsg_type = IPV6_PKTINFO;
+                    controlMsg->cmsg_len = CMSG_LEN(sizeof(*packet));
+
+                    packet = (struct in6_pktinfo *) CMSG_DATA(controlMsg);
+                    memset(packet, 0, sizeof(*packet));
+                    packet->ipi6_addr = sourceAddress->host;
+                    packet->ipi6_ifindex = sourceAddress->sin6_scope_id;
+                }
+                msgHdr.msg_controllen = controlMsg->cmsg_len;
+            }
+        }
+#elif ENET_ENABLE_IPV6_RECVPKTINFO
+        ENET_UNUSED(sourceAddress);
+#endif
 
         msgHdr.msg_iov    = (struct iovec *) buffers;
         msgHdr.msg_iovlen = bufferCount;
@@ -5771,11 +5973,23 @@ extern "C" {
 
         return sentLength;
     } /* enet_socket_send */
-
-    int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, size_t bufferCount) {
+    int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, size_t bufferCount
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , ENetAddress *destinationAddress
+#endif
+    ) {
         struct msghdr msgHdr;
         struct sockaddr_in6 sin;
         int recvLength;
+#if ENET_ENABLE_IPV6_RECVPKTINFO && defined(IPV6_PKTINFO)
+        union {
+            struct cmsghdr header;
+            char ipv6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+#if defined(IP_PKTINFO) && defined(__linux__)
+            char ipv4[CMSG_SPACE(sizeof(struct in_pktinfo))];
+#endif
+        } controlBuffer;
+#endif
 
         memset(&msgHdr, 0, sizeof(struct msghdr));
 
@@ -5783,6 +5997,16 @@ extern "C" {
             msgHdr.msg_name    = &sin;
             msgHdr.msg_namelen = sizeof(struct sockaddr_in6);
         }
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        if (destinationAddress != NULL) {
+            enet_address_set_any(destinationAddress);
+#if defined(IPV6_PKTINFO)
+            msgHdr.msg_control = controlBuffer.ipv6;
+            msgHdr.msg_controllen = sizeof(controlBuffer);
+#endif
+        }
+#endif
 
         msgHdr.msg_iov    = (struct iovec *) buffers;
         msgHdr.msg_iovlen = bufferCount;
@@ -5806,6 +6030,28 @@ extern "C" {
             address->port           = ENET_NET_TO_HOST_16(sin.sin6_port);
             address->sin6_scope_id  = sin.sin6_scope_id;
         }
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO && defined(IPV6_PKTINFO)
+        if (destinationAddress != NULL) {
+            struct cmsghdr *controlMsg;
+            for (controlMsg = CMSG_FIRSTHDR(&msgHdr); controlMsg != NULL; controlMsg = CMSG_NXTHDR(&msgHdr, controlMsg)) {
+                if (controlMsg->cmsg_level == IPPROTO_IPV6 && controlMsg->cmsg_type == IPV6_PKTINFO) {
+                    struct in6_pktinfo *packet = (struct in6_pktinfo *) CMSG_DATA(controlMsg);
+                    destinationAddress->host = packet->ipi6_addr;
+                    destinationAddress->sin6_scope_id = packet->ipi6_ifindex;
+                    break;
+                }
+#if defined(IP_PKTINFO) && defined(__linux__)
+                if (controlMsg->cmsg_level == IPPROTO_IP && controlMsg->cmsg_type == IP_PKTINFO) {
+                    struct in_pktinfo *packet = (struct in_pktinfo *) CMSG_DATA(controlMsg);
+                    enet_address_set_v4(destinationAddress, &packet->ipi_addr);
+                    destinationAddress->sin6_scope_id = packet->ipi_ifindex;
+                    break;
+                }
+#endif
+            }
+        }
+#endif
 
         return recvLength;
     } /* enet_socket_receive */
@@ -5874,6 +6120,43 @@ extern "C" {
 
     #ifdef _WIN32
 
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+    static LPFN_WSARECVMSG enet_recvmsg_fn = NULL;
+    static LPFN_WSASENDMSG enet_sendmsg_fn = NULL;
+
+    static void enet_initialize_socket_msg_fns(void) {
+        SOCKET socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
+
+        if (socket != INVALID_SOCKET) {
+            DWORD bytes = 0;
+            GUID recvGuid = WSAID_WSARECVMSG;
+            GUID sendGuid = WSAID_WSASENDMSG;
+
+                WSAIoctl(socket,
+                    SIO_GET_EXTENSION_FUNCTION_POINTER,
+                    &recvGuid,
+                    sizeof(recvGuid),
+                    &enet_recvmsg_fn,
+                    sizeof(enet_recvmsg_fn),
+                    &bytes,
+                    NULL,
+                    NULL);
+
+                WSAIoctl(socket,
+                    SIO_GET_EXTENSION_FUNCTION_POINTER,
+                    &sendGuid,
+                    sizeof(sendGuid),
+                    &enet_sendmsg_fn,
+                    sizeof(enet_sendmsg_fn),
+                    &bytes,
+                    NULL,
+                    NULL);
+
+            closesocket(socket);
+        }
+    }
+#endif
+
     int enet_initialize(void) {
         WORD versionRequested = MAKEWORD(1, 1);
         WSADATA wsaData = {0};
@@ -5887,11 +6170,21 @@ extern "C" {
             return -1;
         }
 
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        enet_recvmsg_fn = NULL;
+        enet_sendmsg_fn = NULL;
+        enet_initialize_socket_msg_fns();
+#endif
+
         timeBeginPeriod(1);
         return 0;
     }
 
     void enet_deinitialize(void) {
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        enet_recvmsg_fn = NULL;
+        enet_sendmsg_fn = NULL;
+#endif
         timeEndPeriod(1);
         WSACleanup();
     }
@@ -6050,7 +6343,29 @@ extern "C" {
             case ENET_SOCKOPT_IPV6_V6ONLY:
                 result = setsockopt(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&value, sizeof(int));
                 break;
-            
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+            case ENET_SOCKOPT_IPV6_RECVPKTINFO:
+            {
+                int ipv6Result = 0;
+                int ipv4Result = 0;
+#ifdef IPV6_RECVPKTINFO
+                ipv6Result = setsockopt(socket, IPPROTO_IPV6, IPV6_RECVPKTINFO, (char *)&value, sizeof(int));
+#elif defined(IPV6_PKTINFO)
+                ipv6Result = setsockopt(socket, IPPROTO_IPV6, IPV6_PKTINFO, (char *)&value, sizeof(int));
+#endif
+#ifdef IP_PKTINFO
+                ipv4Result = setsockopt(socket, IPPROTO_IP, IP_PKTINFO, (char *)&value, sizeof(int));
+#endif
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+                result = (ipv6Result == SOCKET_ERROR && ipv4Result == SOCKET_ERROR) ? SOCKET_ERROR : 0;
+#else
+                result = ipv4Result;
+#endif
+                break;
+            }
+#endif
+
             case ENET_SOCKOPT_TTL:
                 result = setsockopt(socket, IPPROTO_IP, IP_TTL, (char *)&value, sizeof(int));
                 break;
@@ -6127,8 +6442,11 @@ extern "C" {
             closesocket(socket);
         }
     }
-
-    int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, size_t bufferCount) {
+    int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, size_t bufferCount
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , const ENetAddress *sourceAddress
+#endif
+    ) {
         struct sockaddr_in6 sin = {0};
         DWORD sentLength = 0;
 
@@ -6138,6 +6456,66 @@ extern "C" {
             sin.sin6_addr       = address->host;
             sin.sin6_scope_id   = address->sin6_scope_id;
         }
+
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        if (enet_address_has_source(sourceAddress) && enet_sendmsg_fn != NULL) {
+            WSAMSG msgHdr = {0};
+            union {
+                char ipv6[WSA_CMSG_SPACE(sizeof(IN6_PKTINFO))];
+#ifdef IP_PKTINFO
+                char ipv4[WSA_CMSG_SPACE(sizeof(IN_PKTINFO))];
+#endif
+            } controlBuf;
+            LPWSACMSGHDR controlMsg;
+
+            msgHdr.name = address != NULL ? (LPSOCKADDR) &sin : NULL;
+            msgHdr.namelen = address != NULL ? sizeof(struct sockaddr_in6) : 0;
+            msgHdr.lpBuffers = (LPWSABUF) buffers;
+            msgHdr.dwBufferCount = (DWORD) bufferCount;
+            memset(&controlBuf, 0, sizeof(controlBuf));
+            msgHdr.Control.buf = controlBuf.ipv6;
+            msgHdr.Control.len = sizeof(controlBuf);
+
+            controlMsg = WSA_CMSG_FIRSTHDR(&msgHdr);
+            if (enet_address_is_v4_mapped(sourceAddress)) {
+#ifdef IP_PKTINFO
+                IN_PKTINFO *packet;
+                struct in_addr addr4;
+
+                controlMsg->cmsg_level = IPPROTO_IP;
+                controlMsg->cmsg_type = IP_PKTINFO;
+                controlMsg->cmsg_len = WSA_CMSG_LEN(sizeof(*packet));
+
+                packet = (IN_PKTINFO *) WSA_CMSG_DATA(controlMsg);
+                memset(packet, 0, sizeof(*packet));
+                enet_address_extract_v4(sourceAddress, &addr4);
+                packet->ipi_addr = addr4;
+                packet->ipi_ifindex = sourceAddress->sin6_scope_id;
+                msgHdr.Control.len = WSA_CMSG_SPACE(sizeof(*packet));
+#else
+                return -1;
+#endif
+            } else {
+                IN6_PKTINFO *packet;
+
+                controlMsg->cmsg_level = IPPROTO_IPV6;
+                controlMsg->cmsg_type = IPV6_PKTINFO;
+                controlMsg->cmsg_len = WSA_CMSG_LEN(sizeof(*packet));
+
+                packet = (IN6_PKTINFO *) WSA_CMSG_DATA(controlMsg);
+                memset(packet, 0, sizeof(*packet));
+                packet->ipi6_addr = sourceAddress->host;
+                packet->ipi6_ifindex = sourceAddress->sin6_scope_id;
+                msgHdr.Control.len = WSA_CMSG_SPACE(sizeof(*packet));
+            }
+
+            if (enet_sendmsg_fn(socket, &msgHdr, 0, &sentLength, NULL, NULL) == SOCKET_ERROR) {
+                return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1;
+            }
+
+            return (int) sentLength;
+        }
+#endif
 
         if (WSASendTo(socket,
             (LPWSABUF) buffers,
@@ -6155,11 +6533,84 @@ extern "C" {
         return (int) sentLength;
     }
 
-    int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, size_t bufferCount) {
+    int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, size_t bufferCount
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        , ENetAddress *destinationAddress
+#endif
+    ) {
         INT sinLength = sizeof(struct sockaddr_in6);
         DWORD flags   = 0, recvLength = 0;
         struct sockaddr_in6 sin = {0};
 
+#if ENET_ENABLE_IPV6_RECVPKTINFO
+        if (destinationAddress != NULL) {
+            enet_address_set_any(destinationAddress);
+        }
+
+        if (enet_recvmsg_fn != NULL) {
+            WSAMSG msgHdr = {0};
+            union {
+                char ipv6[WSA_CMSG_SPACE(sizeof(IN6_PKTINFO))];
+#ifdef IP_PKTINFO
+                char ipv4[WSA_CMSG_SPACE(sizeof(IN_PKTINFO))];
+#endif
+            } controlBuf;
+
+            msgHdr.name = address != NULL ? (LPSOCKADDR) &sin : NULL;
+            msgHdr.namelen = address != NULL ? sizeof(struct sockaddr_in6) : 0;
+            msgHdr.lpBuffers = (LPWSABUF) buffers;
+            msgHdr.dwBufferCount = (DWORD) bufferCount;
+            memset(&controlBuf, 0, sizeof(controlBuf));
+            msgHdr.Control.buf = controlBuf.ipv6;
+            msgHdr.Control.len = sizeof(controlBuf);
+            msgHdr.dwFlags = 0;
+
+            if (enet_recvmsg_fn(socket, &msgHdr, &recvLength, NULL, NULL) == SOCKET_ERROR) {
+                switch (WSAGetLastError()) {
+                    case WSAEWOULDBLOCK:
+                    case WSAECONNRESET:
+                        return 0;
+                    case WSAEINTR:
+                    case WSAEMSGSIZE:
+                        return -2;
+                    default:
+                        return -1;
+                }
+            }
+
+            if (msgHdr.dwFlags & MSG_PARTIAL) {
+                return -2;
+            }
+
+            if (address != NULL) {
+                address->host           = sin.sin6_addr;
+                address->port           = ENET_NET_TO_HOST_16(sin.sin6_port);
+                address->sin6_scope_id  = sin.sin6_scope_id;
+            }
+
+            if (destinationAddress != NULL) {
+                LPWSACMSGHDR controlMsg;
+                for (controlMsg = WSA_CMSG_FIRSTHDR(&msgHdr); controlMsg != NULL; controlMsg = WSA_CMSG_NXTHDR(&msgHdr, controlMsg)) {
+                    if (controlMsg->cmsg_level == IPPROTO_IPV6 && controlMsg->cmsg_type == IPV6_PKTINFO) {
+                        IN6_PKTINFO *packet = (IN6_PKTINFO *) WSA_CMSG_DATA(controlMsg);
+                        destinationAddress->host = packet->ipi6_addr;
+                        destinationAddress->sin6_scope_id = packet->ipi6_ifindex;
+                        break;
+                    }
+#ifdef IP_PKTINFO
+                    if (controlMsg->cmsg_level == IPPROTO_IP && controlMsg->cmsg_type == IP_PKTINFO) {
+                        IN_PKTINFO *packet = (IN_PKTINFO *) WSA_CMSG_DATA(controlMsg);
+                        enet_address_set_v4(destinationAddress, &packet->ipi_addr);
+                        destinationAddress->sin6_scope_id = packet->ipi_ifindex;
+                        break;
+                    }
+#endif
+                }
+            }
+
+            return (int) recvLength;
+        }
+#endif
         if (WSARecvFrom(socket,
             (LPWSABUF) buffers,
             (DWORD) bufferCount,
