@@ -1,4 +1,4 @@
-#if !defined(_WIN32) && !defined(__ANDROID__) && !(defined(__linux__) && !defined(__ANDROID__))
+#if !defined(_WIN32) && !defined(__ANDROID__) && !defined(__APPLE__) && !(defined(__linux__) && !defined(__ANDROID__))
 
 #include "QmxDevice_internal.h"
 

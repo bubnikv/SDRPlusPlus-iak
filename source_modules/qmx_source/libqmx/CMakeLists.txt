@@ -15,6 +15,12 @@ elseif (ANDROID)
     target_link_libraries(qmx PRIVATE
         ${SDR_KIT_ROOT}/${ANDROID_ABI}/lib/libusb1.0.so
     )
+elseif (APPLE)
+    target_link_libraries(qmx PRIVATE
+        "-framework CoreAudio"
+        "-framework AudioUnit"
+        "-framework CoreFoundation"
+    )
 elseif (UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(ALSA REQUIRED alsa)
