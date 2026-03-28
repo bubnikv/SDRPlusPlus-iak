@@ -12,6 +12,7 @@ namespace qmx {
     }
 
     constexpr int kSampleRate = 48000;
+    constexpr int kSerialBaudRate = 115200;
     constexpr std::size_t kStreamBlockSize = 512;
 
     struct AudioDeviceInfo {
@@ -38,7 +39,6 @@ namespace qmx {
     struct StartOptions {
         std::string audioDeviceId;
         std::string serialPort;
-        int serialBaudRate = 38400;
         AndroidUsbDeviceInfo androidUsb;
         bool enableIqMode = true;
     };

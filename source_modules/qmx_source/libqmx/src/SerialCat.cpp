@@ -17,20 +17,12 @@
 
 namespace {
 #ifndef _WIN32
-    speed_t baudToPosix(int baudRate) {
-        switch (baudRate) {
-        case 4800: return B4800;
-        case 9600: return B9600;
-        case 19200: return B19200;
-        case 38400: return B38400;
-#ifdef B57600
-        case 57600: return B57600;
-#endif
+    speed_t fixedBaudToPosix() {
 #ifdef B115200
-        case 115200: return B115200;
+        return B115200;
+#else
+        return B38400;
 #endif
-        default: return B38400;
-        }
     }
 #endif
 }
@@ -40,7 +32,7 @@ namespace qmx::detail {
         close();
     }
 
-    bool SerialCatPort::open(const std::string& portName, int baudRate) {
+    bool SerialCatPort::open(const std::string& portName) {
         close();
 
 #ifdef _WIN32
@@ -61,7 +53,7 @@ namespace qmx::detail {
             return false;
         }
 
-        dcb.BaudRate = baudRate;
+        dcb.BaudRate = qmx::kSerialBaudRate;
         dcb.ByteSize = 8;
         dcb.StopBits = ONESTOPBIT;
         dcb.Parity = NOPARITY;
@@ -102,7 +94,7 @@ namespace qmx::detail {
         }
 
         cfmakeraw(&tty);
-        speed_t speed = baudToPosix(baudRate);
+        speed_t speed = fixedBaudToPosix();
         cfsetospeed(&tty, speed);
         cfsetispeed(&tty, speed);
         tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;

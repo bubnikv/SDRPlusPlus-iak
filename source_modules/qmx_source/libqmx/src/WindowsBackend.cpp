@@ -193,7 +193,7 @@ namespace qmx::detail {
             }
 
             if (!options.serialPort.empty()) {
-                if (!serial.open(options.serialPort, options.serialBaudRate)) {
+                if (!serial.open(options.serialPort)) {
                     error = "Failed to open QMX CAT serial port";
                     cleanupAudio();
                     return false;
@@ -409,6 +409,5 @@ namespace qmx::detail {
 }
 
 #endif
-
 
 

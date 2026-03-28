@@ -30,15 +30,6 @@ SDRPP_MOD_INFO{
 ConfigManager config;
 
 namespace {
-    const int BAUD_RATES[] = {
-        4800,
-        9600,
-        19200,
-        38400,
-        57600,
-        115200
-    };
-
     struct AudioChoice {
         std::string id;
         std::string label;
@@ -73,10 +64,6 @@ public:
         handler.tuneHandler = tune;
         handler.stream = &stream;
 
-        for (int baud : BAUD_RATES) {
-            baudRates.define(baud, std::to_string(baud), baud);
-        }
-
         refresh();
         loadConfig();
 
@@ -107,12 +94,6 @@ private:
         config.acquire();
         if (config.conf.contains("frequency")) {
             freq = config.conf["frequency"];
-        }
-        if (config.conf.contains("baudRate")) {
-            int configured = config.conf["baudRate"];
-            if (baudRates.keyExists(configured)) {
-                baudId = baudRates.keyId(configured);
-            }
         }
 #ifndef __ANDROID__
         if (config.conf.contains("audioDevice")) {
@@ -230,7 +211,6 @@ private:
         }
         options.audioDeviceId = self->selectedAudioDevice;
         options.serialPort = self->selectedSerialPort;
-        options.serialBaudRate = self->baudRates.value(self->baudId);
 #else
         int vid = -1;
         int pid = -1;
@@ -319,15 +299,7 @@ private:
             config.release(true);
         }
 
-        if (SmGui::Combo(CONCAT("##_qmx_baud_", self->name), &self->baudId, self->baudRates.txt)) {
-            config.acquire();
-            config.conf["baudRate"] = self->baudRates.value(self->baudId);
-            config.release(true);
-        }
-
         SmGui::SameLine();
-        SmGui::FillWidth();
-        SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_qmx_refr_", self->name))) {
             self->refresh();
             self->selectAudioDevice(self->selectedAudioDevice);
@@ -387,9 +359,6 @@ private:
     SourceManager::SourceHandler handler;
     qmx::QmxDevice device;
 
-    OptionList<int, int> baudRates;
-    int baudId = 3;
-
 #ifndef __ANDROID__
     OptionList<std::string, AudioChoice> audioDevices;
     OptionList<std::string, SerialChoice> serialPorts;
@@ -403,7 +372,6 @@ private:
 MOD_EXPORT void _INIT_() {
     json def = json::object();
     def["frequency"] = 7000000.0;
-    def["baudRate"] = 38400;
 #ifndef __ANDROID__
     def["audioDevice"] = "";
     def["serialPort"] = "";

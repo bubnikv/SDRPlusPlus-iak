@@ -12,7 +12,7 @@ namespace qmx::detail {
     public:
         ~SerialCatPort();
 
-        bool open(const std::string& portName, int baudRate);
+        bool open(const std::string& portName);
         void close();
         bool isOpen() const;
 
