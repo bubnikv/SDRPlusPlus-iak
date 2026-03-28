@@ -191,6 +191,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["moduleInstances"]["PerseusSDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["PlutoSDR Source"]["module"] = "plutosdr_source";
     defConfig["moduleInstances"]["PlutoSDR Source"]["enabled"] = true;
+    defConfig["moduleInstances"]["QMX Source"]["module"] = "qmx_source";
+    defConfig["moduleInstances"]["QMX Source"]["enabled"] = true;
     defConfig["moduleInstances"]["QMX Server Source"]["module"] = "qmxserver_source";
     defConfig["moduleInstances"]["QMX Server Source"]["enabled"] = true;
     defConfig["moduleInstances"]["RFNM Source"]["module"] = "rfnm_source";
@@ -301,6 +303,7 @@ int sdrpp_main(int argc, char* argv[]) {
     core::configManager.conf["modules"][modCount++] = "hermes_source.so";
     core::configManager.conf["modules"][modCount++] = "hydrasdr_source.so";
     core::configManager.conf["modules"][modCount++] = "plutosdr_source.so";
+    core::configManager.conf["modules"][modCount++] = "qmx_source.so";
     core::configManager.conf["modules"][modCount++] = "qmxserver_source.so";
     core::configManager.conf["modules"][modCount++] = "rfspace_source.so";
     core::configManager.conf["modules"][modCount++] = "rtl_sdr_source.so";

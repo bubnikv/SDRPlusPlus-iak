@@ -33,6 +33,7 @@ option(OPT_BUILD_LIMESDR_SOURCE "Build LimeSDR Source Module (Dependencies: libl
 option(OPT_BUILD_NETWORK_SOURCE "Build Network Source Module (no dependencies required)" ON)
 option(OPT_BUILD_PERSEUS_SOURCE "Build Perseus Source Module (Dependencies: libperseus-sdr)" OFF)
 option(OPT_BUILD_PLUTOSDR_SOURCE "Build PlutoSDR Source Module (Dependencies: libiio, libad9361)" ON)
+option(OPT_BUILD_QMX_SOURCE "Build direct QMX USB Source Module (Dependencies: rtaudio or aaudio)" ON)
 option(OPT_BUILD_QMXSERVER_SOURCE "Build QMX server Source Module (Dependencies: enet)" ON)
 option(OPT_BUILD_RFNM_SOURCE "Build RFNM Source Module (Dependencies: librfnm)" OFF)
 option(OPT_BUILD_RFSPACE_SOURCE "Build RFspace Source Module (no dependencies required)" ON)
@@ -202,6 +203,10 @@ if (OPT_BUILD_PLUTOSDR_SOURCE)
 add_subdirectory("source_modules/plutosdr_source")
 endif (OPT_BUILD_PLUTOSDR_SOURCE)
 
+if (OPT_BUILD_QMX_SOURCE)
+add_subdirectory("source_modules/qmx_source")
+endif (OPT_BUILD_QMX_SOURCE)
+
 if (OPT_BUILD_QMXSERVER_SOURCE)
 add_subdirectory("source_modules/qmxserver_source")
 endif (OPT_BUILD_QMXSERVER_SOURCE)
@@ -370,7 +375,7 @@ target_compile_options(sdrpp PRIVATE ${SDRPP_COMPILER_FLAGS})
 # Copy dynamic libs over
 if (MSVC)
     add_custom_target(do_always ALL xcopy /s \"$<TARGET_FILE_DIR:sdrpp_core>\\*.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
-    add_custom_target(do_always_volk ALL xcopy /s \"C:/Program Files/PothosSDR/bin\\volk.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
+    add_custom_target(do_always_volk ALL xcopy \"D:/src/SDRPlusPlus/build/Debug/volk.dll\" \"$<TARGET_FILE_DIR:sdrpp>\" /Y)
 
     if (COPY_MSVC_REDISTRIBUTABLES)
         # Get the list of Visual C++ runtime DLLs
