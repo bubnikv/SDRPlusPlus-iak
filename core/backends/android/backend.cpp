@@ -1,4 +1,4 @@
-#include <backend.h>log
+#include <backend.h>
 #include "android_backend.h"
 #include <core.h>
 #include <gui/gui.h>
@@ -461,6 +461,98 @@ namespace backend {
         return -1;
     }
 
+    //FIXME not used yet
+    UsbDeviceHandle getUsbDeviceHandle(const std::vector<DevVIDPID>& allowedVidPids) {
+        UsbDeviceHandle handle;
+
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR)
+            return handle;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK)
+            return handle;
+
+        jclass native_activity_clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (native_activity_clazz == NULL)
+            return handle;
+
+        jmethodID method = java_env->GetStaticMethodID(
+            native_activity_clazz,
+            "getOpenUsbDeviceHandleByVidPid",
+            "(Landroid/content/Context;II)Ljava/lang/String;"
+        );
+        if (!method)
+            return handle;
+
+        jobject context_obj = app->activity->clazz;
+        for (const auto& vp : allowedVidPids) {
+            jstring descriptor = (jstring)java_env->CallStaticObjectMethod(
+                native_activity_clazz,
+                method,
+                context_obj,
+                (jint)vp.vid,
+                (jint)vp.pid
+            );
+            if (!descriptor)
+                continue;
+
+            const char* utf = java_env->GetStringUTFChars(descriptor, NULL);
+            std::string value = utf ? utf : "";
+            java_env->ReleaseStringUTFChars(descriptor, utf);
+            java_env->DeleteLocalRef(descriptor);
+
+            auto separator = value.find('|');
+            if (separator == std::string::npos)
+                continue;
+
+            handle.fd = std::stoi(value.substr(0, separator));
+            handle.path = value.substr(separator + 1);
+            handle.vid = vp.vid;
+            handle.pid = vp.pid;
+            java_vm->DetachCurrentThread();
+            return handle;
+        }
+
+        java_vm->DetachCurrentThread();
+        return handle;
+    }
+
+    //FIXME not used yet
+    void releaseUsbDeviceHandle(const UsbDeviceHandle& handle) {
+        if (handle.fd < 0)
+            return;
+
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR)
+            return;
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK)
+            return;
+
+        jclass native_activity_clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (native_activity_clazz == NULL)
+            return;
+
+        jmethodID method = java_env->GetStaticMethodID(
+            native_activity_clazz,
+            "releaseOpenUsbDeviceHandle",
+            "(I)V"
+        );
+        if (!method)
+            return;
+
+        java_env->CallStaticVoidMethod(native_activity_clazz, method, (jint)handle.fd);
+        java_vm->DetachCurrentThread();
+    }
+
     // Unfortunately, the native KeyEvent implementation has no getUnicodeChar() function.
     // Therefore, we implement the processing of KeyEvents in MainActivity.kt and poll
     // the resulting Unicode characters here via JNI and send them to Dear ImGui.
@@ -550,6 +642,10 @@ namespace backend {
         { 0x38af, 0x0001 }
     };
 
+    const std::vector<DevVIDPID> QMX_VIDPIDS = {
+        { 0x0483, 0xA34C }
+    };
+
     const std::vector<DevVIDPID> RTL_SDR_VIDPIDS = {
         { 0x0bda, 0x2832 },
         { 0x0bda, 0x2838 },
@@ -624,7 +720,7 @@ extern "C" {
     }
 
     // JNI native method: MainActivity.nativeSetSleepRenderPaused(boolean)
-    // Directly sets the C++ flag — zero overhead, no JNI field lookup.
+    // Directly sets the C++ flag - zero overhead, no JNI field lookup.
     JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeSetSleepRenderPaused(
         JNIEnv* env, jobject thiz, jboolean paused) {
         backend::sleepRenderPaused = (bool)paused;
