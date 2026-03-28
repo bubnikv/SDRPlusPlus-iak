@@ -14,11 +14,6 @@
 #include <libusb.h>
 #include <sys/time.h>
 
-extern "C" {
-    libusb_device* libusb_get_device2(libusb_context* ctx, const char* device_path);
-    int libusb_open2(libusb_device* device, libusb_device_handle** handle, intptr_t fd);
-}
-
 namespace {
     float convert24(const std::uint8_t* data) {
         std::int32_t value = (static_cast<std::int32_t>(data[2]) << 24) |
@@ -26,6 +21,22 @@ namespace {
                              (static_cast<std::int32_t>(data[0]) << 8);
         value >>= 8;
         return static_cast<float>(value) / 8388608.0f;
+    }
+
+    int initAndroidUsbContext(libusb_context** ctx) {
+#if defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION >= 0x0100010A)
+        libusb_init_option option{};
+        option.option = LIBUSB_OPTION_NO_DEVICE_DISCOVERY;
+        return libusb_init_context(ctx, &option, 1);
+#elif defined(LIBUSB_OPTION_NO_DEVICE_DISCOVERY)
+        int rc = libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY, nullptr);
+        if (rc != LIBUSB_SUCCESS) {
+            return rc;
+        }
+        return libusb_init(ctx);
+#else
+        return libusb_init(ctx);
+#endif
     }
 }
 
@@ -48,22 +59,20 @@ namespace qmx::detail {
                 return false;
             }
 
-            int rc = libusb_init(&usbContext);
+            int rc = initAndroidUsbContext(&usbContext);
             if (rc < 0) {
                 error = std::string("libusb_init failed: ") + libusb_error_name(rc);
                 return false;
             }
 
-            libusb_device* device = libusb_get_device2(usbContext, options.androidUsb.path.c_str());
-            if (!device) {
-                error = "Failed to resolve Android USB device path for QMX";
+            rc = libusb_wrap_sys_device(usbContext, static_cast<intptr_t>(options.androidUsb.fd), &usbHandle);
+            if (rc < 0) {
+                error = std::string("Failed to open Android USB device: ") + libusb_error_name(rc);
                 cleanup();
                 return false;
             }
-
-            rc = libusb_open2(device, &usbHandle, static_cast<intptr_t>(options.androidUsb.fd));
-            if (rc < 0) {
-                error = std::string("Failed to open Android USB device: ") + libusb_error_name(rc);
+            if (!usbHandle) {
+                error = "libusb_wrap_sys_device returned no handle";
                 cleanup();
                 return false;
             }

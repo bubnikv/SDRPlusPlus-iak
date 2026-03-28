@@ -232,26 +232,21 @@ private:
         options.serialPort = self->selectedSerialPort;
         options.serialBaudRate = self->baudRates.value(self->baudId);
 #else
-        self->androidUsbHandle = backend::getUsbDeviceHandle(backend::QMX_VIDPIDS);
-        if (!self->androidUsbHandle.valid()) {
+        int vid = -1;
+        int pid = -1;
+        int fd = backend::getDeviceFD(vid, pid, backend::QMX_VIDPIDS);
+        if (fd < 0) {
             flog::error("QMXSourceModule: No authorized QMX USB device available on Android");
             return;
         }
-        options.androidUsb.fd = self->androidUsbHandle.fd;
-        options.androidUsb.vid = self->androidUsbHandle.vid;
-        options.androidUsb.pid = self->androidUsbHandle.pid;
-        options.androidUsb.path = self->androidUsbHandle.path;
+        options.androidUsb.fd = fd;
+        options.androidUsb.vid = vid;
+        options.androidUsb.pid = pid;
 #endif
 
         std::string error;
         if (!self->device.start(options, &QMXSourceModule::sampleHandler, self, &error)) {
-#ifndef __ANDROID__
             flog::error("QMXSourceModule: {}", error);
-#else
-            backend::releaseUsbDeviceHandle(self->androidUsbHandle);
-            self->androidUsbHandle = {};
-            flog::error("QMXSourceModule: {}", error);
-#endif
             return;
         }
 
@@ -275,11 +270,6 @@ private:
         self->running = false;
         self->stream.stopWriter();
         self->device.stop();
-#ifndef __ANDROID__
-#else
-        backend::releaseUsbDeviceHandle(self->androidUsbHandle);
-        self->androidUsbHandle = {};
-#endif
         self->stream.clearWriteStop();
 
         flog::info("QMXSourceModule '{}': Stop!", self->name);
@@ -407,8 +397,6 @@ private:
     std::string selectedSerialPort;
     int audioDevId = 0;
     int serialPortId = 0;
-#else
-    backend::UsbDeviceHandle androidUsbHandle;
 #endif
 };
 

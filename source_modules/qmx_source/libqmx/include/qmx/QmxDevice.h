@@ -31,7 +31,7 @@ namespace qmx {
         std::string path;
 
         bool valid() const {
-            return fd >= 0 && !path.empty();
+            return fd >= 0;
         }
     };
 
