@@ -171,7 +171,11 @@ public:
     void selectFirst() {
         if (!devices.empty()) {
             selectBySerial(devices.value(0));
+            return;
         }
+        selectedSerial = 0;
+        selectedSerStr.clear();
+        devId = 0;
     }
 
     void selectByString(std::string serial) {
@@ -440,6 +444,31 @@ public:
     }
 
 private:
+#ifdef __ANDROID__
+    void refreshAndroidSelection() {
+        refresh();
+        config.acquire();
+        std::string devSerial = config.conf["device"];
+        config.release();
+        selectByString(devSerial);
+        core::setInputSampleRate(sampleRate);
+        lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+    }
+
+    void refreshAndroidSelectionIfNeeded() {
+        if (running) {
+            return;
+        }
+
+        int generation = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+        if (generation == lastAndroidUsbHotplugGeneration) {
+            return;
+        }
+
+        refreshAndroidSelection();
+    }
+#endif
+
     std::string getBandwidthScaled(double bw) {
         char buf[1024];
         if (bw >= 1000000.0) {
@@ -522,18 +551,19 @@ private:
     static void start(void* ctx) {
         HydraSDRSourceModule* _this = (HydraSDRSourceModule*)ctx;
         if (_this->running) { return; }
-#ifndef __ANDROID__
-        if (_this->selectedSerial == 0) {
-            flog::error("Tried to start HydraSDR source with null serial");
-            return;
-        }
-        int err = hydrasdr_open_sn(&_this->openDev, _this->selectedSerial);
-#else
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
         if (_this->devFd < 0) {
             flog::error("Tried to start HydraSDR source with invalid fd");
             return;
         }
         int err = hydrasdr_open_fd(&_this->openDev, _this->devFd);
+#else
+        if (_this->selectedSerial == 0) {
+            flog::error("Tried to start HydraSDR source with null serial");
+            return;
+        }
+        int err = hydrasdr_open_sn(&_this->openDev, _this->selectedSerial);
 #endif
         if (err != 0) {
             char buf[1024];
@@ -593,6 +623,9 @@ private:
     static void menuHandler(void* ctx) {
         HydraSDRSourceModule* _this = (HydraSDRSourceModule*)ctx;
 
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->running) { SmGui::BeginDisabled(); }
 
         SmGui::FillWidth();
@@ -627,12 +660,16 @@ private:
         SmGui::FillWidth();
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_hydrasdr_refr_", _this->name))) {
+#ifdef __ANDROID__
+            _this->refreshAndroidSelection();
+#else
             _this->refresh();
             config.acquire();
             std::string devSerial = config.conf["device"];
             config.release();
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
+#endif
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Refresh device list and sample rates");
@@ -1177,6 +1214,7 @@ private:
 
 #ifdef __ANDROID__
     int devFd = 0;
+    int lastAndroidUsbHotplugGeneration = 0;
 #endif
 
     OptionList<std::string, uint64_t> devices;

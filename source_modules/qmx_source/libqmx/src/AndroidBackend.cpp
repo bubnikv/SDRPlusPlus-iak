@@ -24,11 +24,15 @@ namespace {
     }
 
     int initAndroidUsbContext(libusb_context** ctx) {
-#if defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION >= 0x0100010A)
+#ifndef LIBUSB_API_VERSION
+#error "LIBUSB_API_VERSION is not defined, please update libusb"
+#endif // LIBUSB_API_VERSION
+
+#if LIBUSB_API_VERSION >= 0x0100010A
         libusb_init_option option{};
         option.option = LIBUSB_OPTION_NO_DEVICE_DISCOVERY;
         return libusb_init_context(ctx, &option, 1);
-#elif defined(LIBUSB_OPTION_NO_DEVICE_DISCOVERY)
+#elif LIBUSB_API_VERSION >= 0x01000109
         int rc = libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY, nullptr);
         if (rc != LIBUSB_SUCCESS) {
             return rc;
@@ -78,9 +82,7 @@ namespace qmx::detail {
             }
 
             for (int iface : { 0, 1, 2, 3, 4 }) {
-                rc = libusb_claim_interface(usbHandle, iface);
-                if (rc < 0) {
-                    error = std::string("Failed to claim QMX USB interface: ") + libusb_error_name(rc);
+                if (!claimInterface(iface, error)) {
                     cleanup();
                     return false;
                 }
@@ -152,6 +154,28 @@ namespace qmx::detail {
         static constexpr int kNumIsoTransfers = 5;
         static constexpr int kIsoPacketSize = 300;
         static constexpr int kNumIsoPackets = 20;
+
+        bool claimInterface(int iface, std::string& error) {
+            int rc = libusb_kernel_driver_active(usbHandle, iface);
+            if (rc == 1) {
+                rc = libusb_detach_kernel_driver(usbHandle, iface);
+                if (rc < 0 && rc != LIBUSB_ERROR_NOT_FOUND && rc != LIBUSB_ERROR_NOT_SUPPORTED) {
+                    error = std::string("Failed to detach QMX USB kernel driver: ") + libusb_error_name(rc);
+                    return false;
+                }
+            }
+            else if (rc < 0 && rc != LIBUSB_ERROR_NOT_SUPPORTED) {
+                error = std::string("Failed to query QMX USB kernel driver state: ") + libusb_error_name(rc);
+                return false;
+            }
+
+            rc = libusb_claim_interface(usbHandle, iface);
+            if (rc < 0) {
+                error = std::string("Failed to claim QMX USB interface: ") + libusb_error_name(rc);
+                return false;
+            }
+            return true;
+        }
 
         static void transferCallback(libusb_transfer* transfer) {
             auto* self = static_cast<AndroidUsbImpl*>(transfer->user_data);
@@ -247,21 +271,26 @@ namespace qmx::detail {
         }
 
         void cleanup() {
-            for (auto*& transfer : transfers) {
-                if (transfer) {
-                    libusb_free_transfer(transfer);
-                    transfer = nullptr;
-                }
-            }
-
-            if (usbHandle) {
-                for (int iface : { 0, 1, 2, 3, 4 }) {
-                    libusb_release_interface(usbHandle, iface);
-                }
-                libusb_close(usbHandle);
-                usbHandle = nullptr;
-            }
             if (usbContext) {
+                // Let libusb process the cancellations
+                for (int i = 0; i < 50; ++ i) {
+                    struct timeval tv = { 0, 50000 };
+                    libusb_handle_events_timeout_completed(usbContext, &tv, nullptr);
+                }
+                for (auto*& transfer : transfers) {
+                    if (transfer) {
+                        libusb_free_transfer(transfer);
+                        transfer = nullptr;
+                    }
+                }
+
+                if (usbHandle) {
+                    for (int iface : { 0, 1, 2, 3, 4 }) {
+                        libusb_release_interface(usbHandle, iface);
+                    }
+                    libusb_close(usbHandle);
+                    usbHandle = nullptr;
+                }
                 libusb_exit(usbContext);
                 usbContext = nullptr;
             }

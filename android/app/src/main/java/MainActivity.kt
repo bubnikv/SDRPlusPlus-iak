@@ -10,6 +10,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.hardware.usb.*;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.Manifest;
 import android.os.Build;
 import android.os.Bundle;
@@ -38,29 +40,54 @@ private const val ACTION_USB_PERMISSION = "org.sdrpp.sdrpp.USB_PERMISSION";
 
 private val usbReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (ACTION_USB_PERMISSION == intent.action) {
-            synchronized(this) {
-                var _this = context as MainActivity;
-                _this.SDR_device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    _this.SDR_conn = _this.usbManager!!.openDevice(_this.SDR_device);
-                    
-                    // Save SDR info
-                    _this.SDR_VID = _this.SDR_device!!.getVendorId();
-                    _this.SDR_PID = _this.SDR_device!!.getProductId()
-                    _this.SDR_FD = _this.SDR_conn!!.getFileDescriptor();
-                }
-                
-                // Whatever the hell this does
-                context.unregisterReceiver(this);
+        val activity = context as? MainActivity ?: return
+        when (intent.action) {
+            ACTION_USB_PERMISSION -> {
+                synchronized(this) {
+                    activity.SDR_device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        activity.SDR_conn = activity.usbManager?.openDevice(activity.SDR_device)
+                        if (activity.SDR_conn != null && activity.SDR_device != null) {
+                            activity.SDR_VID = activity.SDR_device!!.vendorId
+                            activity.SDR_PID = activity.SDR_device!!.productId
+                            activity.SDR_FD = activity.SDR_conn!!.fileDescriptor
+                        }
+                        activity.notifyUsbHotplugChanged()
+                    }
 
-                // Hide again the system bars
-                _this.hideSystemBars();
+                    activity.hideSystemBars()
+                }
+            }
+            UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                val device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                if (device != null) {
+                    val manager = activity.usbManager
+                    if (manager != null && manager.hasPermission(device)) {
+                        activity.notifyUsbHotplugChanged()
+                    }
+                    else {
+                        activity.requestUsbPermission(device)
+                    }
+                }
+            }
+            UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                val device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                if (device != null && activity.SDR_device?.deviceId == device.deviceId) {
+                    activity.SDR_conn?.close()
+                    activity.SDR_conn = null
+                    activity.SDR_device = null
+                    activity.SDR_VID = -1
+                    activity.SDR_PID = -1
+                    activity.SDR_FD = -1
+                }
+                if (device != null) {
+                    activity.releaseRetainedUsbConnection(device.deviceName)
+                    activity.notifyUsbHotplugChanged()
+                }
             }
         }
     }
 }
-
 class MainActivity : NativeActivity() {
     private val TAG : String = "SDR++";
     public var usbManager : UsbManager? = null;
@@ -73,10 +100,191 @@ class MainActivity : NativeActivity() {
     // Sleep timer
     private lateinit var sleepTimer: SleepTimerManager;
     private var wakeLock: PowerManager.WakeLock? = null;
+    private var usbPermissionIntent: PendingIntent? = null
+    private var usbReceiverRegistered = false
 
     companion object {
+        private const val QMX_USB_VID = 0x0483
+        private const val QMX_USB_PID = 0xA34C
+        private val openUsbConnections = HashMap<Int, UsbDeviceConnection>()
+        private val openUsbDeviceNames = HashMap<String, Int>()
+
         init {
             System.loadLibrary("sdrpp_core")
+        }
+
+        private fun isQmxUsbDevice(dev: UsbDevice?): Boolean {
+            return dev != null && dev.vendorId == QMX_USB_VID && dev.productId == QMX_USB_PID
+        }
+
+        private fun isUsbAudioDevice(device: AudioDeviceInfo): Boolean {
+            return device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                device.type == AudioDeviceInfo.TYPE_USB_ACCESSORY
+        }
+
+        private fun containsQmxMarker(value: CharSequence?): Boolean {
+            if (value == null) {
+                return false
+            }
+            val text = value.toString().uppercase()
+            return text.contains("QMX") || text.contains("QDX")
+        }
+
+        private fun isLikelyQmxAudioDevice(context: Context, device: AudioDeviceInfo, directionFlag: Int): Boolean {
+            if (!isUsbAudioDevice(device)) {
+                return false
+            }
+            val addressMatches = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                containsQmxMarker(device.address)
+            }
+            else {
+                false
+            }
+            if (containsQmxMarker(device.productName) || addressMatches) {
+                return true
+            }
+
+            val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
+            val qmxDevices = usbManager.deviceList.values.filter { isQmxUsbDevice(it) }
+            if (qmxDevices.isEmpty()) {
+                return false
+            }
+
+            for (usbDevice in qmxDevices) {
+                if (containsQmxMarker(usbDevice.productName) ||
+                    containsQmxMarker(usbDevice.manufacturerName) ||
+                    containsQmxMarker(usbDevice.deviceName) ||
+                    device.productName.toString().equals(usbDevice.productName ?: "", ignoreCase = true)
+                ) {
+                    return true
+                }
+            }
+
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            val usbAudioCount = audioManager.getDevices(directionFlag).count { isUsbAudioDevice(it) }
+            return usbAudioCount == 1
+        }
+
+        private fun outputRank(device: AudioDeviceInfo): Int {
+            return when (device.type) {
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_WIRED_HEADSET -> 0
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLE_HEADSET,
+                AudioDeviceInfo.TYPE_BLE_SPEAKER,
+                AudioDeviceInfo.TYPE_BLE_BROADCAST -> 1
+                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> 2
+                AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> 3
+                AudioDeviceInfo.TYPE_HDMI,
+                AudioDeviceInfo.TYPE_HDMI_ARC,
+                AudioDeviceInfo.TYPE_HDMI_EARC,
+                AudioDeviceInfo.TYPE_LINE_ANALOG,
+                AudioDeviceInfo.TYPE_LINE_DIGITAL,
+                AudioDeviceInfo.TYPE_DOCK -> 4
+                else -> if (isUsbAudioDevice(device)) 6 else 5
+            }
+        }
+
+        private fun inputRank(device: AudioDeviceInfo): Int {
+            return when (device.type) {
+                AudioDeviceInfo.TYPE_WIRED_HEADSET -> 0
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                AudioDeviceInfo.TYPE_BLE_HEADSET -> 1
+                AudioDeviceInfo.TYPE_BUILTIN_MIC,
+                AudioDeviceInfo.TYPE_FM_TUNER,
+                AudioDeviceInfo.TYPE_TELEPHONY -> 2
+                else -> if (isUsbAudioDevice(device)) 4 else 3
+            }
+        }
+
+        private fun getPreferredAudioDeviceId(context: Context, directionFlag: Int): Int {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return 0
+            val devices = audioManager.getDevices(directionFlag)
+            if (devices.isEmpty()) {
+                return 0
+            }
+
+            val candidates = devices.filterNot { isLikelyQmxAudioDevice(context, it, directionFlag) }
+            if (candidates.isEmpty()) {
+                return 0
+            }
+            val ranked = if (directionFlag == AudioManager.GET_DEVICES_OUTPUTS) {
+                candidates.minByOrNull(::outputRank)
+            }
+            else {
+                candidates.minByOrNull(::inputRank)
+            }
+            return ranked?.id ?: 0
+        }
+
+        private fun getRetainedUsbConnectionFd(device: UsbDevice): Int? {
+            synchronized(openUsbConnections) {
+                val existingFd = openUsbDeviceNames[device.deviceName] ?: return null
+                if (openUsbConnections.containsKey(existingFd)) {
+                    return existingFd
+                }
+                openUsbDeviceNames.remove(device.deviceName)
+                return null
+            }
+        }
+
+        private fun retainUsbConnection(device: UsbDevice, conn: UsbDeviceConnection): Int {
+            val fd = conn.fileDescriptor
+            if (fd < 0) {
+                conn.close()
+                return -1
+            }
+
+            synchronized(openUsbConnections) {
+                val oldFdForDevice = openUsbDeviceNames.remove(device.deviceName)
+                if (oldFdForDevice != null) {
+                    openUsbConnections.remove(oldFdForDevice)?.close()
+                }
+
+                val staleMappings = openUsbDeviceNames
+                    .filterValues { it == fd }
+                    .keys
+                    .toList()
+                for (deviceName in staleMappings) {
+                    openUsbDeviceNames.remove(deviceName)
+                }
+
+                openUsbConnections.remove(fd)?.close()
+                openUsbConnections[fd] = conn
+                openUsbDeviceNames[device.deviceName] = fd
+            }
+
+            return fd
+        }
+
+        private fun closeRetainedUsbConnection(fd: Int) {
+            synchronized(openUsbConnections) {
+                openUsbConnections.remove(fd)?.close()
+                val staleMappings = openUsbDeviceNames
+                    .filterValues { it == fd }
+                    .keys
+                    .toList()
+                for (deviceName in staleMappings) {
+                    openUsbDeviceNames.remove(deviceName)
+                }
+            }
+        }
+
+        private fun closeRetainedUsbConnection(deviceName: String) {
+            synchronized(openUsbConnections) {
+                val fd = openUsbDeviceNames.remove(deviceName) ?: return
+                openUsbConnections.remove(fd)?.close()
+            }
+        }
+
+        private fun clearRetainedUsbConnections() {
+            synchronized(openUsbConnections) {
+                openUsbConnections.values.forEach { it.close() }
+                openUsbConnections.clear()
+                openUsbDeviceNames.clear()
+            }
         }
 
         /**
@@ -91,26 +299,143 @@ class MainActivity : NativeActivity() {
             val devList = usbManager.deviceList
             for ((_, dev) in devList) {
                 if (dev.vendorId == vid && dev.productId == pid) {
-                    // Check permission
                     if (!usbManager.hasPermission(dev)) {
-                        // Optionally, request permission here if needed
+                        (context as? MainActivity)?.requestUsbPermission(dev)
                         return -1
+                    }
+                    val existingFd = getRetainedUsbConnectionFd(dev)
+                    if (existingFd != null) {
+                        return existingFd
                     }
                     val conn = usbManager.openDevice(dev)
                     if (conn != null) {
-                        val fd = conn.fileDescriptor
-                        conn.close() // Optionally keep open if needed
-                        return fd
+                        return retainUsbConnection(dev, conn)
                     }
                 }
             }
             return -1
+        }
+
+        @JvmStatic
+        fun getOpenUsbDeviceHandleByVidPid(context: Context, vid: Int, pid: Int): String? {
+            val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return null
+            val devList = usbManager.deviceList
+            for ((_, dev) in devList) {
+                if (dev.vendorId == vid && dev.productId == pid) {
+                    if (!usbManager.hasPermission(dev)) {
+                        (context as? MainActivity)?.requestUsbPermission(dev)
+                        return null
+                    }
+                    val existingFd = getRetainedUsbConnectionFd(dev)
+                    if (existingFd != null) {
+                        return "$existingFd|${dev.deviceName}"
+                    }
+                    val conn = usbManager.openDevice(dev) ?: return null
+                    val fd = retainUsbConnection(dev, conn)
+                    if (fd < 0) {
+                        return null
+                    }
+                    return "$fd|${dev.deviceName}"
+                }
+            }
+            return null
+        }
+
+        @JvmStatic
+        fun releaseOpenUsbDeviceHandle(fd: Int) {
+            closeRetainedUsbConnection(fd)
+        }
+
+        @JvmStatic
+        fun getPreferredAudioOutputDeviceId(context: Context): Int {
+            return getPreferredAudioDeviceId(context, AudioManager.GET_DEVICES_OUTPUTS)
+        }
+
+        @JvmStatic
+        fun getPreferredAudioInputDeviceId(context: Context): Int {
+            return getPreferredAudioDeviceId(context, AudioManager.GET_DEVICES_INPUTS)
         }
     }
 
     fun checkAndAsk(permission: String) {
         if (PermissionChecker.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(permission), 1);
+        }
+    }
+
+    private fun registerUsbReceiver() {
+        if (usbReceiverRegistered) {
+            return
+        }
+        val filter = IntentFilter().apply {
+            addAction(ACTION_USB_PERMISSION)
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(usbReceiver, filter)
+        }
+        usbReceiverRegistered = true
+    }
+
+    private fun unregisterUsbReceiver() {
+        if (!usbReceiverRegistered) {
+            return
+        }
+        try {
+            unregisterReceiver(usbReceiver)
+        }
+        catch (_: IllegalArgumentException) {
+        }
+        usbReceiverRegistered = false
+    }
+
+    fun requestUsbPermission(device: UsbDevice) {
+        val manager = usbManager ?: return
+        if (manager.hasPermission(device)) {
+            return
+        }
+        val permissionIntent = usbPermissionIntent ?: return
+        manager.requestPermission(device, permissionIntent)
+    }
+
+    private fun requestUsbPermissionsForConnectedDevices() {
+        val manager = usbManager ?: return
+        for ((_, dev) in manager.deviceList) {
+            if (manager.hasPermission(dev)) {
+                notifyUsbHotplugChanged()
+            }
+            else {
+                requestUsbPermission(dev)
+            }
+        }
+    }
+
+    fun releaseRetainedUsbConnection(deviceName: String) {
+        Companion.closeRetainedUsbConnection(deviceName)
+    }
+
+    private external fun notifyUsbHotplugChangedNative()
+
+    fun notifyUsbHotplugChanged() {
+        notifyUsbHotplugChangedNative()
+    }
+
+    private fun handleUsbAttachIntent(intent: Intent?) {
+        if (intent?.action != UsbManager.ACTION_USB_DEVICE_ATTACHED) {
+            return
+        }
+        val device = IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+        if (device != null) {
+            val manager = usbManager
+            if (manager != null && manager.hasPermission(device)) {
+                notifyUsbHotplugChanged()
+            }
+            else {
+                requestUsbPermission(device)
+            }
         }
     }
 
@@ -136,6 +461,7 @@ class MainActivity : NativeActivity() {
         // Ask for required permissions, without these the app cannot run.
         checkAndAsk(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         checkAndAsk(Manifest.permission.READ_EXTERNAL_STORAGE);
+//        checkAndAsk(Manifest.permission.RECORD_AUDIO);
 
         // TODO: Have the main code wait until these two permissions are available
 
@@ -147,19 +473,12 @@ class MainActivity : NativeActivity() {
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
-        val permissionIntent = PendingIntent.getBroadcast(this, 0, permissionRequestIntent, pendingIntentFlags)
-        val filter = IntentFilter(ACTION_USB_PERMISSION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(usbReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(usbReceiver, filter)
-        }
+        usbPermissionIntent = PendingIntent.getBroadcast(this, 0, permissionRequestIntent, pendingIntentFlags)
+        registerUsbReceiver()
+        handleUsbAttachIntent(intent)
 
         // Get permission for all USB devices
-        val devList = usbManager!!.getDeviceList();
-        for ((name, dev) in devList) {
-            usbManager!!.requestPermission(dev, permissionIntent);
-        }
+        requestUsbPermissionsForConnectedDevices()
 
         // Ask for internet permission
         checkAndAsk(Manifest.permission.INTERNET);
@@ -173,8 +492,18 @@ class MainActivity : NativeActivity() {
         super.onResume();
     }
 
+    public override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUsbAttachIntent(intent)
+    }
+
     public override fun onDestroy() {
         sleepTimer.stop();
+        unregisterUsbReceiver()
+        SDR_conn?.close()
+        SDR_conn = null
+        Companion.clearRetainedUsbConnections()
         super.onDestroy();
     }
 

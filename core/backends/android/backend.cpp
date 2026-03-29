@@ -31,6 +31,7 @@ namespace backend {
     std::atomic<bool> sleepScreenDimmed{false};   // True during DIM and DARK phases (set via JNI)
     std::atomic<bool> sleepRenderPaused{false};   // True during DARK phase only (set via JNI)
     std::atomic<bool> sleepBlackFrameSent{false}; // Ensures one black frame before pausing
+    std::atomic<int> usbHotplugGeneration{0};
     bool exited = false;
 
     // Forward declaration
@@ -461,6 +462,54 @@ namespace backend {
         return -1;
     }
 
+    static int getPreferredAudioDeviceId(const char* methodName) {
+        if (!app || !app->activity || !app->activity->vm) {
+            return 0;
+        }
+
+        JavaVM* java_vm = app->activity->vm;
+        JNIEnv* java_env = NULL;
+
+        jint jni_return = java_vm->GetEnv((void**)&java_env, JNI_VERSION_1_6);
+        if (jni_return == JNI_ERR) {
+            return 0;
+        }
+
+        jni_return = java_vm->AttachCurrentThread(&java_env, NULL);
+        if (jni_return != JNI_OK) {
+            return 0;
+        }
+
+        jclass native_activity_clazz = java_env->GetObjectClass(app->activity->clazz);
+        if (native_activity_clazz == NULL) {
+            java_vm->DetachCurrentThread();
+            return 0;
+        }
+
+        jmethodID method = java_env->GetStaticMethodID(
+            native_activity_clazz,
+            methodName,
+            "(Landroid/content/Context;)I"
+        );
+        if (!method) {
+            java_vm->DetachCurrentThread();
+            return 0;
+        }
+
+        jobject context_obj = app->activity->clazz;
+        jint deviceId = java_env->CallStaticIntMethod(native_activity_clazz, method, context_obj);
+        java_vm->DetachCurrentThread();
+        return (int)deviceId;
+    }
+
+    int getPreferredAudioOutputDeviceId() {
+        return getPreferredAudioDeviceId("getPreferredAudioOutputDeviceId");
+    }
+
+    int getPreferredAudioInputDeviceId() {
+        return getPreferredAudioDeviceId("getPreferredAudioInputDeviceId");
+    }
+
     //FIXME not used yet
     UsbDeviceHandle getUsbDeviceHandle(const std::vector<DevVIDPID>& allowedVidPids) {
         UsbDeviceHandle handle;
@@ -735,4 +784,8 @@ extern "C" {
         JNIEnv* env, jobject thiz, jboolean dimmed) {
         backend::sleepScreenDimmed = (bool)dimmed;
     }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_notifyUsbHotplugChangedNative(JNIEnv*, jobject) {
+    backend::usbHotplugGeneration.fetch_add(1, std::memory_order_relaxed);
 }

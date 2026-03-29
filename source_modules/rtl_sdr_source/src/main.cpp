@@ -161,7 +161,10 @@ public:
     void selectFirst() {
         if (devCount > 0) {
             selectById(0);
+            return;
         }
+        selectedDevName.clear();
+        devId = 0;
     }
 
     void selectByName(std::string name) {
@@ -258,6 +261,28 @@ public:
     }
 
 private:
+#ifdef __ANDROID__
+    void refreshAndroidSelection() {
+        refresh();
+        selectByName(selectedDevName);
+        core::setInputSampleRate(sampleRate);
+        lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+    }
+
+    void refreshAndroidSelectionIfNeeded() {
+        if (running) {
+            return;
+        }
+
+        int generation = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+        if (generation == lastAndroidUsbHotplugGeneration) {
+            return;
+        }
+
+        refreshAndroidSelection();
+    }
+#endif
+
     std::string getBandwdithScaled(double bw) {
         char buf[1024];
         if (bw >= 1000000.0) {
@@ -286,6 +311,9 @@ private:
     static void start(void* ctx) {
         RTLSDRSourceModule* _this = (RTLSDRSourceModule*)ctx;
         if (_this->running) { return; }
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->selectedDevName == "") {
             flog::error("No device selected");
             return;
@@ -361,6 +389,9 @@ private:
     static void menuHandler(void* ctx) {
         RTLSDRSourceModule* _this = (RTLSDRSourceModule*)ctx;
 
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
         SmGui::ForceSync();
@@ -388,9 +419,13 @@ private:
         SmGui::FillWidth();
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_rtlsdr_refr_", _this->name)/*, ImVec2(refreshBtnWdith, 0)*/)) {
+#ifdef __ANDROID__
+            _this->refreshAndroidSelection();
+#else
             _this->refresh();
             _this->selectByName(_this->selectedDevName);
             core::setInputSampleRate(_this->sampleRate);
+#endif
         }
 
         if (_this->running) { SmGui::EndDisabled(); }
@@ -559,6 +594,7 @@ private:
 
 #ifdef __ANDROID__
     int devFd = -1;
+    int lastAndroidUsbHotplugGeneration = 0;
 #endif
 
     int ppm = 0;

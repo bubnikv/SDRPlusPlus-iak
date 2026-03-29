@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -27,8 +28,11 @@ namespace backend {
     extern const std::vector<DevVIDPID> HYDRASDR_VIDPIDS;
     extern const std::vector<DevVIDPID> QMX_VIDPIDS;
     extern const std::vector<DevVIDPID> RTL_SDR_VIDPIDS;
+    extern std::atomic<int> usbHotplugGeneration;
 
     int getDeviceFD(int& vid, int& pid, const std::vector<DevVIDPID>& allowedVidPids);
+    int getPreferredAudioOutputDeviceId();
+    int getPreferredAudioInputDeviceId();
     //FIXME not used yet
     UsbDeviceHandle getUsbDeviceHandle(const std::vector<DevVIDPID>& allowedVidPids);
     //FIXME not used yet

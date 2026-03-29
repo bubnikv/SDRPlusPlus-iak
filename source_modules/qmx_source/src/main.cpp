@@ -248,6 +248,31 @@ private:
         androidDevId = id;
         selectedAndroidDevice = androidDevices[id];
     }
+
+    void refreshAndroidDeviceSelection(const std::string& preferredDevice = "") {
+        std::string deviceToRestore = preferredDevice.empty() ? selectedAndroidDevice : preferredDevice;
+        refresh();
+        selectAndroidDeviceByName(deviceToRestore);
+
+        config.acquire();
+        config.conf["device"] = selectedAndroidDevice;
+        config.release(true);
+
+        lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+    }
+
+    void refreshAndroidDeviceSelectionIfNeeded() {
+        if (running) {
+            return;
+        }
+
+        int generation = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+        if (generation == lastAndroidUsbHotplugGeneration) {
+            return;
+        }
+
+        refreshAndroidDeviceSelection();
+    }
 #endif
 
     static void menuSelected(void* ctx) {
@@ -275,6 +300,7 @@ private:
         options.audioDeviceId = self->selectedAudioDevice;
         options.serialPort = self->selectedSerialPort;
 #else
+        self->refreshAndroidDeviceSelectionIfNeeded();
         if (self->selectedAndroidDevice.empty() || self->androidDevFd < 0) {
             flog::error("QMXSourceModule: No authorized QMX USB device available on Android");
             return;
@@ -393,9 +419,9 @@ private:
             SmGui::Text(self->serialPorts.value(self->serialPortId).label.c_str());
         }
 #else
-        if (self->running) {
+        self->refreshAndroidDeviceSelectionIfNeeded();
+        if (self->running)
             SmGui::BeginDisabled();
-        }
 
         float refreshBtnWidth = std::max(90.0f, ImGui::CalcTextSize("Refresh").x + (ImGui::GetStyle().FramePadding.x * 2.0f) + 4.0f);
         float deviceComboWidth = ImGui::GetContentRegionAvail().x - refreshBtnWidth - ImGui::GetStyle().ItemSpacing.x;
@@ -409,32 +435,20 @@ private:
         }
 
         SmGui::SameLine();
-        if (SmGui::Button(CONCAT("Refresh##_qmx_refr_", self->name), ImVec2(refreshBtnWidth, 0))) {
-            std::string previousDevice = self->selectedAndroidDevice;
-            self->refresh();
-            self->selectAndroidDeviceByName(previousDevice);
-            config.acquire();
-            config.conf["device"] = self->selectedAndroidDevice;
-            config.release(true);
-        }
+        if (SmGui::Button(CONCAT("Refresh##_qmx_refr_", self->name), ImVec2(refreshBtnWidth, 0)))
+            self->refreshAndroidDeviceSelection();
 
-        if (self->running) {
+        if (self->running)
             SmGui::EndDisabled();
-        }
 
-        SmGui::Text("Device:");
+            SmGui::Text("Device:");
         SmGui::SameLine();
-        if (self->selectedAndroidDevice.empty()) {
+        if (self->selectedAndroidDevice.empty())
             SmGui::Text("Not connected");
-        }
-        else if (self->running) {
+        else if (self->running)
             SmGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), self->selectedAndroidDevice.c_str());
-        }
-        else {
+        else
             SmGui::Text(self->selectedAndroidDevice.c_str());
-        }
-
-        ImGui::TextWrapped("Connect the QMX over USB and grant USB permission. On Android, QMX uses libusb for both IQ and CAT over the USB device. Desktop platforms use the native libqmx audio and CDC serial backends instead.");
 #endif
     }
 
@@ -476,6 +490,7 @@ private:
     int androidDevFd = -1;
     int androidVid = -1;
     int androidPid = -1;
+    int lastAndroidUsbHotplugGeneration = 0;
 #endif
 };
 

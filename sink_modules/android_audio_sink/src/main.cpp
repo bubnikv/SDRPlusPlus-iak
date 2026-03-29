@@ -8,6 +8,7 @@
 #include <config.h>
 #include <utils/optionlist.h>
 #include <aaudio/AAudio.h>
+#include <android_backend.h>
 #include <core.h>
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
@@ -42,8 +43,7 @@ public:
         if (running) {
             return;
         }
-        doStart();
-        running = true;
+        running = doStart();
     }
 
     void stop() {
@@ -59,13 +59,18 @@ public:
     }
 
 private:
-    void doStart() {
+    bool doStart() {
         // Create stream builder
         AAudioStreamBuilder *builder;
         aaudio_result_t result = AAudio_createStreamBuilder(&builder);
+        if (result != AAUDIO_OK) {
+            flog::error("AudioSink: Failed to create AAudio stream builder: {}", result);
+            return false;
+        }
 
         // Set stream options
         bufferSize = round(sampleRate / 60.0);
+        int preferredOutputDeviceId = backend::getPreferredAudioOutputDeviceId();
         AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_OUTPUT);
         AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
         AAudioStreamBuilder_setSampleRate(builder, sampleRate);
@@ -73,27 +78,52 @@ private:
         AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_FLOAT);
         AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize);
         AAudioStreamBuilder_setErrorCallback(builder, errorCallback, this);
+        if (preferredOutputDeviceId > 0) {
+            AAudioStreamBuilder_setDeviceId(builder, preferredOutputDeviceId);
+        }
         packer.setSampleCount(bufferSize);
         
         // Open the stream
-        AAudioStreamBuilder_openStream(builder, &stream);
+        result = AAudioStreamBuilder_openStream(builder, &stream);
+
+        AAudioStreamBuilder_delete(builder);
+        if (result != AAUDIO_OK || stream == NULL) {
+            flog::error("AudioSink: Failed to open AAudio stream: {}", result);
+            stream = NULL;
+            return false;
+        }
+
+        flog::info(
+            "AudioSink: Using Android audio output device {} (preferred {})",
+            AAudioStream_getDeviceId(stream),
+            preferredOutputDeviceId
+        );
 
         // Stream stream and packer
         packer.start();
-        AAudioStream_requestStart(stream);
-
-        // We no longer need the builder
-        AAudioStreamBuilder_delete(builder);
+        result = AAudioStream_requestStart(stream);
+        if (result != AAUDIO_OK) {
+            flog::error("AudioSink: Failed to start AAudio stream: {}", result);
+            packer.stop();
+            AAudioStream_close(stream);
+            stream = NULL;
+            return false;
+        }
 
         // Start worker thread
         workerThread = std::thread(&AudioSink::worker, this);
+        return true;
     }
 
     void doStop() {
+        if (stream == NULL) {
+            return;
+        }
         packer.stop();
         packer.out.stopReader();
         AAudioStream_requestStop(stream);
         AAudioStream_close(stream);
+        stream = NULL;
         if (workerThread.joinable()) { workerThread.join(); }
         packer.out.clearReadStop();
     }
@@ -116,8 +146,11 @@ private:
     }
 
     void restart() {
-        if (running) { doStop(); }
-        if (running) { doStart(); }
+        if (!running) {
+            return;
+        }
+        doStop();
+        running = doStart();
     }
 
     std::thread workerThread;

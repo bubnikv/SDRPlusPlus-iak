@@ -224,6 +224,29 @@ public:
     }
 
 private:
+#ifdef __ANDROID__
+    void refreshAndroidSelection() {
+        std::string previousSerial = selectedSerial;
+        refresh();
+        selectBySerial(previousSerial);
+        core::setInputSampleRate(sampleRate);
+        lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+    }
+
+    void refreshAndroidSelectionIfNeeded() {
+        if (running) {
+            return;
+        }
+
+        int generation = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+        if (generation == lastAndroidUsbHotplugGeneration) {
+            return;
+        }
+
+        refreshAndroidSelection();
+    }
+#endif
+
     static void menuSelected(void* ctx) {
         HackRFSourceModule* _this = (HackRFSourceModule*)ctx;
         core::setInputSampleRate(_this->sampleRate);
@@ -243,6 +266,9 @@ private:
     static void start(void* ctx) {
         HackRFSourceModule* _this = (HackRFSourceModule*)ctx;
         if (_this->running) { return; }
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->selectedSerial == "") {
             flog::error("Tried to start HackRF source with empty serial");
             return;
@@ -299,6 +325,9 @@ private:
     static void menuHandler(void* ctx) {
         HackRFSourceModule* _this = (HackRFSourceModule*)ctx;
 
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
         SmGui::ForceSync();
@@ -322,9 +351,13 @@ private:
         SmGui::FillWidth();
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_hackrf_refr_", _this->name))) {
+#ifdef __ANDROID__
+            _this->refreshAndroidSelection();
+#else
             _this->refresh();
             _this->selectBySerial(_this->selectedSerial);
             core::setInputSampleRate(_this->sampleRate);
+#endif
         }
 
         if (_this->running) { SmGui::EndDisabled(); }
@@ -407,6 +440,7 @@ private:
 
 #ifdef __ANDROID__
     int devFd = -1;
+    int lastAndroidUsbHotplugGeneration = 0;
 #endif
 
     std::vector<std::string> devList;

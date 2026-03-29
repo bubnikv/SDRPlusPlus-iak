@@ -109,7 +109,11 @@ public:
     void selectFirst() {
         if (devList.size() != 0) {
             selectBySerial(devList[0]);
+            return;
         }
+        selectedSerial = 0;
+        selectedSerStr.clear();
+        devId = 0;
     }
 
     void selectByString(std::string serial) {
@@ -232,6 +236,31 @@ public:
     }
 
 private:
+#ifdef __ANDROID__
+    void refreshAndroidSelection() {
+        refresh();
+        config.acquire();
+        std::string devSerial = config.conf["device"];
+        config.release();
+        selectByString(devSerial);
+        core::setInputSampleRate(sampleRate);
+        lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+    }
+
+    void refreshAndroidSelectionIfNeeded() {
+        if (running) {
+            return;
+        }
+
+        int generation = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
+        if (generation == lastAndroidUsbHotplugGeneration) {
+            return;
+        }
+
+        refreshAndroidSelection();
+    }
+#endif
+
     std::string getBandwdithScaled(double bw) {
         char buf[1024];
         if (bw >= 1000000.0) {
@@ -260,6 +289,9 @@ private:
     static void start(void* ctx) {
         AirspySourceModule* _this = (AirspySourceModule*)ctx;
         if (_this->running) { return; }
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->selectedSerial == 0) {
             flog::error("Tried to start Airspy source with null serial");
             return;
@@ -338,6 +370,9 @@ private:
     static void menuHandler(void* ctx) {
         AirspySourceModule* _this = (AirspySourceModule*)ctx;
 
+#ifdef __ANDROID__
+        _this->refreshAndroidSelectionIfNeeded();
+#endif
         if (_this->running) { SmGui::BeginDisabled(); }
 
         SmGui::FillWidth();
@@ -366,12 +401,16 @@ private:
         SmGui::FillWidth();
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_airspy_refr_", _this->name))) {
+#ifdef __ANDROID__
+            _this->refreshAndroidSelection();
+#else
             _this->refresh();
             config.acquire();
             std::string devSerial = config.conf["device"];
             config.release();
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
+#endif
         }
 
         if (_this->running) { SmGui::EndDisabled(); }
@@ -597,6 +636,7 @@ private:
 
 #ifdef __ANDROID__
     int devFd = 0;
+    int lastAndroidUsbHotplugGeneration = 0;
 #endif
 
     std::vector<uint64_t> devList;
