@@ -53,12 +53,13 @@ namespace net {
 #endif
     }
 
-    void setNonblocking(SockHandle_t sock) {
+    bool setNonblocking(SockHandle_t sock) {
 #ifdef _WIN32
         u_long enabled = 1;
-        ioctlsocket(sock, FIONBIO, &enabled);
+        return ioctlsocket(sock, FIONBIO, &enabled) == 0;
 #else
-        fcntl(sock, F_SETFL, O_NONBLOCK);
+        int flags = fcntl(sock, F_GETFL, 0);
+        return flags >= 0 && fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
 #endif
     }
 
@@ -264,7 +265,10 @@ namespace net {
         }
 
         // Enable nonblocking mode
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
 
         return std::make_shared<Socket>(s);
     }
@@ -415,7 +419,10 @@ namespace net {
         }
 
         // Enable nonblocking mode
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
 
         // Return listener class
         return std::make_shared<Listener>(s);
@@ -448,11 +455,17 @@ namespace net {
                 throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
 #endif
             }
-            setNonblocking(s);
+            if (!setNonblocking(s)) {
+                closeSocket(s);
+                throw std::runtime_error("Could not configure non-blocking socket");
+            }
             return std::make_shared<Socket>(s);
         }
 
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
         int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
         int connectionError = 0;
 

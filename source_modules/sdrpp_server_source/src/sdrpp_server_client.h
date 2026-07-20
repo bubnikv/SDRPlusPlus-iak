@@ -2,6 +2,7 @@
 #include <utils/net.h>
 #include <dsp/stream.h>
 #include <dsp/types.h>
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <queue>
@@ -32,9 +33,17 @@ namespace server {
     class PacketWaiter {
     public:
         // Returns true if the ACK arrived, false on timeout or cancel.
-        bool await(int timeout) {
+        bool await(int timeout, const std::atomic<bool>* cancellation = nullptr) {
             std::unique_lock lck(mtx);
-            return cnd.wait_for(lck, std::chrono::milliseconds(timeout), [this]() { return dataReady || canceled; }) && dataReady && !canceled;
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
+            while (!dataReady && !canceled) {
+                if (cancellation && cancellation->load()) { return false; }
+                const auto now = std::chrono::steady_clock::now();
+                if (now >= deadline) { return false; }
+                const auto pollDeadline = std::min(deadline, now + std::chrono::milliseconds(50));
+                cnd.wait_until(lck, pollDeadline, [this]() { return dataReady || canceled; });
+            }
+            return dataReady && !canceled;
         }
 
         // Worker thread: copy the ACK payload into the waiter and wake the
@@ -74,7 +83,8 @@ namespace server {
         CONN_ERR_TIMEOUT    = -1,
         CONN_ERR_BUSY       = -2,
         CONN_ERR_PROTOCOL   = -3,
-        CONN_ERR_AUTH       = -4
+        CONN_ERR_AUTH       = -4,
+        CONN_ERR_CANCELLED  = -5
     };
 
     class Client {
@@ -86,7 +96,9 @@ namespace server {
         };
 
         Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password);
+        Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password, const std::atomic<bool>* cancellation);
         Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey);
+        Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, const std::atomic<bool>* cancellation);
         ~Client();
 
         void showMenu();
@@ -116,13 +128,13 @@ namespace server {
         std::atomic<bool> protocolReady{false};
 
     private:
-        void init(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey* authKey);
+        void init(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey* authKey, const std::atomic<bool>* cancellation);
         void worker();
         void applyRxPrebufferModeLocked(bool resetBuffer);
 
-        int hello(const AuthKey* authKey);
-        int authenticate(const AuthKey& authKey);
-        int getUI();
+        int hello(const AuthKey* authKey, const std::atomic<bool>* cancellation);
+        int authenticate(const AuthKey& authKey, const std::atomic<bool>* cancellation);
+        int getUI(const std::atomic<bool>* cancellation = nullptr);
 
         void sendPacketLocked(PacketType type, int len);
         void sendCommandLocked(Command cmd, int len);
@@ -193,6 +205,8 @@ namespace server {
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password = "");
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS);
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS, const std::atomic<bool>* cancellation);
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey);
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS);
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS, const std::atomic<bool>* cancellation);
 }

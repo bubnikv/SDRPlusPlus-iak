@@ -352,16 +352,7 @@ namespace net {
     }
 
     Conn connect(std::string host, uint16_t port, int timeoutMS) {
-        Socket sock;
-
         initNetworking();
-
-        // Create a socket
-        sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sock < 0) {
-            throw std::runtime_error("Could not create socket");
-            return NULL;
-        }
 
         const auto started = std::chrono::steady_clock::now();
 
@@ -369,15 +360,21 @@ namespace net {
         sockaddr_in addr{};
         detail::ResolveStatus resolveStatus = detail::resolveIPv4(host, port, timeoutMS, addr);
         if (resolveStatus != detail::ResolveStatus::SUCCESS) {
-#ifdef _WIN32
-            closesocket(sock);
-#else
-            ::close(sock);
-#endif
             if (resolveStatus == detail::ResolveStatus::TIMEOUT) {
                 throw std::runtime_error("Host name resolution timed out");
             }
             throw std::runtime_error("Could not resolve host");
+        }
+
+        // Create a socket only after resolution, so a resolver setup failure
+        // cannot leak the handle.
+        Socket sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+#ifdef _WIN32
+        if (sock == INVALID_SOCKET) {
+#else
+        if (sock < 0) {
+#endif
+            throw std::runtime_error("Could not create socket");
         }
 
         if (timeoutMS < 0) {

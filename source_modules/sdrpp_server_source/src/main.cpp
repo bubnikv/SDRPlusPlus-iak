@@ -361,8 +361,8 @@ private:
             connectionThread = std::thread([this, host, targetPort, authKey, useAuth]() {
                 try {
                     auto newClient = useAuth
-                        ? server::connect(host, targetPort, &stream, *authKey, 3000)
-                        : server::connect(host, targetPort, &stream, std::string(), 3000);
+                        ? server::connect(host, targetPort, &stream, *authKey, 3000, &connectionCancelled)
+                        : server::connect(host, targetPort, &stream, std::string(), 3000, &connectionCancelled);
 
                     bool discard = false;
                     {

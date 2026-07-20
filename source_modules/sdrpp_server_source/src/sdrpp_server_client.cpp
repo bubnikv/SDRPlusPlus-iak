@@ -16,7 +16,10 @@ namespace {
 }
 
 namespace server {
-    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password) {
+    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password)
+        : Client(std::move(sock), out, password, nullptr) {}
+
+    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password, const std::atomic<bool>* cancellation) {
         AuthKey authKey{};
         AuthKey* authKeyPtr = nullptr;
         if (!password.empty()) {
@@ -25,7 +28,7 @@ namespace server {
         }
 
         try {
-            init(sock, out, authKeyPtr);
+            init(sock, out, authKeyPtr, cancellation);
         }
         catch (...) {
             std::fill(authKey.begin(), authKey.end(), 0);
@@ -35,7 +38,11 @@ namespace server {
     }
 
     Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey) {
-        init(sock, out, &authKey);
+        init(sock, out, &authKey, nullptr);
+    }
+
+    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, const std::atomic<bool>* cancellation) {
+        init(sock, out, &authKey, cancellation);
     }
 
     void deriveAuthKey(const std::string& password, AuthKey& authKey) {
@@ -44,9 +51,12 @@ namespace server {
             SERVER_AUTH_PBKDF2_ITERATIONS, authKey.data(), authKey.size());
     }
 
-    void Client::init(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey* authKey) {
+    void Client::init(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey* authKey, const std::atomic<bool>* cancellation) {
         this->sock = sock;
         output = out;
+        if (cancellation && cancellation->load()) {
+            throw std::runtime_error("Connection cancelled");
+        }
 
         // Allocate buffers
         rbuffer = std::make_unique<uint8_t[]>(SERVER_MAX_PACKET_SIZE);
@@ -81,8 +91,8 @@ namespace server {
         // Start worker thread
         workerThread = std::thread(&Client::worker, this);
 
-        int res = hello(authKey);
-        if (res == 0) { res = getUI(); }
+        int res = hello(authKey, cancellation);
+        if (res == 0) { res = getUI(cancellation); }
         if (res < 0) {
             // Close client
             close();
@@ -97,6 +107,8 @@ namespace server {
                 throw std::runtime_error("Incompatible SDR++ server protocol/fork");
             case CONN_ERR_AUTH:
                 throw std::runtime_error("Authentication failed");
+            case CONN_ERR_CANCELLED:
+                throw std::runtime_error("Connection cancelled");
             default:
                 throw std::runtime_error("Unknown error");
             }
@@ -424,7 +436,8 @@ namespace server {
         authCnd.notify_all();
     }
 
-    int Client::hello(const AuthKey* authKey) {
+    int Client::hello(const AuthKey* authKey, const std::atomic<bool>* cancellation) {
+        if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
         if (!isOpen()) { return CONN_ERR_TIMEOUT; }
 
         auto waiter = awaitCommandAck(COMMAND_HELLO);
@@ -435,8 +448,9 @@ namespace server {
             sendCommandLocked(COMMAND_HELLO, sizeof(hello));
         }
 
-        if (!waiter->await(PROTOCOL_TIMEOUT_MS)) {
+        if (!waiter->await(PROTOCOL_TIMEOUT_MS, cancellation)) {
             forgetCommandAck(waiter);
+            if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
             if (serverBusy) { return CONN_ERR_BUSY; }
             return CONN_ERR_PROTOCOL;
         }
@@ -450,7 +464,7 @@ namespace server {
 
         if ((hello.capabilities & SERVER_PROTOCOL_CAP_AUTH) != 0) {
             if (!authKey) { return CONN_ERR_AUTH; }
-            int res = authenticate(*authKey);
+            int res = authenticate(*authKey, cancellation);
             if (res < 0) { return res; }
         }
 
@@ -458,14 +472,16 @@ namespace server {
         return 0;
     }
 
-    int Client::authenticate(const AuthKey& authKey) {
+    int Client::authenticate(const AuthKey& authKey, const std::atomic<bool>* cancellation) {
         std::array<uint8_t, SERVER_AUTH_CHALLENGE_SIZE> challenge{};
         {
             std::unique_lock lck(authMtx);
-            if (!authCnd.wait_for(lck, std::chrono::milliseconds(PROTOCOL_TIMEOUT_MS), [this]() {
-                return authChallengeReady || authFailed.load() || !isOpen();
-            })) {
-                return CONN_ERR_TIMEOUT;
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(PROTOCOL_TIMEOUT_MS);
+            while (!authChallengeReady && !authFailed.load() && isOpen()) {
+                if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
+                const auto now = std::chrono::steady_clock::now();
+                if (now >= deadline) { return CONN_ERR_TIMEOUT; }
+                authCnd.wait_until(lck, std::min(deadline, now + std::chrono::milliseconds(50)));
             }
             if (authFailed.load() || !authChallengeReady || !isOpen()) { return CONN_ERR_AUTH; }
             challenge = authChallenge;
@@ -485,8 +501,9 @@ namespace server {
 
         std::fill(response.begin(), response.end(), 0);
 
-        if (!waiter->await(PROTOCOL_TIMEOUT_MS)) {
+        if (!waiter->await(PROTOCOL_TIMEOUT_MS, cancellation)) {
             forgetCommandAck(waiter);
+            if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
             // The server answers a valid response with COMMAND_DISCONNECT if
             // another client claimed the slot during the handshake.
             if (serverBusy.load()) { return CONN_ERR_BUSY; }
@@ -496,14 +513,16 @@ namespace server {
         return 0;
     }
 
-    int Client::getUI() {
+    int Client::getUI(const std::atomic<bool>* cancellation) {
+        if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
         if (!isOpen()) { return -1; }
         auto waiter = awaitCommandAck(COMMAND_GET_UI);
         sendCommand(COMMAND_GET_UI, 0);
-        if (!waiter->await(PROTOCOL_TIMEOUT_MS)) {
+        if (!waiter->await(PROTOCOL_TIMEOUT_MS, cancellation)) {
             // Drop the abandoned waiter, otherwise a late ACK for this request
             // would be delivered to a later same-command waiter.
             forgetCommandAck(waiter);
+            if (cancellation && cancellation->load()) { return CONN_ERR_CANCELLED; }
             if (!serverBusy) { flog::error("Timeout out after asking for UI"); };
             return serverBusy ? CONN_ERR_BUSY : CONN_ERR_TIMEOUT;
         }
@@ -570,7 +589,11 @@ namespace server {
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS) {
-        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, password);
+        return connect(std::move(host), port, out, password, timeoutMS, nullptr);
+    }
+
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS, const std::atomic<bool>* cancellation) {
+        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, password, cancellation);
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey) {
@@ -578,6 +601,10 @@ namespace server {
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS) {
-        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, authKey);
+        return connect(std::move(host), port, out, authKey, timeoutMS, nullptr);
+    }
+
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS, const std::atomic<bool>* cancellation) {
+        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, authKey, cancellation);
     }
 }
