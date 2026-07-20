@@ -9,6 +9,9 @@
 #include <config.h>
 #include <gui/widgets/stepped_slider.h>
 #include <gui/smgui.h>
+#include <atomic>
+#include <mutex>
+#include <thread>
 
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
@@ -72,6 +75,9 @@ public:
 
     ~SpyServerSourceModule() {
         stop(this);
+        if (connectionThread.joinable()) {
+            connectionThread.join();
+        }
         sigpath::sourceManager.unregisterSource("SpyServer");
     }
 
@@ -162,6 +168,8 @@ private:
     static void menuHandler(void* ctx) {
         SpyServerSourceModule* _this = (SpyServerSourceModule*)ctx;
 
+        _this->pollConnection();
+
         bool connected = (_this->client && _this->client->isOpen());
         gui::mainWindow.playButtonLocked = !connected;
 
@@ -183,12 +191,19 @@ private:
         if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
         SmGui::ForceSync();
+        // Keep this value for the whole ImGui scope. tryConnect() changes the
+        // atomic immediately; testing it again below would call EndDisabled()
+        // without the matching BeginDisabled() in the frame where Connect was
+        // clicked, corrupting ImGui's style stack.
+        const bool connecting = _this->connecting.load();
+        if (connecting) { SmGui::BeginDisabled(); }
         if (!connected && SmGui::Button("Connect##spyserver_source")) {
             _this->tryConnect();
         }
         else if (connected && SmGui::Button("Disconnect##spyserver_source")) {
             _this->client->close();
         }
+        if (connecting) { SmGui::EndDisabled(); }
         if (_this->running) { SmGui::EndDisabled(); }
 
 
@@ -236,56 +251,100 @@ private:
         else {
             SmGui::Text("Status:");
             SmGui::SameLine();
-            SmGui::Text("Not connected");
+            SmGui::Text(_this->connecting ? "Connecting..." : "Not connected");
+            if (!_this->connecting && !_this->lastConnectionError.empty()) {
+                SmGui::TextColoredF(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Connection failed: %s", _this->lastConnectionError.c_str());
+            }
         }
     }
 
     void tryConnect() {
-        try {
-            if (client) { client.reset(); }
-            client = spyserver::connect(hostname, port, &stream);
+        if (connecting.exchange(true)) { return; }
 
-            if (!client->waitForDevInfo(3000)) {
-                flog::error("SpyServer didn't respond with device information");
-            }
-            else {
-                char buf[1024];
-                sprintf(buf, "%s [%08X]", deviceTypesStr[client->devInfo.DeviceType], client->devInfo.DeviceSerial);
-                devRef = std::string(buf);
+        if (connectionThread.joinable()) {
+            connectionThread.join();
+        }
+        if (client) { client.reset(); }
+        {
+            std::lock_guard lck(connectionMtx);
+            connectionError.clear();
+        }
+        lastConnectionError.clear();
 
-                config.acquire();
-                if (!config.conf["devices"].contains(devRef)) {
-                    config.conf["devices"][devRef]["sampleRateId"] = 0;
-                    config.conf["devices"][devRef]["sampleBitDepthId"] = 1;
-                    config.conf["devices"][devRef]["gainId"] = 0;
-                }
-                srId = config.conf["devices"][devRef]["sampleRateId"];
-                iqType = config.conf["devices"][devRef]["sampleBitDepthId"];
-                gain = config.conf["devices"][devRef]["gainId"];
-                config.release(true);
-
-                gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
-
-                // Refresh sample rates
-                sampleRates.clear();
-                sampleRatesTxt.clear();
-                for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
-                    double sr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
-                    sampleRates.push_back(sr);
-                    sampleRatesTxt += getBandwdithScaled(sr);
-                    sampleRatesTxt += '\0';
+        const std::string host = hostname;
+        const uint16_t targetPort = port;
+        connectionThread = std::thread([this, host, targetPort]() {
+            try {
+                auto newClient = spyserver::connect(host, targetPort, &stream);
+                if (!newClient->waitForDevInfo(3000)) {
+                    newClient->close();
+                    throw std::runtime_error("SpyServer didn't respond with device information");
                 }
 
-                srId = std::clamp<int>(srId, 0, sampleRates.size() - 1);
-
-                sampleRate = sampleRates[srId];
-                core::setInputSampleRate(sampleRate);
-                flog::info("Connected to server");
+                std::lock_guard lck(connectionMtx);
+                pendingClient = std::move(newClient);
             }
+            catch (const std::exception& e) {
+                std::lock_guard lck(connectionMtx);
+                connectionError = e.what();
+            }
+            connecting = false;
+        });
+    }
+
+    void pollConnection() {
+        if (connecting || !connectionThread.joinable()) { return; }
+
+        connectionThread.join();
+
+        spyserver::SpyServerClient newClient;
+        std::string error;
+        {
+            std::lock_guard lck(connectionMtx);
+            newClient = std::move(pendingClient);
+            error = std::move(connectionError);
         }
-        catch (const std::exception& e) {
-            flog::error("Could not connect to spyserver {}", e.what());
+        if (!newClient) {
+            if (!error.empty()) {
+                flog::error("Could not connect to spyserver {}", error);
+                lastConnectionError = std::move(error);
+            }
+            return;
         }
+
+        client = std::move(newClient);
+        char buf[1024];
+        sprintf(buf, "%s [%08X]", deviceTypesStr[client->devInfo.DeviceType], client->devInfo.DeviceSerial);
+        devRef = std::string(buf);
+
+        config.acquire();
+        if (!config.conf["devices"].contains(devRef)) {
+            config.conf["devices"][devRef]["sampleRateId"] = 0;
+            config.conf["devices"][devRef]["sampleBitDepthId"] = 1;
+            config.conf["devices"][devRef]["gainId"] = 0;
+        }
+        srId = config.conf["devices"][devRef]["sampleRateId"];
+        iqType = config.conf["devices"][devRef]["sampleBitDepthId"];
+        gain = config.conf["devices"][devRef]["gainId"];
+        config.release(true);
+
+        gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
+
+        // Refresh sample rates on the GUI thread, where the source state is used.
+        sampleRates.clear();
+        sampleRatesTxt.clear();
+        for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
+            double sr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
+            sampleRates.push_back(sr);
+            sampleRatesTxt += getBandwdithScaled(sr);
+            sampleRatesTxt += '\0';
+        }
+
+        srId = std::clamp<int>(srId, 0, sampleRates.size() - 1);
+
+        sampleRate = sampleRates[srId];
+        core::setInputSampleRate(sampleRate);
+        flog::info("Connected to server");
     }
 
     std::string name;
@@ -310,6 +369,12 @@ private:
     SourceManager::SourceHandler handler;
 
     spyserver::SpyServerClient client;
+    spyserver::SpyServerClient pendingClient;
+    std::thread connectionThread;
+    std::mutex connectionMtx;
+    std::string connectionError;
+    std::string lastConnectionError;
+    std::atomic<bool> connecting{false};
 };
 
 MOD_EXPORT void _INIT_() {

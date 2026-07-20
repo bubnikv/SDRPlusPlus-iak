@@ -3,6 +3,11 @@
 #include <utils/flog.h>
 #include <stdexcept>
 
+#ifndef _WIN32
+#include <cerrno>
+#include <fcntl.h>
+#endif
+
 namespace net {
 
 #ifdef _WIN32
@@ -328,7 +333,7 @@ namespace net {
     }
 
 
-    Conn connect(std::string host, uint16_t port) {
+    Conn connect(std::string host, uint16_t port, int timeoutMS) {
         Socket sock;
 
 #ifdef _WIN32
@@ -356,8 +361,12 @@ namespace net {
         // Get address from hostname/ip
         hostent* remoteHost = gethostbyname(host.c_str());
         if (remoteHost == NULL || remoteHost->h_addr_list[0] == NULL) {
+#ifdef _WIN32
+            closesocket(sock);
+#else
+            ::close(sock);
+#endif
             throw std::runtime_error("Could get address from host");
-            return NULL;
         }
         uint32_t* naddr = (uint32_t*)remoteHost->h_addr_list[0];
 
@@ -367,11 +376,73 @@ namespace net {
         addr.sin_family = AF_INET;
         addr.sin_port = htons(port);
 
-        // Connect to host
-        if (::connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-            throw std::runtime_error("Could not connect to host");
-            return NULL;
+        // Make the handshake non-blocking, so an unreachable server cannot
+        // hold the GUI thread until the OS-level TCP retry timeout expires.
+#ifdef _WIN32
+        u_long nonBlocking = 1;
+        if (ioctlsocket(sock, FIONBIO, &nonBlocking) != 0) {
+            closesocket(sock);
+            throw std::runtime_error("Could not configure non-blocking socket");
         }
+#else
+        int oldFlags = fcntl(sock, F_GETFL, 0);
+        if (oldFlags < 0 || fcntl(sock, F_SETFL, oldFlags | O_NONBLOCK) < 0) {
+            ::close(sock);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
+#endif
+
+        int connectResult = ::connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+        bool connected = (connectResult == 0);
+        if (!connected) {
+#ifdef _WIN32
+            int connectError = WSAGetLastError();
+            bool inProgress = (connectError == WSAEINPROGRESS || connectError == WSAEWOULDBLOCK);
+#else
+            bool inProgress = (errno == EINPROGRESS || errno == EWOULDBLOCK);
+#endif
+            if (inProgress) {
+                fd_set writeSet;
+                FD_ZERO(&writeSet);
+                FD_SET(sock, &writeSet);
+                timeval timeout {
+                    timeoutMS / 1000,
+                    (timeoutMS % 1000) * 1000
+                };
+
+#ifdef _WIN32
+                int selected = select(0, NULL, &writeSet, NULL, &timeout);
+#else
+                int selected = select(sock + 1, NULL, &writeSet, NULL, &timeout);
+#endif
+                if (selected > 0 && FD_ISSET(sock, &writeSet)) {
+                    int socketError = 0;
+#ifdef _WIN32
+                    int socketErrorLen = sizeof(socketError);
+#else
+                    socklen_t socketErrorLen = sizeof(socketError);
+#endif
+                    connected = getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0 && socketError == 0;
+                }
+            }
+        }
+
+        if (!connected) {
+#ifdef _WIN32
+            closesocket(sock);
+#else
+            ::close(sock);
+#endif
+            throw std::runtime_error("Could not connect to host within timeout");
+        }
+
+        // ConnClass expects a regular blocking stream socket for its workers.
+#ifdef _WIN32
+        nonBlocking = 0;
+        ioctlsocket(sock, FIONBIO, &nonBlocking);
+#else
+        fcntl(sock, F_SETFL, oldFlags);
+#endif
 
         return Conn(new ConnClass(sock));
     }

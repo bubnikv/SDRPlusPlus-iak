@@ -123,7 +123,9 @@ namespace net {
 
     typedef std::unique_ptr<ListenerClass> Listener;
 
-    Conn connect(std::string host, uint16_t port);
+    // A bounded timeout prevents a stalled TCP handshake from freezing a GUI
+    // caller while the operating system retries an unreachable host.
+    Conn connect(std::string host, uint16_t port, int timeoutMS = 3000);
     Listener listen(std::string host, uint16_t port);
     Conn openUDP(std::string host, uint16_t port, std::string remoteHost, uint16_t remotePort, bool bindSocket = true);
 

@@ -431,15 +431,40 @@ namespace net {
         // Create socket
         SockHandle_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-        // Connect to server
-        if (::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in))) {
+        // A blocking connect can take minutes on an unreachable address.  This
+        // function is used from source-module menu handlers, so keep the UI
+        // responsive by making the connection attempt non-blocking and waiting
+        // for a bounded time instead.
+        setNonblocking(s);
+
+        int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
+#ifdef _WIN32
+        if (result && WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAEINPROGRESS) {
+#else
+        if (result && errno != EINPROGRESS && errno != EWOULDBLOCK) {
+#endif
             closeSocket(s);
             throw std::runtime_error("Could not connect");
-            return NULL;
         }
 
-        // Enable nonblocking mode
-        setNonblocking(s);
+        if (result) {
+            fd_set writefds;
+            FD_ZERO(&writefds);
+            FD_SET(s, &writefds);
+            timeval timeout { 3, 0 };
+            result = select((int)s + 1, nullptr, &writefds, nullptr, &timeout);
+
+            int socketError = 0;
+#ifdef _WIN32
+            int socketErrorLen = sizeof(socketError);
+#else
+            socklen_t socketErrorLen = sizeof(socketError);
+#endif
+            if (result <= 0 || !FD_ISSET(s, &writefds) || getsockopt(s, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) || socketError) {
+                closeSocket(s);
+                throw std::runtime_error("Could not connect within 3 seconds");
+            }
+        }
 
         // Return socket class
         return std::make_shared<Socket>(s);
