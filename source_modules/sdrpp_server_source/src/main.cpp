@@ -84,6 +84,7 @@ public:
         // If still selected, unregisterSource fires menuDeselected, which
         // unbinds frameDrawHandler.
         stop(this);
+        cancelConnection();
         if (connectionThread.joinable()) {
             connectionThread.join();
         }
@@ -137,6 +138,7 @@ private:
 
     static void menuDeselected(void* ctx) {
         SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        _this->cancelConnection();
         gui::mainWindow.onFrameDraw.unbindHandler(&_this->frameDrawHandler);
         gui::mainWindow.playButtonLocked = false;
         // Release the remote limits so they don't leak into the next source.
@@ -322,8 +324,19 @@ private:
     void tryConnect() {
         if (connecting.exchange(true)) { return; }
 
+        if (port <= 0 || port > 65535) {
+            lastConnectionError = "Port must be between 1 and 65535";
+            connecting = false;
+            return;
+        }
+
         if (connectionThread.joinable()) {
             connectionThread.join();
+        }
+        connectionCancelled = false;
+        if (client) {
+            client->close();
+            client.reset();
         }
         serverBusy = false;
         authFailed = false;
@@ -335,29 +348,65 @@ private:
 
         const std::string host = hostname;
         const int targetPort = port;
-        server::AuthKey authKey{};
+        auto authKey = std::make_shared<server::AuthKey>();
         const bool useAuth = savedAuthKeyValid || password[0] != 0;
         if (savedAuthKeyValid) {
-            authKey = savedAuthKey;
+            *authKey = savedAuthKey;
         }
         else if (useAuth) {
-            server::deriveAuthKey(std::string(password), authKey);
+            server::deriveAuthKey(std::string(password), *authKey);
         }
 
-        connectionThread = std::thread([this, host, targetPort, authKey, useAuth]() {
-            try {
-                auto newClient = useAuth
-                    ? server::connect(host, targetPort, &stream, authKey)
-                    : server::connect(host, targetPort, &stream);
-                std::lock_guard lck(connectionMtx);
-                pendingClient = std::move(newClient);
-            }
-            catch (const std::exception& e) {
-                std::lock_guard lck(connectionMtx);
-                connectionError = e.what();
-            }
+        try {
+            connectionThread = std::thread([this, host, targetPort, authKey, useAuth]() {
+                try {
+                    auto newClient = useAuth
+                        ? server::connect(host, targetPort, &stream, *authKey, 3000)
+                        : server::connect(host, targetPort, &stream, std::string(), 3000);
+
+                    bool discard = false;
+                    {
+                        std::lock_guard lck(connectionMtx);
+                        discard = connectionCancelled.load();
+                        if (!discard) {
+                            pendingClient = std::move(newClient);
+                        }
+                    }
+                    if (discard) {
+                        newClient->close();
+                    }
+                }
+                catch (const std::exception& e) {
+                    if (!connectionCancelled) {
+                        std::lock_guard lck(connectionMtx);
+                        connectionError = e.what();
+                    }
+                }
+                std::fill(authKey->begin(), authKey->end(), 0);
+                connecting = false;
+            });
+        }
+        catch (const std::exception& e) {
+            std::fill(authKey->begin(), authKey->end(), 0);
             connecting = false;
-        });
+            lastConnectionError = std::string("Could not start connection worker: ") + e.what();
+            flog::error("{}", lastConnectionError);
+        }
+    }
+
+    void cancelConnection() {
+        connectionCancelled = true;
+
+        std::shared_ptr<server::Client> abandonedClient;
+        {
+            std::lock_guard lck(connectionMtx);
+            abandonedClient = std::move(pendingClient);
+            connectionError.clear();
+        }
+        if (abandonedClient) {
+            abandonedClient->close();
+        }
+        lastConnectionError.clear();
     }
 
     void pollConnection() {
@@ -365,12 +414,19 @@ private:
 
         connectionThread.join();
 
+        const bool cancelled = connectionCancelled.exchange(false);
         std::shared_ptr<server::Client> newClient;
         std::string error;
         {
             std::lock_guard lck(connectionMtx);
             newClient = std::move(pendingClient);
             error = std::move(connectionError);
+        }
+        if (cancelled) {
+            if (newClient) {
+                newClient->close();
+            }
+            return;
         }
         if (!newClient) {
             if (!error.empty()) {
@@ -398,18 +454,26 @@ private:
         devConfName = serverConfigName();
 
         // Load settings
-        sampleTypeId = sampleTypeList.valueId(dsp::compression::PCM_TYPE_I16);
-        if (config.conf["servers"][devConfName].contains("sampleType")) {
-            std::string key = config.conf["servers"][devConfName]["sampleType"];
-            if (sampleTypeList.keyExists(key)) { sampleTypeId = sampleTypeList.keyId(key); }
+        config.acquire();
+        try {
+            sampleTypeId = sampleTypeList.valueId(dsp::compression::PCM_TYPE_I16);
+            if (config.conf["servers"][devConfName].contains("sampleType")) {
+                std::string key = config.conf["servers"][devConfName]["sampleType"];
+                if (sampleTypeList.keyExists(key)) { sampleTypeId = sampleTypeList.keyId(key); }
+            }
+            if (config.conf["servers"][devConfName].contains("compression")) {
+                compression = config.conf["servers"][devConfName]["compression"];
+            }
+            rxPrebufferId = prebufferList.valueId(100);
+            if (config.conf["servers"][devConfName].contains("rxPrebuffer")) {
+                int prebufferMsec = config.conf["servers"][devConfName]["rxPrebuffer"];
+                if (prebufferList.valueExists(prebufferMsec)) { rxPrebufferId = prebufferList.valueId(prebufferMsec); }
+            }
+            config.release();
         }
-        if (config.conf["servers"][devConfName].contains("compression")) {
-            compression = config.conf["servers"][devConfName]["compression"];
-        }
-        rxPrebufferId = prebufferList.valueId(100);
-        if (config.conf["servers"][devConfName].contains("rxPrebuffer")) {
-            int prebufferMsec = config.conf["servers"][devConfName]["rxPrebuffer"];
-            if (prebufferList.valueExists(prebufferMsec)) { rxPrebufferId = prebufferList.valueId(prebufferMsec); }
+        catch (...) {
+            config.release();
+            throw;
         }
 
         // Set settings
@@ -579,6 +643,7 @@ private:
     std::string connectionError;
     std::string lastConnectionError;
     std::atomic<bool> connecting{false};
+    std::atomic<bool> connectionCancelled{false};
 };
 
 MOD_EXPORT void _INIT_() {

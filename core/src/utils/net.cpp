@@ -1,7 +1,9 @@
 #include "net.h"
+#include "net_resolve.h"
 #include <string.h>
 #include <codecvt>
 #include <stdexcept>
+#include <chrono>
 
 #ifdef _WIN32
 #define WOULD_BLOCK (WSAGetLastError() == WSAEWOULDBLOCK)
@@ -15,24 +17,23 @@
 #endif
 
 namespace net {
-    bool _init = false;
+    std::once_flag initFlag;
     
     // === Private functions ===
 
     void init() {
-        if (_init) { return; }
+        std::call_once(initFlag, []() {
 #ifdef _WIN32
-        // Initialize WinSock2
-        WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-            throw std::runtime_error("Could not initialize WinSock2");
-            return;
-        }
+            // Initialize WinSock2
+            WSADATA wsa;
+            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
+                throw std::runtime_error("Could not initialize WinSock2");
+            }
 #else
-        // Disable SIGPIPE to avoid closing when the remote host disconnects
-        signal(SIGPIPE, SIG_IGN);
+            // Disable SIGPIPE to avoid closing when the remote host disconnects
+            signal(SIGPIPE, SIG_IGN);
 #endif
-        _init = true;
+        });
     }
 
     bool queryHost(uint32_t* addr, std::string host) {
@@ -425,44 +426,101 @@ namespace net {
     }
 
     std::shared_ptr<Socket> connect(const Address& addr) {
+        return connect(addr, NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Socket> connect(const Address& addr, int timeout) {
         // Init library if needed
         init();
 
         // Create socket
         SockHandle_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-        // A blocking connect can take minutes on an unreachable address.  This
-        // function is used from source-module menu handlers, so keep the UI
-        // responsive by making the connection attempt non-blocking and waiting
-        // for a bounded time instead.
-        setNonblocking(s);
-
-        int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
+        if (timeout < 0) {
+            if (::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in))) {
 #ifdef _WIN32
-        if (result && WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAEINPROGRESS) {
+                int connectError = WSAGetLastError();
+                closeSocket(s);
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
 #else
-        if (result && errno != EINPROGRESS && errno != EWOULDBLOCK) {
+                int connectError = errno;
+                closeSocket(s);
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
 #endif
-            closeSocket(s);
-            throw std::runtime_error("Could not connect");
+            }
+            setNonblocking(s);
+            return std::make_shared<Socket>(s);
+        }
+
+        setNonblocking(s);
+        int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
+        int connectionError = 0;
+
+        if (result) {
+#ifdef _WIN32
+            int connectError = WSAGetLastError();
+            bool inProgress = connectError == WSAEWOULDBLOCK || connectError == WSAEINPROGRESS;
+#else
+            int connectError = errno;
+            bool inProgress = connectError == EINPROGRESS || connectError == EWOULDBLOCK;
+#endif
+            if (!inProgress) {
+                closeSocket(s);
+#ifdef _WIN32
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
+#else
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
+#endif
+            }
         }
 
         if (result) {
             fd_set writefds;
             FD_ZERO(&writefds);
             FD_SET(s, &writefds);
-            timeval timeout { 3, 0 };
-            result = select((int)s + 1, nullptr, &writefds, nullptr, &timeout);
+            timeval timeoutValue {
+                timeout / 1000,
+                (timeout % 1000) * 1000
+            };
+            result = select((int)s + 1, nullptr, &writefds, nullptr, &timeoutValue);
 
-            int socketError = 0;
-#ifdef _WIN32
-            int socketErrorLen = sizeof(socketError);
-#else
-            socklen_t socketErrorLen = sizeof(socketError);
-#endif
-            if (result <= 0 || !FD_ISSET(s, &writefds) || getsockopt(s, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) || socketError) {
+            if (result == 0) {
                 closeSocket(s);
-                throw std::runtime_error("Could not connect within 3 seconds");
+                throw std::runtime_error("Connection timed out");
+            }
+            if (result < 0 || !FD_ISSET(s, &writefds)) {
+#ifdef _WIN32
+                connectionError = WSAGetLastError();
+#else
+                connectionError = errno;
+#endif
+            }
+            else {
+                int socketError = 0;
+#ifdef _WIN32
+                int socketErrorLen = sizeof(socketError);
+#else
+                socklen_t socketErrorLen = sizeof(socketError);
+#endif
+                if (getsockopt(s, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0) {
+                    connectionError = socketError;
+                }
+                else {
+#ifdef _WIN32
+                    connectionError = WSAGetLastError();
+#else
+                    connectionError = errno;
+#endif
+                }
+            }
+
+            if (connectionError) {
+                closeSocket(s);
+#ifdef _WIN32
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectionError) + ")");
+#else
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectionError));
+#endif
             }
         }
 
@@ -471,7 +529,36 @@ namespace net {
     }
 
     std::shared_ptr<Socket> connect(std::string host, int port) {
-        return connect(Address(host, port));
+        return connect(std::move(host), port, NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Socket> connect(std::string host, int port, int timeout) {
+        init();
+
+        if (timeout < 0) {
+            return connect(Address(host, port), timeout);
+        }
+
+        const auto started = std::chrono::steady_clock::now();
+        sockaddr_in resolved{};
+        detail::ResolveStatus resolveStatus = detail::resolveIPv4(host, port, timeout, resolved);
+        if (resolveStatus == detail::ResolveStatus::TIMEOUT) {
+            throw std::runtime_error("Host name resolution timed out");
+        }
+        if (resolveStatus != detail::ResolveStatus::SUCCESS) {
+            throw std::runtime_error("Unknown host");
+        }
+
+        int elapsedMS = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        int remainingMS = timeout - elapsedMS;
+        if (remainingMS <= 0) {
+            throw std::runtime_error("Connection timed out");
+        }
+
+        Address address;
+        address.addr = resolved;
+        return connect(address, remainingMS);
     }
 
     std::shared_ptr<Socket> openudp(const Address& raddr, const Address& laddr, bool allowBroadcast) {

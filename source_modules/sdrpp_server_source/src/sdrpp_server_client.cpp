@@ -566,10 +566,18 @@ namespace server {
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password) {
-        return std::make_shared<Client>(net::connect(host, port), out, password);
+        return connect(std::move(host), port, out, password, net::NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS) {
+        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, password);
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey) {
-        return std::make_shared<Client>(net::connect(host, port), out, authKey);
+        return connect(std::move(host), port, out, authKey, net::NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS) {
+        return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, authKey);
     }
 }

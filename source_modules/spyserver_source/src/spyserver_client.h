@@ -49,5 +49,6 @@ namespace spyserver {
     typedef std::unique_ptr<SpyServerClientClass> SpyServerClient;
 
     SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out);
+    SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, int timeoutMS);
 
 }

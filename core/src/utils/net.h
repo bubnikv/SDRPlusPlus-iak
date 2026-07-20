@@ -237,7 +237,9 @@ namespace net {
      * @param addr Remote address.
      * @return Socket instance on success, Throws runtime_error otherwise.
      */
-    std::shared_ptr<Socket> connect(const Address& addr);  
+    std::shared_ptr<Socket> connect(const Address& addr);
+    // Timed variant; timeout is in milliseconds.
+    std::shared_ptr<Socket> connect(const Address& addr, int timeout);
 
     /**
      * Create TCP connection.
@@ -245,7 +247,9 @@ namespace net {
      * @param port Remote port.
      * @return Socket instance on success, Throws runtime_error otherwise.
      */
-    std::shared_ptr<Socket> connect(std::string host, int port);  
+    std::shared_ptr<Socket> connect(std::string host, int port);
+    // Timed variant; timeout bounds name resolution and connection.
+    std::shared_ptr<Socket> connect(std::string host, int port, int timeout);
 
     /**
      * Create UDP socket.

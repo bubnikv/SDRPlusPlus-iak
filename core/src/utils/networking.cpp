@@ -1,7 +1,9 @@
 #include <utils/networking.h>
 #include <assert.h>
 #include <utils/flog.h>
+#include <utils/net_resolve.h>
 #include <stdexcept>
+#include <chrono>
 
 #ifndef _WIN32
 #include <cerrno>
@@ -9,10 +11,22 @@
 #endif
 
 namespace net {
+    namespace {
+        std::once_flag networkInitFlag;
 
+        void initNetworking() {
+            std::call_once(networkInitFlag, []() {
 #ifdef _WIN32
-    extern bool winsock_init = false;
+                WSADATA wsa;
+                if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
+                    throw std::runtime_error("Could not initialize WinSock2");
+                }
+#else
+                signal(SIGPIPE, SIG_IGN);
 #endif
+            });
+        }
+    }
 
     ConnClass::ConnClass(Socket sock, struct sockaddr_in raddr, bool udp) {
         _sock = sock;
@@ -333,23 +347,14 @@ namespace net {
     }
 
 
+    Conn connect(std::string host, uint16_t port) {
+        return connect(std::move(host), port, -1);
+    }
+
     Conn connect(std::string host, uint16_t port, int timeoutMS) {
         Socket sock;
 
-#ifdef _WIN32
-        // Initialize WinSock2
-        if (!winsock_init) {
-            WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-                throw std::runtime_error("Could not initialize WinSock2");
-                return NULL;
-            }
-            winsock_init = true;
-        }
-        assert(winsock_init);
-#else
-        signal(SIGPIPE, SIG_IGN);
-#endif
+        initNetworking();
 
         // Create a socket
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -358,23 +363,37 @@ namespace net {
             return NULL;
         }
 
-        // Get address from hostname/ip
-        hostent* remoteHost = gethostbyname(host.c_str());
-        if (remoteHost == NULL || remoteHost->h_addr_list[0] == NULL) {
+        const auto started = std::chrono::steady_clock::now();
+
+        // Resolve the address within the same overall deadline as connect().
+        sockaddr_in addr{};
+        detail::ResolveStatus resolveStatus = detail::resolveIPv4(host, port, timeoutMS, addr);
+        if (resolveStatus != detail::ResolveStatus::SUCCESS) {
 #ifdef _WIN32
             closesocket(sock);
 #else
             ::close(sock);
 #endif
-            throw std::runtime_error("Could get address from host");
+            if (resolveStatus == detail::ResolveStatus::TIMEOUT) {
+                throw std::runtime_error("Host name resolution timed out");
+            }
+            throw std::runtime_error("Could not resolve host");
         }
-        uint32_t* naddr = (uint32_t*)remoteHost->h_addr_list[0];
 
-        // Create host address
-        struct sockaddr_in addr;
-        addr.sin_addr.s_addr = *naddr;
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
+        if (timeoutMS < 0) {
+            if (::connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+#ifdef _WIN32
+                int connectError = WSAGetLastError();
+                closesocket(sock);
+                throw std::runtime_error("Could not connect to host (error " + std::to_string(connectError) + ")");
+#else
+                int connectError = errno;
+                ::close(sock);
+                throw std::runtime_error(std::string("Could not connect to host: ") + strerror(connectError));
+#endif
+            }
+            return Conn(new ConnClass(sock));
+        }
 
         // Make the handshake non-blocking, so an unreachable server cannot
         // hold the GUI thread until the OS-level TCP retry timeout expires.
@@ -392,13 +411,27 @@ namespace net {
         }
 #endif
 
+        int elapsedMS = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        int remainingMS = timeoutMS - elapsedMS;
+        if (remainingMS <= 0) {
+#ifdef _WIN32
+            closesocket(sock);
+#else
+            ::close(sock);
+#endif
+            throw std::runtime_error("Connection timed out");
+        }
+
         int connectResult = ::connect(sock, (struct sockaddr*)&addr, sizeof(addr));
         bool connected = (connectResult == 0);
+        int connectionError = 0;
         if (!connected) {
 #ifdef _WIN32
             int connectError = WSAGetLastError();
             bool inProgress = (connectError == WSAEINPROGRESS || connectError == WSAEWOULDBLOCK);
 #else
+            int connectError = errno;
             bool inProgress = (errno == EINPROGRESS || errno == EWOULDBLOCK);
 #endif
             if (inProgress) {
@@ -406,8 +439,8 @@ namespace net {
                 FD_ZERO(&writeSet);
                 FD_SET(sock, &writeSet);
                 timeval timeout {
-                    timeoutMS / 1000,
-                    (timeoutMS % 1000) * 1000
+                    remainingMS / 1000,
+                    (remainingMS % 1000) * 1000
                 };
 
 #ifdef _WIN32
@@ -415,15 +448,43 @@ namespace net {
 #else
                 int selected = select(sock + 1, NULL, &writeSet, NULL, &timeout);
 #endif
-                if (selected > 0 && FD_ISSET(sock, &writeSet)) {
+                if (selected == 0) {
+#ifdef _WIN32
+                    closesocket(sock);
+#else
+                    ::close(sock);
+#endif
+                    throw std::runtime_error("Connection timed out");
+                }
+                if (selected < 0 || !FD_ISSET(sock, &writeSet)) {
+#ifdef _WIN32
+                    connectionError = WSAGetLastError();
+#else
+                    connectionError = errno;
+#endif
+                }
+                else {
                     int socketError = 0;
 #ifdef _WIN32
                     int socketErrorLen = sizeof(socketError);
 #else
                     socklen_t socketErrorLen = sizeof(socketError);
 #endif
-                    connected = getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0 && socketError == 0;
+                    if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0) {
+                        connected = socketError == 0;
+                        connectionError = socketError;
+                    }
+                    else {
+#ifdef _WIN32
+                        connectionError = WSAGetLastError();
+#else
+                        connectionError = errno;
+#endif
+                    }
                 }
+            }
+            else {
+                connectionError = connectError;
             }
         }
 
@@ -433,15 +494,25 @@ namespace net {
 #else
             ::close(sock);
 #endif
-            throw std::runtime_error("Could not connect to host within timeout");
+#ifdef _WIN32
+            throw std::runtime_error("Could not connect to host (error " + std::to_string(connectionError) + ")");
+#else
+            throw std::runtime_error(std::string("Could not connect to host: ") + strerror(connectionError));
+#endif
         }
 
         // ConnClass expects a regular blocking stream socket for its workers.
 #ifdef _WIN32
         nonBlocking = 0;
-        ioctlsocket(sock, FIONBIO, &nonBlocking);
+        if (ioctlsocket(sock, FIONBIO, &nonBlocking) != 0) {
+            closesocket(sock);
+            throw std::runtime_error("Could not restore blocking socket mode");
+        }
 #else
-        fcntl(sock, F_SETFL, oldFlags);
+        if (fcntl(sock, F_SETFL, oldFlags) < 0) {
+            ::close(sock);
+            throw std::runtime_error("Could not restore blocking socket mode");
+        }
 #endif
 
         return Conn(new ConnClass(sock));
@@ -450,20 +521,7 @@ namespace net {
     Listener listen(std::string host, uint16_t port) {
         Socket listenSock;
 
-#ifdef _WIN32
-        // Initialize WinSock2
-        if (!winsock_init) {
-            WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-                throw std::runtime_error("Could not initialize WinSock2");
-                return NULL;
-            }
-            winsock_init = true;
-        }
-        assert(winsock_init);
-#else
-        signal(SIGPIPE, SIG_IGN);
-#endif
+        initNetworking();
 
         // Create a socket
         listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -516,20 +574,7 @@ namespace net {
     Conn openUDP(std::string host, uint16_t port, std::string remoteHost, uint16_t remotePort, bool bindSocket) {
         Socket sock;
 
-#ifdef _WIN32
-        // Initialize WinSock2
-        if (!winsock_init) {
-            WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-                throw std::runtime_error("Could not initialize WinSock2");
-                return NULL;
-            }
-            winsock_init = true;
-        }
-        assert(winsock_init);
-#else
-        signal(SIGPIPE, SIG_IGN);
-#endif
+        initNetworking();
 
         // Create a socket
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);

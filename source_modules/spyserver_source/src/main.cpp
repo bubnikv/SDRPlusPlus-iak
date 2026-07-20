@@ -75,6 +75,7 @@ public:
 
     ~SpyServerSourceModule() {
         stop(this);
+        cancelConnection();
         if (connectionThread.joinable()) {
             connectionThread.join();
         }
@@ -119,6 +120,7 @@ private:
 
     static void menuDeselected(void* ctx) {
         SpyServerSourceModule* _this = (SpyServerSourceModule*)ctx;
+        _this->cancelConnection();
         gui::mainWindow.playButtonLocked = false;
         flog::info("SpyServerSourceModule '{0}': Menu Deselect!", _this->name);
     }
@@ -173,7 +175,8 @@ private:
         bool connected = (_this->client && _this->client->isOpen());
         gui::mainWindow.playButtonLocked = !connected;
 
-        if (connected) { SmGui::BeginDisabled(); }
+        const bool connecting = _this->connecting.load();
+        if (connected || connecting) { SmGui::BeginDisabled(); }
         if (SmGui::InputText(CONCAT("##_spyserver_srv_host_", _this->name), _this->hostname, 1023)) {
             config.acquire();
             config.conf["hostname"] = _this->hostname;
@@ -186,7 +189,7 @@ private:
             config.conf["port"] = _this->port;
             config.release(true);
         }
-        if (connected) { SmGui::EndDisabled(); }
+        if (connected || connecting) { SmGui::EndDisabled(); }
 
         if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
@@ -195,7 +198,6 @@ private:
         // atomic immediately; testing it again below would call EndDisabled()
         // without the matching BeginDisabled() in the frame where Connect was
         // clicked, corrupting ImGui's style stack.
-        const bool connecting = _this->connecting.load();
         if (connecting) { SmGui::BeginDisabled(); }
         if (!connected && SmGui::Button("Connect##spyserver_source")) {
             _this->tryConnect();
@@ -261,9 +263,16 @@ private:
     void tryConnect() {
         if (connecting.exchange(true)) { return; }
 
+        if (port <= 0 || port > 65535) {
+            lastConnectionError = "Port must be between 1 and 65535";
+            connecting = false;
+            return;
+        }
+
         if (connectionThread.joinable()) {
             connectionThread.join();
         }
+        connectionCancelled = false;
         if (client) { client.reset(); }
         {
             std::lock_guard lck(connectionMtx);
@@ -273,23 +282,56 @@ private:
 
         const std::string host = hostname;
         const uint16_t targetPort = port;
-        connectionThread = std::thread([this, host, targetPort]() {
-            try {
-                auto newClient = spyserver::connect(host, targetPort, &stream);
-                if (!newClient->waitForDevInfo(3000)) {
-                    newClient->close();
-                    throw std::runtime_error("SpyServer didn't respond with device information");
-                }
+        try {
+            connectionThread = std::thread([this, host, targetPort]() {
+                try {
+                    auto newClient = spyserver::connect(host, targetPort, &stream, 3000);
+                    if (!newClient->waitForDevInfo(3000)) {
+                        newClient->close();
+                        throw std::runtime_error("SpyServer didn't respond with device information");
+                    }
 
-                std::lock_guard lck(connectionMtx);
-                pendingClient = std::move(newClient);
-            }
-            catch (const std::exception& e) {
-                std::lock_guard lck(connectionMtx);
-                connectionError = e.what();
-            }
+                    bool discard = false;
+                    {
+                        std::lock_guard lck(connectionMtx);
+                        discard = connectionCancelled.load();
+                        if (!discard) {
+                            pendingClient = std::move(newClient);
+                        }
+                    }
+                    if (discard) {
+                        newClient->close();
+                    }
+                }
+                catch (const std::exception& e) {
+                    if (!connectionCancelled) {
+                        std::lock_guard lck(connectionMtx);
+                        connectionError = e.what();
+                    }
+                }
+                connecting = false;
+            });
+        }
+        catch (const std::exception& e) {
             connecting = false;
-        });
+            lastConnectionError = std::string("Could not start connection worker: ") + e.what();
+            flog::error("{}", lastConnectionError);
+        }
+    }
+
+    void cancelConnection() {
+        connectionCancelled = true;
+
+        spyserver::SpyServerClient abandonedClient;
+        {
+            std::lock_guard lck(connectionMtx);
+            abandonedClient = std::move(pendingClient);
+            connectionError.clear();
+        }
+        if (abandonedClient) {
+            abandonedClient->close();
+        }
+        lastConnectionError.clear();
     }
 
     void pollConnection() {
@@ -297,12 +339,19 @@ private:
 
         connectionThread.join();
 
+        const bool cancelled = connectionCancelled.exchange(false);
         spyserver::SpyServerClient newClient;
         std::string error;
         {
             std::lock_guard lck(connectionMtx);
             newClient = std::move(pendingClient);
             error = std::move(connectionError);
+        }
+        if (cancelled) {
+            if (newClient) {
+                newClient->close();
+            }
+            return;
         }
         if (!newClient) {
             if (!error.empty()) {
@@ -312,39 +361,66 @@ private:
             return;
         }
 
-        client = std::move(newClient);
-        char buf[1024];
-        sprintf(buf, "%s [%08X]", deviceTypesStr[client->devInfo.DeviceType], client->devInfo.DeviceSerial);
-        devRef = std::string(buf);
+        try {
+            constexpr uint32_t DEVICE_TYPE_COUNT = sizeof(deviceTypesStr) / sizeof(deviceTypesStr[0]);
+            if (newClient->devInfo.DeviceType >= DEVICE_TYPE_COUNT) {
+                throw std::runtime_error("SpyServer reported an unsupported device type");
+            }
+            if (newClient->devInfo.MinimumIQDecimation > newClient->devInfo.DecimationStageCount ||
+                newClient->devInfo.DecimationStageCount >= 31 ||
+                newClient->devInfo.MaximumSampleRate == 0) {
+                throw std::runtime_error("SpyServer reported invalid sample-rate metadata");
+            }
 
-        config.acquire();
-        if (!config.conf["devices"].contains(devRef)) {
-            config.conf["devices"][devRef]["sampleRateId"] = 0;
-            config.conf["devices"][devRef]["sampleBitDepthId"] = 1;
-            config.conf["devices"][devRef]["gainId"] = 0;
+            client = std::move(newClient);
+            char buf[1024];
+            snprintf(buf, sizeof(buf), "%s [%08X]", deviceTypesStr[client->devInfo.DeviceType], client->devInfo.DeviceSerial);
+            devRef = std::string(buf);
+
+            config.acquire();
+            try {
+                if (!config.conf["devices"].contains(devRef)) {
+                    config.conf["devices"][devRef]["sampleRateId"] = 0;
+                    config.conf["devices"][devRef]["sampleBitDepthId"] = 1;
+                    config.conf["devices"][devRef]["gainId"] = 0;
+                }
+                srId = config.conf["devices"][devRef]["sampleRateId"];
+                iqType = config.conf["devices"][devRef]["sampleBitDepthId"];
+                gain = config.conf["devices"][devRef]["gainId"];
+                config.release(true);
+            }
+            catch (...) {
+                config.release();
+                throw;
+            }
+
+            gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
+
+            // Refresh sample rates on the GUI thread, where the source state is used.
+            sampleRates.clear();
+            sampleRatesTxt.clear();
+            for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
+                double sr = (double)client->devInfo.MaximumSampleRate / ((double)(1U << i));
+                sampleRates.push_back(sr);
+                sampleRatesTxt += getBandwdithScaled(sr);
+                sampleRatesTxt += '\0';
+            }
+
+            srId = std::clamp<int>(srId, 0, (int)sampleRates.size() - 1);
+            iqType = std::clamp<int>(iqType, 0, (int)(sizeof(streamFormats) / sizeof(streamFormats[0])) - 1);
+
+            sampleRate = sampleRates[srId];
+            core::setInputSampleRate(sampleRate);
+            flog::info("Connected to server");
         }
-        srId = config.conf["devices"][devRef]["sampleRateId"];
-        iqType = config.conf["devices"][devRef]["sampleBitDepthId"];
-        gain = config.conf["devices"][devRef]["gainId"];
-        config.release(true);
-
-        gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
-
-        // Refresh sample rates on the GUI thread, where the source state is used.
-        sampleRates.clear();
-        sampleRatesTxt.clear();
-        for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
-            double sr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
-            sampleRates.push_back(sr);
-            sampleRatesTxt += getBandwdithScaled(sr);
-            sampleRatesTxt += '\0';
+        catch (const std::exception& e) {
+            flog::error("Could not initialize SpyServer connection: {}", e.what());
+            lastConnectionError = e.what();
+            if (client) {
+                client->close();
+                client.reset();
+            }
         }
-
-        srId = std::clamp<int>(srId, 0, sampleRates.size() - 1);
-
-        sampleRate = sampleRates[srId];
-        core::setInputSampleRate(sampleRate);
-        flog::info("Connected to server");
     }
 
     std::string name;
@@ -375,6 +451,7 @@ private:
     std::string connectionError;
     std::string lastConnectionError;
     std::atomic<bool> connecting{false};
+    std::atomic<bool> connectionCancelled{false};
 };
 
 MOD_EXPORT void _INIT_() {
