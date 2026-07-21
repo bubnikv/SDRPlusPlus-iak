@@ -316,15 +316,14 @@ private:
         memset(left, 0, inNumberFrames * sizeof(float));
         if (right) { memset(right, 0, inNumberFrames * sizeof(float)); }
 
-        // Real-time thread: only drain what the packer's worker has already
-        // staged (read_for(0) polls, never waits) and leave the rest as
-        // silence. The packer runs its own thread, so this is the producer;
-        // the callback never blocks, and the reserved capacity keeps insert()
-        // from allocating here. The packer double-buffers a block ahead, so a
-        // chain that is keeping up normally has the next period ready.
+        // Block for real data, like audio_sink does on CoreAudio (both run on
+        // the same AUHAL render thread, which tolerates a blocking callback and
+        // gives lower latency and no jitter dropouts for it). read() returns -1
+        // when doStop() calls stopReader(), so the callback unblocks during
+        // teardown; the reserved capacity keeps insert() allocation-free.
         while (_this->stereoBuffer.size() < inNumberFrames) {
-            int count = _this->stereoPacker.out.read_for(std::chrono::milliseconds(0));
-            if (count <= 0) { break; }
+            int count = _this->stereoPacker.out.read();
+            if (count < 0) { break; }
             _this->stereoBuffer.insert(_this->stereoBuffer.end(),
                                        _this->stereoPacker.out.readBuf,
                                        _this->stereoPacker.out.readBuf + count);
