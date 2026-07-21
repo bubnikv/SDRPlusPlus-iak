@@ -9,6 +9,14 @@ namespace net {
     extern bool winsock_init = false;
 #endif
 
+    static void closeSocket(Socket sock) {
+#ifdef _WIN32
+        closesocket(sock);
+#else
+        ::close(sock);
+#endif
+    }
+
     ConnClass::ConnClass(Socket sock, struct sockaddr_in raddr, bool udp) {
         _sock = sock;
         _udp = udp;
@@ -35,13 +43,14 @@ namespace net {
         readQueueCnd.notify_all();
         writeQueueCnd.notify_all();
 
-        if (connectionOpen) {
-#ifdef _WIN32
-            closesocket(_sock);
-#else
+        // Close the descriptor exactly once, even if the peer already
+        // disconnected (which clears connectionOpen before we get here).
+        if (!socketClosed) {
+            socketClosed = true;
+#ifndef _WIN32
             ::shutdown(_sock, SHUT_RDWR);
-            ::close(_sock);
 #endif
+            closeSocket(_sock);
         }
 
         // Wait for the theads to terminate
@@ -60,7 +69,10 @@ namespace net {
     }
 
     void ConnClass::waitForEnd() {
-        std::unique_lock lck(readQueueMtx);
+        // Wait with the same mutex the writers hold when clearing
+        // connectionOpen, otherwise the notify can slip between the predicate
+        // check and the wait and this blocks forever.
+        std::unique_lock lck(connectionOpenMtx);
         connectionOpenCnd.wait(lck, [this]() { return !connectionOpen; });
     }
 
@@ -249,7 +261,7 @@ namespace net {
         if (_sock < 0) {
 #endif
             listening = false;
-            throw std::runtime_error("Could not bind socket");
+            throw std::runtime_error("Could not accept connection");
             return NULL;
         }
 
@@ -274,19 +286,21 @@ namespace net {
     }
 
     void ListenerClass::close() {
+        std::lock_guard lckc(closeMtx);
         {
             std::lock_guard lck(acceptQueueMtx);
             stopWorker = true;
         }
         acceptQueueCnd.notify_all();
 
-        if (listening) {
-#ifdef _WIN32
-            closesocket(sock);
-#else
+        // Close the descriptor exactly once; listening may already be false
+        // if accept() failed, but the socket still has to be released.
+        if (!socketClosed) {
+            socketClosed = true;
+#ifndef _WIN32
             ::shutdown(sock, SHUT_RDWR);
-            ::close(sock);
 #endif
+            closeSocket(sock);
         }
 
         if (acceptWorkerThread.joinable()) { acceptWorkerThread.join(); }
@@ -356,6 +370,7 @@ namespace net {
         // Get address from hostname/ip
         hostent* remoteHost = gethostbyname(host.c_str());
         if (remoteHost == NULL || remoteHost->h_addr_list[0] == NULL) {
+            closeSocket(sock);
             throw std::runtime_error("Could get address from host");
             return NULL;
         }
@@ -369,6 +384,7 @@ namespace net {
 
         // Connect to host
         if (::connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            closeSocket(sock);
             throw std::runtime_error("Could not connect to host");
             return NULL;
         }
@@ -408,6 +424,7 @@ namespace net {
         // so we use it only for non-Windows systems
         int enable = 1;
         if (setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+            closeSocket(listenSock);
             throw std::runtime_error("Could not configure socket");
             return NULL;
         }
@@ -416,6 +433,7 @@ namespace net {
         // Get address from hostname/ip
         hostent* remoteHost = gethostbyname(host.c_str());
         if (remoteHost == NULL || remoteHost->h_addr_list[0] == NULL) {
+            closeSocket(listenSock);
             throw std::runtime_error("Could get address from host");
             return NULL;
         }
@@ -429,12 +447,14 @@ namespace net {
 
         // Bind socket
         if (bind(listenSock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            closeSocket(listenSock);
             throw std::runtime_error("Could not bind socket");
             return NULL;
         }
 
         // Listen
         if (::listen(listenSock, SOMAXCONN) != 0) {
+            closeSocket(listenSock);
             throw std::runtime_error("Could not listen");
             return NULL;
         }
@@ -470,6 +490,7 @@ namespace net {
         // Get address from local hostname/ip
         hostent* _host = gethostbyname(host.c_str());
         if (_host == NULL || _host->h_addr_list[0] == NULL) {
+            closeSocket(sock);
             throw std::runtime_error("Could get address from host");
             return NULL;
         }
@@ -477,6 +498,7 @@ namespace net {
         // Get address from remote hostname/ip
         hostent* _remoteHost = gethostbyname(remoteHost.c_str());
         if (_remoteHost == NULL || _remoteHost->h_addr_list[0] == NULL) {
+            closeSocket(sock);
             throw std::runtime_error("Could get address from host");
             return NULL;
         }
@@ -498,6 +520,7 @@ namespace net {
         if (bindSocket) {
             int err = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
             if (err < 0) {
+                closeSocket(sock);
                 throw std::runtime_error("Could not bind socket");
                 return NULL;
             }

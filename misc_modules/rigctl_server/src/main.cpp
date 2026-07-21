@@ -309,6 +309,8 @@ private:
         //flog::info("New client!");
 
         _this->client = std::move(_client);
+        // Drop any partial command left over from the previous client
+        _this->command.clear();
         _this->client->readAsync(1024, _this->dataBuf, dataHandler, _this, false);
         _this->client->waitForEnd();
         _this->client->close();

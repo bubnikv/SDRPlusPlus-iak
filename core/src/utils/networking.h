@@ -68,6 +68,10 @@ namespace net {
         // (accept, baseband, control), written under connectionOpenMtx; atomic
         // so those reads aren't a data race.
         std::atomic<bool> connectionOpen{false};
+        // connectionOpen only tracks the peer state; this tracks the descriptor
+        // itself so close() releases it exactly once even after a remote
+        // disconnect already cleared connectionOpen. Guarded by closeMtx.
+        bool socketClosed = false;
 
         std::mutex readMtx;
         std::mutex writeMtx;
@@ -111,8 +115,13 @@ namespace net {
 
         bool listening = false;
         bool stopWorker = false;
+        // Same as ConnClass::socketClosed: listening goes false when accept()
+        // fails, so it cannot double as the "descriptor still open" flag.
+        // Guarded by closeMtx.
+        bool socketClosed = false;
 
         std::mutex acceptMtx;
+        std::mutex closeMtx;
         std::mutex acceptQueueMtx;
         std::condition_variable acceptQueueCnd;
         std::vector<ListenerAcceptEntry> acceptQueue;
