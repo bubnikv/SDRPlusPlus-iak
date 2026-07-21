@@ -16,6 +16,7 @@
 #include <core.h>
 #include <stdint.h>
 #include <array>
+#include <atomic>
 #include <algorithm>
 #include <utils/optionlist.h>
 #include <radio_interface.h>
@@ -281,31 +282,40 @@ private:
 
         // Noise blanker
         if (_this->nbAllowed) {
-            if (ImGui::Checkbox(("Noise blanker (W.I.P.)##_radio_nb_ena_" + _this->name).c_str(), &_this->nbEnabled)) {
-                _this->setNBEnabled(_this->nbEnabled);
+            // Snapshot once: selectDemod() may rewrite nbEnabled from the rigctl
+            // network thread mid-frame, and reading the guard twice would leave
+            // the beginDisabled/endDisabled pair unbalanced (issue #1437).
+            bool nbEnabled = _this->nbEnabled.load(std::memory_order_relaxed);
+            if (ImGui::Checkbox(("Noise blanker (W.I.P.)##_radio_nb_ena_" + _this->name).c_str(), &nbEnabled)) {
+                _this->setNBEnabled(nbEnabled);
             }
-            if (!_this->nbEnabled && _this->enabled) { style::beginDisabled(); }
+            bool nbDisabled = !nbEnabled && _this->enabled;
+            if (nbDisabled) { style::beginDisabled(); }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
             if (ImGui::SliderFloat(("##_radio_nb_lvl_" + _this->name).c_str(), &_this->nbLevel, _this->MIN_NB, _this->MAX_NB, "%.3fdB")) {
                 _this->setNBLevel(_this->nbLevel);
             }
-            if (!_this->nbEnabled && _this->enabled) { style::endDisabled(); }
+            if (nbDisabled) { style::endDisabled(); }
         }
 
         // FM IF Noise Reduction
         if (_this->FMIFNRAllowed) {
-            if (ImGui::Checkbox(("IF Noise Reduction##_radio_fmifnr_ena_" + _this->name).c_str(), &_this->FMIFNREnabled)) {
-                _this->setFMIFNREnabled(_this->FMIFNREnabled);
+            // Snapshot once (see nbEnabled above): rigctl set_mode can flip this
+            // mid-frame, which would unbalance the disabled block (issue #1437).
+            bool fmIFNREnabled = _this->FMIFNREnabled.load(std::memory_order_relaxed);
+            if (ImGui::Checkbox(("IF Noise Reduction##_radio_fmifnr_ena_" + _this->name).c_str(), &fmIFNREnabled)) {
+                _this->setFMIFNREnabled(fmIFNREnabled);
             }
             if (_this->selectedDemodID == RADIO_DEMOD_NFM) {
-                if (!_this->FMIFNREnabled && _this->enabled) { style::beginDisabled(); }
+                bool fmIFNRDisabled = !fmIFNREnabled && _this->enabled;
+                if (fmIFNRDisabled) { style::beginDisabled(); }
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
                 if (ImGui::Combo(("##_radio_fmifnr_ena_" + _this->name).c_str(), &_this->fmIFPresetId, _this->ifnrPresets.txt)) {
                     _this->setIFNRPreset(_this->ifnrPresets[_this->fmIFPresetId]);
                 }
-                if (!_this->FMIFNREnabled && _this->enabled) { style::endDisabled(); }
+                if (fmIFNRDisabled) { style::endDisabled(); }
             }
         }
 
@@ -493,7 +503,7 @@ private:
             }
         }
         if (config.conf[name][selectedDemod->getName()].contains("FMIFNREnabled")) {
-            FMIFNREnabled = config.conf[name][selectedDemod->getName()]["FMIFNREnabled"];
+            FMIFNREnabled = (bool)config.conf[name][selectedDemod->getName()]["FMIFNREnabled"];
         }
         if (config.conf[name][selectedDemod->getName()].contains("fmifnrPreset")) {
             std::string presetOpt = config.conf[name][selectedDemod->getName()]["fmifnrPreset"];
@@ -502,7 +512,7 @@ private:
             }
         }
         if (config.conf[name][selectedDemod->getName()].contains("noiseBlankerEnabled")) {
-            nbEnabled = config.conf[name][selectedDemod->getName()]["noiseBlankerEnabled"];
+            nbEnabled = (bool)config.conf[name][selectedDemod->getName()]["noiseBlankerEnabled"];
         }
         if (config.conf[name][selectedDemod->getName()].contains("noiseBlankerLevel")) {
             nbLevel = config.conf[name][selectedDemod->getName()]["noiseBlankerLevel"];
@@ -523,11 +533,11 @@ private:
         // Configure noise blanker
         nb.setRate(500.0 / ifSamplerate);
         setNBLevel(nbLevel);
-        setNBEnabled(nbAllowed && nbEnabled);
+        setNBEnabled(nbAllowed && nbEnabled.load());
 
         // Configure FM IF Noise Reduction
         setIFNRPreset((selectedDemodID == RADIO_DEMOD_NFM) ? ifnrPresets[fmIFPresetId] : IFNR_PRESET_BROADCAST);
-        setFMIFNREnabled(FMIFNRAllowed ? FMIFNREnabled : false);
+        setFMIFNREnabled(FMIFNRAllowed ? FMIFNREnabled.load() : false);
 
         // Configure squelch
         powerSquelch.setSamplerate(ifSamplerate);
@@ -634,11 +644,11 @@ private:
     void setNBEnabled(bool enable) {
         nbEnabled = enable;
         if (!selectedDemod) { return; }
-        ifChain.setBlockEnabled(&nb, nbEnabled, [=](dsp::stream<dsp::complex_t>* out){ selectedDemod->setInput(out); });
+        ifChain.setBlockEnabled(&nb, enable, [=](dsp::stream<dsp::complex_t>* out){ selectedDemod->setInput(out); });
 
         // Save config
         config.acquire();
-        config.conf[name][selectedDemod->getName()]["noiseBlankerEnabled"] = nbEnabled;
+        config.conf[name][selectedDemod->getName()]["noiseBlankerEnabled"] = enable;
         config.release(true);
     }
 
@@ -734,11 +744,11 @@ private:
     void setFMIFNREnabled(bool enabled) {
         FMIFNREnabled = enabled;
         if (!selectedDemod) { return; }
-        ifChain.setBlockEnabled(&fmnr, FMIFNREnabled, [=](dsp::stream<dsp::complex_t>* out){ selectedDemod->setInput(out); });
+        ifChain.setBlockEnabled(&fmnr, enabled, [=](dsp::stream<dsp::complex_t>* out){ selectedDemod->setInput(out); });
 
         // Save config
         config.acquire();
-        config.conf[name][selectedDemod->getName()]["FMIFNREnabled"] = FMIFNREnabled;
+        config.conf[name][selectedDemod->getName()]["FMIFNREnabled"] = enabled;
         config.release(true);
     }
 
@@ -912,7 +922,10 @@ private:
     bool deempAllowed;
 
     bool FMIFNRAllowed;
-    bool FMIFNREnabled = false;
+    // Atomic: rewritten by selectDemod() (which rigctl set_mode can drive from
+    // the network thread) while menuHandler() reads it on the GUI thread. See
+    // the snapshot in menuHandler() for issue #1437.
+    std::atomic<bool> FMIFNREnabled{ false };
     int fmIFPresetId;
 
     bool notchEnabled = false;
@@ -920,7 +933,8 @@ private:
     float notchWidth = 500;
 
     bool nbAllowed;
-    bool nbEnabled = false;
+    // Atomic, same reason as FMIFNREnabled (issue #1437).
+    std::atomic<bool> nbEnabled{ false };
     float nbLevel = 10.0f;
 
     const double MIN_NB = 1.0;
