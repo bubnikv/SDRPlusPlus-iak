@@ -2,6 +2,13 @@ if (NOT DEFINED RUNTIME_MANIFEST OR NOT DEFINED DST)
     message(FATAL_ERROR "copy_runtime_dlls.cmake requires -DRUNTIME_MANIFEST=<file> and -DDST=<dir>")
 endif ()
 
+# file(GET_RUNTIME_DEPENDENCIES) below normalizes paths before matching under
+# CMP0207 (CMake 3.31+). NEW is behavior-safe here and silences the per-DLL
+# author warnings emitted when the policy is left unset.
+if (POLICY CMP0207)
+    cmake_policy(SET CMP0207 NEW)
+endif ()
+
 file(MAKE_DIRECTORY "${DST}")
 
 include("${RUNTIME_MANIFEST}")
