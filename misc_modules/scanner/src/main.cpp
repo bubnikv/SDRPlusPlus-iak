@@ -4,6 +4,7 @@
 #include <gui/style.h>
 #include <signal_path/signal_path.h>
 #include <chrono>
+#include <atomic>
 
 SDRPP_MOD_INFO{
     /* Name:            */ "scanner",
@@ -43,8 +44,13 @@ private:
     static void menuHandler(void* ctx) {
         ScannerModule* _this = (ScannerModule*)ctx;
         float menuWidth = ImGui::GetContentRegionAvail().x;
-        
-        if (_this->running) { ImGui::BeginDisabled(); }
+
+        // Snapshot once: worker() can clear running mid-frame from its own
+        // thread, and reading the guard twice would leave the BeginDisabled/
+        // EndDisabled pair below unbalanced (the #1437 stack-mismatch pattern).
+        bool running = _this->running.load(std::memory_order_relaxed);
+
+        if (running) { ImGui::BeginDisabled(); }
         ImGui::LeftLabel("Start");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputDouble("##start_freq_scanner", &_this->startFreq, 100.0, 100000.0, "%0.0f")) {
@@ -75,7 +81,7 @@ private:
         if (ImGui::InputInt("##linger_time_scanner", &_this->lingerTime, 100, 1000)) {
             _this->lingerTime = std::clamp<int>(_this->lingerTime, 100, 10000.0);
         }
-        if (_this->running) { ImGui::EndDisabled(); }
+        if (running) { ImGui::EndDisabled(); }
 
         ImGui::LeftLabel("Level");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
@@ -99,7 +105,7 @@ private:
         }
         ImGui::EndTable();
 
-        if (!_this->running) {
+        if (!running) {
             if (ImGui::ActionButton("Start##scanner_start")) {
                 _this->start();
             }
@@ -123,13 +129,19 @@ private:
 
     void start() {
         if (running) { return; }
+        // The worker can exit on its own (e.g. it clears running when no VFO is
+        // selected), which leaves workerThread joinable-but-unjoined. Reap it
+        // before reassigning, or std::thread::operator= calls std::terminate.
+        if (workerThread.joinable()) { workerThread.join(); }
         current = startFreq;
         running = true;
         workerThread = std::thread(&ScannerModule::worker, this);
     }
 
     void stop() {
-        if (!running) { return; }
+        // Don't gate the join on 'running': a self-terminated worker has already
+        // cleared it while leaving the thread joinable, and destroying a joinable
+        // std::thread (via ~ScannerModule) would call std::terminate.
         running = false;
         if (workerThread.joinable()) {
             workerThread.join();
@@ -270,7 +282,9 @@ private:
     std::string name;
     bool enabled = true;
     
-    bool running = false;
+    // Written by start()/stop() (GUI thread) and by worker() itself; read in the
+    // worker's loop condition. Atomic so the stop handshake is well-defined.
+    std::atomic<bool> running = false;
     //std::string selectedVFO = "Radio";
     double startFreq = 88000000.0;
     double stopFreq = 108000000.0;
