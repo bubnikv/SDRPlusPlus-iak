@@ -19,9 +19,6 @@ namespace {
 }
 
 namespace server {
-    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password)
-        : Client(std::move(sock), out, password, nullptr) {}
-
     Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const std::string& password, const std::atomic<bool>* cancellation) {
         AuthKey authKey{};
         AuthKey* authKeyPtr = nullptr;
@@ -38,10 +35,6 @@ namespace server {
             throw;
         }
         std::fill(authKey.begin(), authKey.end(), 0);
-    }
-
-    Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey) {
-        init(sock, out, &authKey, nullptr);
     }
 
     Client::Client(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, const std::atomic<bool>* cancellation) {
@@ -608,24 +601,8 @@ namespace server {
         _this->output->swap(count);
     }
 
-    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password) {
-        return connect(std::move(host), port, out, password, net::NO_TIMEOUT);
-    }
-
-    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS) {
-        return connect(std::move(host), port, out, password, timeoutMS, nullptr);
-    }
-
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const std::string& password, int timeoutMS, const std::atomic<bool>* cancellation) {
         return std::make_shared<Client>(net::connect(host, port, timeoutMS), out, password, cancellation);
-    }
-
-    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey) {
-        return connect(std::move(host), port, out, authKey, net::NO_TIMEOUT);
-    }
-
-    std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS) {
-        return connect(std::move(host), port, out, authKey, timeoutMS, nullptr);
     }
 
     std::shared_ptr<Client> connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, const AuthKey& authKey, int timeoutMS, const std::atomic<bool>* cancellation) {

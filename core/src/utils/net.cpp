@@ -1,4 +1,5 @@
 #include "net.h"
+#include "net_connect.h"
 #include "net_resolve.h"
 #include <string.h>
 #include <codecvt>
@@ -17,30 +18,10 @@
 #endif
 
 namespace net {
-    std::once_flag initFlag;
-    
     // === Private functions ===
 
     void init() {
-        std::call_once(initFlag, []() {
-#ifdef _WIN32
-            // Initialize WinSock2
-            WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-                throw std::runtime_error("Could not initialize WinSock2");
-            }
-#else
-            // Disable SIGPIPE to avoid closing when the remote host disconnects
-            signal(SIGPIPE, SIG_IGN);
-#endif
-        });
-    }
-
-    bool queryHost(uint32_t* addr, std::string host) {
-        hostent* ent = gethostbyname(host.c_str());
-        if (!ent || !ent->h_addr_list[0]) { return false; }
-        *addr = *(uint32_t*)ent->h_addr_list[0];
-        return true;
+        detail::ensureInit();
     }
 
     void closeSocket(SockHandle_t sock) {
@@ -444,16 +425,11 @@ namespace net {
         SockHandle_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
         if (timeout < 0) {
+            // Connect to server, blocking until the OS-level timeout
             if (::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in))) {
-#ifdef _WIN32
-                int connectError = WSAGetLastError();
+                int connectError = detail::lastOsError();
                 closeSocket(s);
-                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
-#else
-                int connectError = errno;
-                closeSocket(s);
-                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
-#endif
+                throw std::runtime_error("Could not connect: " + detail::osErrorString(connectError));
             }
             if (!setNonblocking(s)) {
                 closeSocket(s);
@@ -462,87 +438,24 @@ namespace net {
             return std::make_shared<Socket>(s);
         }
 
+        // Bounded connect: run the connect in nonblocking mode and wait for
+        // the result ourselves instead of letting the OS block the caller for
+        // its own multi-tens-of-seconds timeout (issue #1462). The socket
+        // stays nonblocking, as Socket expects.
         if (!setNonblocking(s)) {
             closeSocket(s);
             throw std::runtime_error("Could not configure non-blocking socket");
         }
-        int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
         int connectionError = 0;
-
-        if (result) {
-#ifdef _WIN32
-            int connectError = WSAGetLastError();
-            bool inProgress = connectError == WSAEWOULDBLOCK || connectError == WSAEINPROGRESS;
-#else
-            int connectError = errno;
-            bool inProgress = connectError == EINPROGRESS || connectError == EWOULDBLOCK;
-#endif
-            if (!inProgress) {
-                closeSocket(s);
-#ifdef _WIN32
-                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
-#else
-                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
-#endif
-            }
-        }
-
-        if (result) {
-            // Winsock reports a failed non-blocking connect on the except set,
-            // not the write set; without it a refused connection would sit out
-            // the whole timeout (or worse, read a stale error and pass as
-            // connected). POSIX reports both outcomes as writability.
-            fd_set writefds;
-            fd_set exceptfds;
-            FD_ZERO(&writefds);
-            FD_ZERO(&exceptfds);
-            FD_SET(s, &writefds);
-            FD_SET(s, &exceptfds);
-            timeval timeoutValue {
-                timeout / 1000,
-                (timeout % 1000) * 1000
-            };
-            result = select((int)s + 1, nullptr, &writefds, &exceptfds, &timeoutValue);
-
-            if (result == 0) {
-                closeSocket(s);
-                throw std::runtime_error("Connection timed out");
-            }
-            if (result < 0) {
-#ifdef _WIN32
-                connectionError = WSAGetLastError();
-#else
-                connectionError = errno;
-#endif
-            }
-            else {
-                // Either set fired; SO_ERROR distinguishes success from failure.
-                int socketError = 0;
-#ifdef _WIN32
-                int socketErrorLen = sizeof(socketError);
-#else
-                socklen_t socketErrorLen = sizeof(socketError);
-#endif
-                if (getsockopt(s, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0) {
-                    connectionError = socketError;
-                }
-                else {
-#ifdef _WIN32
-                    connectionError = WSAGetLastError();
-#else
-                    connectionError = errno;
-#endif
-                }
-            }
-
-            if (connectionError) {
-                closeSocket(s);
-#ifdef _WIN32
-                throw std::runtime_error("Could not connect (error " + std::to_string(connectionError) + ")");
-#else
-                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectionError));
-#endif
-            }
+        switch (detail::finishNonblockingConnect(s, addr.addr, timeout, connectionError)) {
+        case detail::ConnectStatus::TIMEOUT:
+            closeSocket(s);
+            throw std::runtime_error("Connection timed out");
+        case detail::ConnectStatus::ERROR:
+            closeSocket(s);
+            throw std::runtime_error("Could not connect: " + detail::osErrorString(connectionError));
+        case detail::ConnectStatus::SUCCESS:
+            break;
         }
 
         // Return socket class
@@ -570,9 +483,7 @@ namespace net {
             throw std::runtime_error("Unknown host");
         }
 
-        int elapsedMS = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - started).count();
-        int remainingMS = timeout - elapsedMS;
+        int remainingMS = detail::remainingTimeoutMs(started, timeout);
         if (remainingMS <= 0) {
             throw std::runtime_error("Connection timed out");
         }

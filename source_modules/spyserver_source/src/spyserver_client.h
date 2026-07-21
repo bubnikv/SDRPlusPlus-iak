@@ -48,7 +48,8 @@ namespace spyserver {
 
     typedef std::unique_ptr<SpyServerClientClass> SpyServerClient;
 
-    SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out);
-    SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, int timeoutMS);
+    // timeoutMS bounds DNS resolution and the TCP connect; negative for the
+    // OS default (tens of seconds — avoid on the GUI thread).
+    SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, int timeoutMS = -1);
 
 }
