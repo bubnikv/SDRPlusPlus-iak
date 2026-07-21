@@ -163,11 +163,10 @@ void FreqModeSync::onIqCenterChanged(double newFreq)
     if (m_syncVfo && gui::mainWindow.getTuningMode() == tuner::TUNER_MODE_NORMAL) {
         std::string vfoName = gui::waterfall.selectedVFO;
         if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
-            double centerFreq = gui::waterfall.getCenterFrequency();
-            double vfoAbsFreq = centerFreq + sigpath::vfoManager.getOffset(vfoName);
+            double vfoAbsFreq = gui::waterfall.getCenterFrequency()
+                                + sigpath::vfoManager.getOffset(vfoName);
             if (std::llround(vfoAbsFreq) != newRigFreq)
                 tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, static_cast<double>(newRigFreq));
-            gui::waterfall.setViewOffset(newRigFreq - centerFreq);
         }
     }
 }
@@ -212,21 +211,20 @@ void FreqModeSync::tick()
         m_hasStatus = true;
         if (m_status.hasFrequency() && !(m_status.hasTransmit() && m_status.transmit)) {
             const std::int64_t rigFreq = effectiveReceiveRigFrequency(m_status);
-            const double centerFreq = rigFrequencyToCenterFrequency(rigFreq, m_status);
+            const double centerFrequency = rigFrequencyToCenterFrequency(rigFreq, m_status);
             //flog::debug("FreqModeSync::tick(): QMX frequency updated to {}", m_status.hasFrequency() ? m_status.frequency : -1);
             // Update SDR++ IQ center if it doesn't match the cached rig frequency.
             // tuner::tune(IQ_ONLY) calls our onIqCenterChanged, which will recompute
             // the same rig frequency from the just-updated cache -> no-op, no feedback.
-            if (std::llround(m_iqCenterFreq) != std::llround(centerFreq)) {
+            if (std::llround(m_iqCenterFreq) != std::llround(centerFrequency)) {
 //                flog::debug("FreqModeSync::tick(): QMX frequency {}, old centerFreuqency {} new centerFrequency {}", rigFreq, m_iqCenterFreq, centerFrequency);
-                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", centerFreq);
+                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", centerFrequency);
                 if (syncVfo) {
                     std::string vfoName = gui::waterfall.selectedVFO;
                     if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
                         double vfoAbsFreq = gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName);
                         if (std::llround(vfoAbsFreq) != rigFreq)
                             tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, static_cast<double>(rigFreq));
-                        gui::waterfall.setViewOffset(rigFreq - centerFreq);
                     }
                 }
             }
@@ -237,40 +235,13 @@ void FreqModeSync::tick()
         // VFO sync: move SDR++ VFO to rig frequency and sync mode.
         std::string vfoName = gui::waterfall.selectedVFO;
         if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName) && m_status.hasFrequency()) {
-            double wfCenterFreq = gui::waterfall.getCenterFrequency();
-            double wfBandwidth  = gui::waterfall.getViewBandwidth();
-            double vfoOffset    = sigpath::vfoManager.getOffset(vfoName);
+            double vfoAbsFreq = gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName);
             const std::int64_t rigFreq = effectiveReceiveRigFrequency(m_status);
-            double newFreq = wfCenterFreq + vfoOffset;
-            // Retune if radio frequency changed by user clicking on the waterfall.
-            bool retune = std::llround(newFreq) != rigFreq;
-            if (!retune) {
-                // Check whether the user dragged waterfall within the QMX IQ IF range.
-                // Calculate the optimum waterfall view offset: Ideally the offset would align with the rig frequency,
-                // but if the zoom level is not sufficient, this is not possible.
-                if (wfBandwidth <= 24e3) {
-                    if (double viewOffset = gui::waterfall.getViewOffset(); abs(vfoOffset - viewOffset) > 0.5) {
-                        // Just retune to rig frequency if the bandwidth is smaller than 24 kHz, which is the max IF offset we expect.
-                        newFreq = wfCenterFreq + viewOffset;
-                        retune = true;
-                    }
-                }
-                else {
-                    double wfHigh = gui::waterfall.getViewOffset() + 0.5 * wfBandwidth;
-                    if (wfHigh < 24e3 - 0.5) {
-                        // Not the whole waterfall is shown, the right edge of the waterfall shall be visible.
-                        newFreq = wfCenterFreq + wfHigh - qmxRigToIqOffset(m_status);
-                        retune = true;
-                    }
-                }
-            }
-            if (retune) {
-                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", rigFrequencyToCenterFrequency(newFreq, m_status));
+            if (std::llround(vfoAbsFreq) != rigFreq) {
+                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", rigFrequencyToCenterFrequency(vfoAbsFreq, m_status));
                 // The line above called our onIqCenterChanged, which will set TUNER_MODE_NORMAL.
-                //                tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, vfoAbsFreq);
-                wfCenterFreq = gui::waterfall.getCenterFrequency();
-                gui::waterfall.setViewOffset(newFreq - wfCenterFreq);
-                gui::freqSelect.setFrequency(wfCenterFreq + sigpath::vfoManager.getOffset(vfoName));
+//                tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, vfoAbsFreq);
+                gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName));
             }
         }
         // Sync mode: QMX -> SDR++ radio.
