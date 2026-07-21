@@ -159,8 +159,10 @@ private:
                 // TODO
             }
             else if (_this->proto == PROTOCOL_TCP_CLIENT) {
-                // Connect to TCP server
-                _this->sock = net::connect(_this->hostname, _this->port);
+                // Connect to TCP server. Runs on the GUI thread (Play button),
+                // so bound DNS + TCP connect instead of freezing the UI for
+                // the OS-level connect timeout.
+                _this->sock = net::connect(_this->hostname, _this->port, 5000);
             }
             else if (_this->proto == PROTOCOL_UDP) {
                 // Open UDP socket

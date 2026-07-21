@@ -222,8 +222,8 @@ namespace net::rigctl {
         return -1;
     }
 
-    std::shared_ptr<Client> connect(std::string host, int port) {
-        return std::make_shared<Client>(net::connect(host, port));
+    std::shared_ptr<Client> connect(std::string host, int port, int timeoutMs) {
+        return std::make_shared<Client>(net::connect(host, port, timeoutMs));
     }
 
     Server::Server(std::shared_ptr<net::Listener> listener) {

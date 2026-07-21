@@ -204,8 +204,10 @@ public:
                 listenWorkerThread = std::thread(&IQExporterModule::listenWorker, this);
             }
             else if (proto == PROTOCOL_TCP_CLIENT) {
-                // Connect to TCP server
-                sock = net::connect(hostname, port);
+                // Connect to TCP server. Runs on the GUI thread, so bound
+                // DNS + TCP connect instead of freezing the UI for the
+                // OS-level connect timeout.
+                sock = net::connect(hostname, port, 5000);
             }
             else {
                 // Open UDP socket

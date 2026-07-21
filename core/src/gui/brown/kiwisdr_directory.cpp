@@ -64,7 +64,9 @@ namespace {
             }
         }
 
-        auto controlSock = net::connect(DIRECTORY_HOST, 80);
+        // Bound DNS + TCP connect like the 5 s response timeout below, so a
+        // dead directory host can't pin the fetch worker for minutes.
+        auto controlSock = net::connect(DIRECTORY_HOST, 80, 5000);
         auto controlHttp = net::http::Client(controlSock);
 
         net::http::RequestHeader rqhdr(net::http::METHOD_GET, DIRECTORY_PATH, DIRECTORY_HOST);

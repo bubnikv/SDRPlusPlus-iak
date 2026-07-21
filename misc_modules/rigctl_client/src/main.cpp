@@ -76,9 +76,10 @@ public:
         std::lock_guard<std::recursive_mutex> lck(mtx);
         if (running) { return; }
 
-        // Connect to rigctl server
+        // Connect to rigctl server. Runs on the GUI thread, so bound DNS +
+        // TCP connect instead of freezing the UI for the OS-level timeout.
         try {
-            client = net::rigctl::connect(host, port);
+            client = net::rigctl::connect(host, port, 5000);
         }
         catch (const std::exception& e) {
             flog::error("Could not connect: {}", e.what());

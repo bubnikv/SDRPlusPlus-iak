@@ -587,7 +587,10 @@ namespace net::http {
         for (int redirectsLeft = options.maxRedirects; redirectsLeft >= 0; redirectsLeft--) {
             const auto deadline = std::chrono::steady_clock::now() +
                                   std::chrono::milliseconds(options.timeoutMs);
-            auto sock = net::connect(current.host, current.port);
+            // Bound connection establishment (DNS + TCP) by the same request
+            // timeout that governs the response below.
+            auto sock = net::connect(current.host, current.port,
+                                     (options.timeoutMs > 0) ? options.timeoutMs : net::NO_TIMEOUT);
 
             RequestHeader request(METHOD_GET, requestPathFor(current), hostHeaderFor(current));
             request.setField("Connection", "close");

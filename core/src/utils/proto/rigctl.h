@@ -321,6 +321,8 @@ namespace net::rigctl {
         std::vector<std::shared_ptr<net::Socket>> sockets;
     };
 
-    std::shared_ptr<Client> connect(std::string host, int port = 4532);
+    // timeoutMs bounds DNS resolution and the TCP connect; NO_TIMEOUT for the
+    // OS default (tens of seconds — avoid on the GUI thread).
+    std::shared_ptr<Client> connect(std::string host, int port = 4532, int timeoutMs = net::NO_TIMEOUT);
     std::shared_ptr<Server> listen(std::string host, int port = 4532);
 }

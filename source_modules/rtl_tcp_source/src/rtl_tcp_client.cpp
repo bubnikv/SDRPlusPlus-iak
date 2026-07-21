@@ -95,7 +95,9 @@ namespace rtltcp {
     }
 
     std::shared_ptr<Client> connect(dsp::stream<dsp::complex_t>* stream, std::string host, int port) {
-        auto sock = net::connect(host, port);
+        // Called from the GUI thread (Play button); bound DNS + TCP connect
+        // instead of freezing the UI for the OS-level connect timeout.
+        auto sock = net::connect(host, port, 5000);
         return std::make_shared<Client>(sock, stream);
     }
 }
