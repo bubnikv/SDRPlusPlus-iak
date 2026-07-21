@@ -35,6 +35,14 @@ namespace server {
         // Returns true if the ACK arrived, false on timeout or cancel.
         bool await(int timeout, const std::atomic<bool>* cancellation = nullptr) {
             std::unique_lock lck(mtx);
+            if (!cancellation) {
+                // No token to poll (every post-handshake call): plain wait,
+                // woken directly by notify()/cancel().
+                cnd.wait_for(lck, std::chrono::milliseconds(timeout), [this]() { return dataReady || canceled; });
+                return dataReady && !canceled;
+            }
+            // The token is a bare atomic with no way to wake this condition
+            // variable, so its arrival can only be observed by polling.
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
             while (!dataReady && !canceled) {
                 if (cancellation && cancellation->load()) { return false; }
