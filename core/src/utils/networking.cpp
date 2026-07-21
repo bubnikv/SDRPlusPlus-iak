@@ -446,18 +446,25 @@ namespace net {
             bool inProgress = (errno == EINPROGRESS || errno == EWOULDBLOCK);
 #endif
             if (inProgress) {
+                // Winsock reports a failed non-blocking connect on the except
+                // set, not the write set; without it a refused connection
+                // would sit out the whole timeout. POSIX reports both
+                // outcomes as writability.
                 fd_set writeSet;
+                fd_set exceptSet;
                 FD_ZERO(&writeSet);
+                FD_ZERO(&exceptSet);
                 FD_SET(sock, &writeSet);
+                FD_SET(sock, &exceptSet);
                 timeval timeout {
                     remainingMS / 1000,
                     (remainingMS % 1000) * 1000
                 };
 
 #ifdef _WIN32
-                int selected = select(0, NULL, &writeSet, NULL, &timeout);
+                int selected = select(0, NULL, &writeSet, &exceptSet, &timeout);
 #else
-                int selected = select(sock + 1, NULL, &writeSet, NULL, &timeout);
+                int selected = select(sock + 1, NULL, &writeSet, &exceptSet, &timeout);
 #endif
                 if (selected == 0) {
 #ifdef _WIN32
@@ -467,7 +474,7 @@ namespace net {
 #endif
                     throw std::runtime_error("Connection timed out");
                 }
-                if (selected < 0 || !FD_ISSET(sock, &writeSet)) {
+                if (selected < 0) {
 #ifdef _WIN32
                     connectionError = WSAGetLastError();
 #else
@@ -475,6 +482,7 @@ namespace net {
 #endif
                 }
                 else {
+                    // Either set fired; SO_ERROR distinguishes success from failure.
                     int socketError = 0;
 #ifdef _WIN32
                     int socketErrorLen = sizeof(socketError);
