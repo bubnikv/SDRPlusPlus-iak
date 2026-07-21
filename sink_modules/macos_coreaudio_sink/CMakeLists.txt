@@ -8,5 +8,6 @@ include(${SDRPP_MODULE_CMAKE})
 target_link_libraries(macos_coreaudio_sink PRIVATE
     "-framework CoreAudio"
     "-framework AudioToolbox"
+    "-framework AudioUnit"
     "-framework CoreFoundation"
 )

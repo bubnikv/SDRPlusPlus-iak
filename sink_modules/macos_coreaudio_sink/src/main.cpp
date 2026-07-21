@@ -195,13 +195,10 @@ private:
         }
         auto& dev = devices[devId];
 
-        AudioComponentDescription desc = {
-            .componentType = kAudioUnitType_Output,
-            .componentSubType = kAudioUnitSubType_HALOutput,
-            .componentManufacturer = kAudioUnitManufacturer_Apple,
-            .componentFlags = 0,
-            .componentFlagsMask = 0
-        };
+        AudioComponentDescription desc = {};
+        desc.componentType = kAudioUnitType_Output;
+        desc.componentSubType = kAudioUnitSubType_HALOutput;
+        desc.componentManufacturer = kAudioUnitManufacturer_Apple;
         AudioComponent comp = AudioComponentFindNext(NULL, &desc);
         if (!comp) {
             flog::error("CoreAudioSink: could not find HAL output component");
@@ -221,17 +218,15 @@ private:
             return failStart();
         }
 
-        AudioStreamBasicDescription streamFormat = {
-            .mSampleRate = sampleRate,
-            .mFormatID = kAudioFormatLinearPCM,
-            .mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked | kAudioFormatFlagIsNonInterleaved,
-            .mBytesPerPacket = sizeof(float),
-            .mFramesPerPacket = 1,
-            .mBytesPerFrame = sizeof(float),
-            .mChannelsPerFrame = 2,
-            .mBitsPerChannel = sizeof(float) * 8,
-            .mReserved = 0
-        };
+        AudioStreamBasicDescription streamFormat = {};
+        streamFormat.mSampleRate = sampleRate;
+        streamFormat.mFormatID = kAudioFormatLinearPCM;
+        streamFormat.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked | kAudioFormatFlagIsNonInterleaved;
+        streamFormat.mBytesPerPacket = sizeof(float);
+        streamFormat.mFramesPerPacket = 1;
+        streamFormat.mBytesPerFrame = sizeof(float);
+        streamFormat.mChannelsPerFrame = 2;
+        streamFormat.mBitsPerChannel = sizeof(float) * 8;
         status = AudioUnitSetProperty(audioUnit, kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Input, 0, &streamFormat, sizeof(streamFormat));
         if (status != noErr) {
@@ -239,10 +234,9 @@ private:
             return failStart();
         }
 
-        AURenderCallbackStruct callback = {
-            .inputProc = renderCallback,
-            .inputProcRefCon = this
-        };
+        AURenderCallbackStruct callback = {};
+        callback.inputProc = renderCallback;
+        callback.inputProcRefCon = this;
         status = AudioUnitSetProperty(audioUnit, kAudioUnitProperty_SetRenderCallback,
                                       kAudioUnitScope_Input, 0, &callback, sizeof(callback));
         if (status != noErr) {
@@ -273,6 +267,11 @@ private:
         }
 
         stereoPacker.setSampleCount(bufferFrames);
+        // The callback holds at most one leftover period plus one packer
+        // block; reserving more up front keeps insert() from allocating on
+        // the real-time audio thread (erase() only shifts the leftover,
+        // which is empty in the steady state).
+        stereoBuffer.reserve((size_t)bufferFrames * 4);
         // Quarter of the device period; long enough to deliver real data when
         // the chain is keeping up, short enough that the render callback
         // silence-fills instead of stalling CoreAudio when upstream pauses.
