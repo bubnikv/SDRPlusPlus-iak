@@ -348,8 +348,8 @@ private:
     };
 
     static bool isVfoToken(const std::string& s) {
-        return s == "VFO" || s == "VFOA" || s == "VFOB" || s == "currVFO" ||
-               s == "Main" || s == "Sub" || s == "MEM" || s == "TX" || s == "RX";
+        return s == "VFO" || s == "VFOA" || s == "VFOB" || s == "VFOC" || s == "currVFO" ||
+               s == "Main" || s == "Sub" || s == "MEM" || s == "TX" || s == "RX" || s == "None";
     }
 
     void commandHandler(std::string cmd) {
