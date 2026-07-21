@@ -9,6 +9,7 @@
 #include <meteor_demodulator_interface.h>
 #include <config.h>
 #include <cctype>
+#include <cmath>
 #include <radio_interface.h>
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
@@ -346,6 +347,11 @@ private:
         { RADIO_IFACE_MODE_RAW, "RAW" }
     };
 
+    static bool isVfoToken(const std::string& s) {
+        return s == "VFO" || s == "VFOA" || s == "VFOB" || s == "currVFO" ||
+               s == "Main" || s == "Sub" || s == "MEM" || s == "TX" || s == "RX";
+    }
+
     void commandHandler(std::string cmd) {
         std::string corr = "";
         std::vector<std::string> parts;
@@ -373,6 +379,13 @@ private:
 
         // If the command is empty, do nothing
         if (parts.size() == 0) { return; }
+
+        // Hamlib clients in VFO mode (WSJT-X <= 2.6, JS8Call) insert a VFO
+        // argument after the command (e.g. "F VFOA 7074000"). Drop it so the
+        // argument counts match, except for set_vfo where it IS the argument.
+        if (parts.size() > 1 && isVfoToken(parts[1]) && parts[0] != "V" && parts[0] != "\\set_vfo") {
+            parts.erase(parts.begin() + 1);
+        }
 
         // If the command is a compound command, execute each one separately
         if (parts[0].size() > 1 && parts[0][0] != '\\' && parts[0] != "AOS" && parts[0] != "LOS") {
@@ -484,14 +497,18 @@ private:
 
             // Replace raw with the mode if there is an active VFO and it belongs to a radio
             if (!selectedVfo.empty() && core::modComManager.getModuleName(selectedVfo) == "radio") {
-                int mode;
+                // The radio leaves the output untouched when no demod is
+                // selected, so initialize to a value with a known name.
+                int mode = RADIO_IFACE_MODE_RAW;
                 core::modComManager.callInterface(selectedVfo, RADIO_IFACE_CMD_GET_MODE, NULL, &mode);
-                resp = std::string(radioModeToString[mode]) + "\n";
+                auto modeIt = radioModeToString.find(mode);
+                resp = std::string((modeIt != radioModeToString.end()) ? modeIt->second : "RAW") + "\n";
             }
 
             // Append the bandwidth of the VFO if there is one
             if (!selectedVfo.empty()) {
-                resp += std::to_string((int)sigpath::vfoManager.getBandwidth(selectedVfo)) + "\n";
+                double bw = sigpath::vfoManager.getBandwidth(selectedVfo);
+                resp += std::to_string(std::isnan(bw) ? 0 : (int)bw) + "\n";
             }
             else {
                 resp += "0\n";
@@ -514,7 +531,7 @@ private:
             if (parts[1] == "?") {
                 resp = "VFO\n";
             }
-            else if (parts[1] != "VFO") {
+            else if (!isVfoToken(parts[1])) {
                 resp = "RPRT 1\n";
             }
 
@@ -523,6 +540,16 @@ private:
         else if (parts[0] == "v" || parts[0] == "\\get_vfo") {
             std::lock_guard lck(vfoMtx);
             resp = "VFO\n";
+            client->write(resp.size(), (uint8_t*)resp.c_str());
+        }
+        else if (parts[0] == "t" || parts[0] == "\\get_ptt") {
+            // Receive only, PTT is always off
+            resp = "0\n";
+            client->write(resp.size(), (uint8_t*)resp.c_str());
+        }
+        else if (parts[0] == "T" || parts[0] == "\\set_ptt") {
+            // Accept and ignore, there is no transmitter to key
+            resp = "RPRT 0\n";
             client->write(resp.size(), (uint8_t*)resp.c_str());
         }
         else if (parts[0] == "\\chk_vfo") {
