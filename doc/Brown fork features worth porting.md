@@ -14,7 +14,7 @@ Modules (reasonably self-contained):
 - hl2_source — Hermes Lite 2 driver with TX, per-band filter switching, SWR scan.
 - Decoders: ch_tetra_demodulator (TETRA, ~570 KB), ch_extravhf_decoder (cropinghigh's extra VHF voice modes), dsdcc_decoder (digital voice via external DSDcc lib).
 - Sinks: macos_coreaudio_sink (native, no PortAudio), linux_pulseaudio_sink, brown_audio_sink, mpeg_adts_sink.
-- tci_server (TCI protocol for logger/skimmer integration), frequency-manager–integrated scanner (scans bookmarks with per-entry squelch), dragonlabs_source (obscure hardware, 20 KB).
+- tci_server (TCI protocol for logger/skimmer integration), frequency-manager–integrated scanner (scans bookmarks with per-entry squelch)
 
 Core changes (pervasive, mixed quality):
 - The entire TRX experience — mic pipeline, TX button/PTT, mic squelch, QSO recording/logging, CQ player, voice control — lives inside a 3,642-line MobileMainWindow subclass in core/src/gui/brown/, plus imgui-notify (with a 78k-line embedded font header) and implot.
