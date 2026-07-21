@@ -19,7 +19,7 @@
 namespace net::detail {
     enum class ResolveStatus {
         SUCCESS,
-        ERROR,
+        FAILED,
         TIMEOUT
     };
 
@@ -142,7 +142,7 @@ namespace net::detail {
 
         std::lock_guard lck(result->mtx);
         if (!result->success) {
-            return ResolveStatus::ERROR;
+            return ResolveStatus::FAILED;
         }
         address = result->address;
         return ResolveStatus::SUCCESS;

@@ -79,7 +79,7 @@ namespace net::detail {
     enum class ConnectStatus {
         SUCCESS,
         TIMEOUT,
-        ERROR
+        FAILED
     };
 
     // Establish a TCP connection on an already non-blocking socket, waiting
@@ -100,7 +100,7 @@ namespace net::detail {
 #endif
         if (!inProgress) {
             errorOut = connectError;
-            return ConnectStatus::ERROR;
+            return ConnectStatus::FAILED;
         }
 
         // Winsock reports a failed non-blocking connect on the except set,
@@ -121,7 +121,7 @@ namespace net::detail {
         }
         if (selected < 0) {
             errorOut = lastOsError();
-            return ConnectStatus::ERROR;
+            return ConnectStatus::FAILED;
         }
 
         // Either set fired; SO_ERROR distinguishes success from failure.
@@ -133,11 +133,11 @@ namespace net::detail {
 #endif
         if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) != 0) {
             errorOut = lastOsError();
-            return ConnectStatus::ERROR;
+            return ConnectStatus::FAILED;
         }
         if (socketError) {
             errorOut = socketError;
-            return ConnectStatus::ERROR;
+            return ConnectStatus::FAILED;
         }
         return ConnectStatus::SUCCESS;
     }

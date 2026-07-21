@@ -458,7 +458,7 @@ namespace net {
         case detail::ConnectStatus::TIMEOUT:
             closeSocket(s);
             throw std::runtime_error("Connection timed out");
-        case detail::ConnectStatus::ERROR:
+        case detail::ConnectStatus::FAILED:
             closeSocket(s);
             throw std::runtime_error("Could not connect: " + detail::osErrorString(connectionError));
         case detail::ConnectStatus::SUCCESS:
