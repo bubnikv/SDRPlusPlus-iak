@@ -423,6 +423,13 @@ namespace net {
 
         // Create socket
         SockHandle_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+#ifdef _WIN32
+        if (s == INVALID_SOCKET) {
+#else
+        if (s < 0) {
+#endif
+            throw std::runtime_error("Could not create socket: " + detail::osErrorString(detail::lastOsError()));
+        }
 
         if (timeout < 0) {
             // Connect to server, blocking until the OS-level timeout
