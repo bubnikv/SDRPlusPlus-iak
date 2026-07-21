@@ -1019,10 +1019,10 @@ private:
             }
         }
         else {
-            style::beginDisabled();
+            SmGui::BeginDisabled();
             bool dummy = false;
             SmGui::Checkbox(CONCAT("MW/FM Notch##sdrplay_rsp2_fmmwnotch", name), &dummy);
-            style::endDisabled();
+            SmGui::EndDisabled();
         }
         
         if (SmGui::Checkbox(CONCAT("Bias-T##sdrplay_rsp2_biast", name), &rsp2_biasT)) {

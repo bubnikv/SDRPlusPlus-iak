@@ -138,7 +138,7 @@ private:
 
         if (connected) { SmGui::EndDisabled(); }
 
-        if (_this->running) { style::beginDisabled(); }
+        if (_this->running) { SmGui::BeginDisabled(); }
         SmGui::FillWidth();
         if (!connected && SmGui::Button("Connect##spectran_http_source")) {
             _this->tryConnect();
@@ -146,7 +146,7 @@ private:
         else if (connected && SmGui::Button("Disconnect##spectran_http_source")) {
             _this->disconnect();
         }
-        if (_this->running) { style::endDisabled(); }
+        if (_this->running) { SmGui::EndDisabled(); }
 
         SmGui::Text("Status:");
         SmGui::SameLine();

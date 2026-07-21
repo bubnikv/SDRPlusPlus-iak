@@ -205,7 +205,7 @@ private:
 
 
         if (connected) {
-            if (_this->running) { style::beginDisabled(); }
+            if (_this->running) { SmGui::BeginDisabled(); }
             SmGui::LeftLabel("Samplerate");
             SmGui::FillWidth();
             if (SmGui::Combo("##qmxserver_source_sr", &_this->srId, _this->sampleRatesTxt.c_str())) {
@@ -215,7 +215,7 @@ private:
                 config.conf["devices"][_this->devRef]["sampleRateId"] = _this->srId;
                 config.release(true);
             }
-            if (_this->running) { style::endDisabled(); }
+            if (_this->running) { SmGui::EndDisabled(); }
 
             SmGui::LeftLabel("Sample bit depth");
             SmGui::FillWidth();
