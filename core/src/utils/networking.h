@@ -133,10 +133,9 @@ namespace net {
     typedef std::unique_ptr<ListenerClass> Listener;
 
     Conn connect(std::string host, uint16_t port);
+    // timeoutMS bounds name resolution and the TCP handshake.
+    Conn connect(std::string host, uint16_t port, int timeoutMS);
     Listener listen(std::string host, uint16_t port);
     Conn openUDP(std::string host, uint16_t port, std::string remoteHost, uint16_t remotePort, bool bindSocket = true);
 
-#ifdef _WIN32
-    extern bool winsock_init;
-#endif
 }

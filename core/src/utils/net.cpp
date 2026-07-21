@@ -1,7 +1,9 @@
 #include "net.h"
+#include "net_resolve.h"
 #include <string.h>
 #include <codecvt>
 #include <stdexcept>
+#include <chrono>
 
 #ifdef _WIN32
 #define WOULD_BLOCK (WSAGetLastError() == WSAEWOULDBLOCK)
@@ -15,24 +17,23 @@
 #endif
 
 namespace net {
-    bool _init = false;
+    std::once_flag initFlag;
     
     // === Private functions ===
 
     void init() {
-        if (_init) { return; }
+        std::call_once(initFlag, []() {
 #ifdef _WIN32
-        // Initialize WinSock2
-        WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
-            throw std::runtime_error("Could not initialize WinSock2");
-            return;
-        }
+            // Initialize WinSock2
+            WSADATA wsa;
+            if (WSAStartup(MAKEWORD(2, 2), &wsa)) {
+                throw std::runtime_error("Could not initialize WinSock2");
+            }
 #else
-        // Disable SIGPIPE to avoid closing when the remote host disconnects
-        signal(SIGPIPE, SIG_IGN);
+            // Disable SIGPIPE to avoid closing when the remote host disconnects
+            signal(SIGPIPE, SIG_IGN);
 #endif
-        _init = true;
+        });
     }
 
     bool queryHost(uint32_t* addr, std::string host) {
@@ -52,12 +53,13 @@ namespace net {
 #endif
     }
 
-    void setNonblocking(SockHandle_t sock) {
+    bool setNonblocking(SockHandle_t sock) {
 #ifdef _WIN32
         u_long enabled = 1;
-        ioctlsocket(sock, FIONBIO, &enabled);
+        return ioctlsocket(sock, FIONBIO, &enabled) == 0;
 #else
-        fcntl(sock, F_SETFL, O_NONBLOCK);
+        int flags = fcntl(sock, F_GETFL, 0);
+        return flags >= 0 && fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
 #endif
     }
 
@@ -263,7 +265,10 @@ namespace net {
         }
 
         // Enable nonblocking mode
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
 
         return std::make_shared<Socket>(s);
     }
@@ -414,7 +419,10 @@ namespace net {
         }
 
         // Enable nonblocking mode
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
 
         // Return listener class
         return std::make_shared<Listener>(s);
@@ -425,28 +433,145 @@ namespace net {
     }
 
     std::shared_ptr<Socket> connect(const Address& addr) {
+        return connect(addr, NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Socket> connect(const Address& addr, int timeout) {
         // Init library if needed
         init();
 
         // Create socket
         SockHandle_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-        // Connect to server
-        if (::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in))) {
-            closeSocket(s);
-            throw std::runtime_error("Could not connect");
-            return NULL;
+        if (timeout < 0) {
+            if (::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in))) {
+#ifdef _WIN32
+                int connectError = WSAGetLastError();
+                closeSocket(s);
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
+#else
+                int connectError = errno;
+                closeSocket(s);
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
+#endif
+            }
+            if (!setNonblocking(s)) {
+                closeSocket(s);
+                throw std::runtime_error("Could not configure non-blocking socket");
+            }
+            return std::make_shared<Socket>(s);
         }
 
-        // Enable nonblocking mode
-        setNonblocking(s);
+        if (!setNonblocking(s)) {
+            closeSocket(s);
+            throw std::runtime_error("Could not configure non-blocking socket");
+        }
+        int result = ::connect(s, (sockaddr*)&addr.addr, sizeof(sockaddr_in));
+        int connectionError = 0;
+
+        if (result) {
+#ifdef _WIN32
+            int connectError = WSAGetLastError();
+            bool inProgress = connectError == WSAEWOULDBLOCK || connectError == WSAEINPROGRESS;
+#else
+            int connectError = errno;
+            bool inProgress = connectError == EINPROGRESS || connectError == EWOULDBLOCK;
+#endif
+            if (!inProgress) {
+                closeSocket(s);
+#ifdef _WIN32
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectError) + ")");
+#else
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectError));
+#endif
+            }
+        }
+
+        if (result) {
+            fd_set writefds;
+            FD_ZERO(&writefds);
+            FD_SET(s, &writefds);
+            timeval timeoutValue {
+                timeout / 1000,
+                (timeout % 1000) * 1000
+            };
+            result = select((int)s + 1, nullptr, &writefds, nullptr, &timeoutValue);
+
+            if (result == 0) {
+                closeSocket(s);
+                throw std::runtime_error("Connection timed out");
+            }
+            if (result < 0 || !FD_ISSET(s, &writefds)) {
+#ifdef _WIN32
+                connectionError = WSAGetLastError();
+#else
+                connectionError = errno;
+#endif
+            }
+            else {
+                int socketError = 0;
+#ifdef _WIN32
+                int socketErrorLen = sizeof(socketError);
+#else
+                socklen_t socketErrorLen = sizeof(socketError);
+#endif
+                if (getsockopt(s, SOL_SOCKET, SO_ERROR, (char*)&socketError, &socketErrorLen) == 0) {
+                    connectionError = socketError;
+                }
+                else {
+#ifdef _WIN32
+                    connectionError = WSAGetLastError();
+#else
+                    connectionError = errno;
+#endif
+                }
+            }
+
+            if (connectionError) {
+                closeSocket(s);
+#ifdef _WIN32
+                throw std::runtime_error("Could not connect (error " + std::to_string(connectionError) + ")");
+#else
+                throw std::runtime_error(std::string("Could not connect: ") + strerror(connectionError));
+#endif
+            }
+        }
 
         // Return socket class
         return std::make_shared<Socket>(s);
     }
 
     std::shared_ptr<Socket> connect(std::string host, int port) {
-        return connect(Address(host, port));
+        return connect(std::move(host), port, NO_TIMEOUT);
+    }
+
+    std::shared_ptr<Socket> connect(std::string host, int port, int timeout) {
+        init();
+
+        if (timeout < 0) {
+            return connect(Address(host, port), timeout);
+        }
+
+        const auto started = std::chrono::steady_clock::now();
+        sockaddr_in resolved{};
+        detail::ResolveStatus resolveStatus = detail::resolveIPv4(host, port, timeout, resolved);
+        if (resolveStatus == detail::ResolveStatus::TIMEOUT) {
+            throw std::runtime_error("Host name resolution timed out");
+        }
+        if (resolveStatus != detail::ResolveStatus::SUCCESS) {
+            throw std::runtime_error("Unknown host");
+        }
+
+        int elapsedMS = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        int remainingMS = timeout - elapsedMS;
+        if (remainingMS <= 0) {
+            throw std::runtime_error("Connection timed out");
+        }
+
+        Address address;
+        address.addr = resolved;
+        return connect(address, remainingMS);
     }
 
     std::shared_ptr<Socket> openudp(const Address& raddr, const Address& laddr, bool allowBroadcast) {

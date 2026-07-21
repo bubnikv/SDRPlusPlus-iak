@@ -164,7 +164,11 @@ namespace spyserver {
     }
 
     SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out) {
-        net::Conn conn = net::connect(host, port);
+        return connect(std::move(host), port, out, -1);
+    }
+
+    SpyServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out, int timeoutMS) {
+        net::Conn conn = net::connect(host, port, timeoutMS);
         if (!conn) {
             return NULL;
         }

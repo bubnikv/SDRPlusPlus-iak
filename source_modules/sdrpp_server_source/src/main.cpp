@@ -12,8 +12,11 @@
 #include <gui/dialogs/dialog_box.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <thread>
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
@@ -81,6 +84,10 @@ public:
         // If still selected, unregisterSource fires menuDeselected, which
         // unbinds frameDrawHandler.
         stop(this);
+        cancelConnection();
+        if (connectionThread.joinable()) {
+            connectionThread.join();
+        }
         sigpath::sourceManager.unregisterSource("SDR++ Server");
     }
 
@@ -131,6 +138,7 @@ private:
 
     static void menuDeselected(void* ctx) {
         SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        _this->cancelConnection();
         gui::mainWindow.onFrameDraw.unbindHandler(&_this->frameDrawHandler);
         gui::mainWindow.playButtonLocked = false;
         // Release the remote limits so they don't leak into the next source.
@@ -187,9 +195,12 @@ private:
     static void menuHandler(void* ctx) {
         SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
 
+        _this->pollConnection();
+
         float menuWidth = ImGui::GetContentRegionAvail().x;
 
         bool connected = _this->connected();
+        const bool connecting = _this->connecting.load();
         gui::mainWindow.playButtonLocked = !connected;
 
         ImGui::GenericDialog("##sdrpp_srv_src_err_dialog", _this->serverBusy, GENERIC_DIALOG_BUTTONS_OK, [=](){
@@ -199,7 +210,7 @@ private:
             ImGui::TextUnformatted("Authentication failed.");
         });
 
-        if (connected) { style::beginDisabled(); }
+        if (connected || connecting) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##sdrpp_srv_srv_host_", _this->name), _this->hostname, 1023)) {
             config.acquire();
             config.conf["hostname"] = _this->hostname;
@@ -224,15 +235,17 @@ private:
                 _this->clearPasswordForServer();
             }
         }
-        if (connected) { style::endDisabled(); }
+        if (connected || connecting) { style::endDisabled(); }
 
         if (_this->running) { style::beginDisabled(); }
+        if (connecting) { style::beginDisabled(); }
         if (!connected && ImGui::Button("Connect##sdrpp_srv_source", ImVec2(menuWidth, 0))) {
             _this->tryConnect();
         }
         else if (connected && ImGui::Button("Disconnect##sdrpp_srv_source", ImVec2(menuWidth, 0))) {
             _this->client->close();
         }
+        if (connecting) { style::endDisabled(); }
         if (_this->running) { style::endDisabled(); }
 
 
@@ -297,7 +310,10 @@ private:
         else {
             ImGui::TextUnformatted("Status:");
             ImGui::SameLine();
-            ImGui::TextUnformatted("Not connected (--.--- Mbit/s)");
+            ImGui::TextUnformatted(connecting ? "Connecting..." : "Not connected (--.--- Mbit/s)");
+            if (!connecting && !_this->lastConnectionError.empty()) {
+                ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Connection failed: %s", _this->lastConnectionError.c_str());
+            }
         }
     }
 
@@ -306,28 +322,130 @@ private:
     }
 
     void tryConnect() {
+        if (connecting.exchange(true)) { return; }
+
+        if (port <= 0 || port > 65535) {
+            lastConnectionError = "Port must be between 1 and 65535";
+            connecting = false;
+            return;
+        }
+
+        if (connectionThread.joinable()) {
+            connectionThread.join();
+        }
+        connectionCancelled = false;
+        if (client) {
+            client->close();
+            client.reset();
+        }
+        serverBusy = false;
+        authFailed = false;
+        lastConnectionError.clear();
+        {
+            std::lock_guard lck(connectionMtx);
+            connectionError.clear();
+        }
+
+        const std::string host = hostname;
+        const int targetPort = port;
+        auto authKey = std::make_shared<server::AuthKey>();
+        const bool useAuth = savedAuthKeyValid || password[0] != 0;
+        if (savedAuthKeyValid) {
+            *authKey = savedAuthKey;
+        }
+        else if (useAuth) {
+            server::deriveAuthKey(std::string(password), *authKey);
+        }
+
         try {
-            serverBusy = false;
-            authFailed = false;
-            if (client) { client.reset(); }
-            if (savedAuthKeyValid) {
-                client = server::connect(hostname, port, &stream, savedAuthKey);
+            connectionThread = std::thread([this, host, targetPort, authKey, useAuth]() {
+                try {
+                    auto newClient = useAuth
+                        ? server::connect(host, targetPort, &stream, *authKey, 3000, &connectionCancelled)
+                        : server::connect(host, targetPort, &stream, std::string(), 3000, &connectionCancelled);
+
+                    bool discard = false;
+                    {
+                        std::lock_guard lck(connectionMtx);
+                        discard = connectionCancelled.load();
+                        if (!discard) {
+                            pendingClient = std::move(newClient);
+                        }
+                    }
+                    if (discard) {
+                        newClient->close();
+                    }
+                }
+                catch (const std::exception& e) {
+                    if (!connectionCancelled) {
+                        std::lock_guard lck(connectionMtx);
+                        connectionError = e.what();
+                    }
+                }
+                std::fill(authKey->begin(), authKey->end(), 0);
+                connecting = false;
+            });
+        }
+        catch (const std::exception& e) {
+            std::fill(authKey->begin(), authKey->end(), 0);
+            connecting = false;
+            lastConnectionError = std::string("Could not start connection worker: ") + e.what();
+            flog::error("{}", lastConnectionError);
+        }
+    }
+
+    void cancelConnection() {
+        connectionCancelled = true;
+
+        std::shared_ptr<server::Client> abandonedClient;
+        {
+            std::lock_guard lck(connectionMtx);
+            abandonedClient = std::move(pendingClient);
+            connectionError.clear();
+        }
+        if (abandonedClient) {
+            abandonedClient->close();
+        }
+        lastConnectionError.clear();
+    }
+
+    void pollConnection() {
+        if (connecting || !connectionThread.joinable()) { return; }
+
+        connectionThread.join();
+
+        const bool cancelled = connectionCancelled.exchange(false);
+        std::shared_ptr<server::Client> newClient;
+        std::string error;
+        {
+            std::lock_guard lck(connectionMtx);
+            newClient = std::move(pendingClient);
+            error = std::move(connectionError);
+        }
+        if (cancelled) {
+            if (newClient) {
+                newClient->close();
             }
-            else if (password[0] != 0) {
-                server::AuthKey authKey{};
-                server::deriveAuthKey(std::string(password), authKey);
-                client = server::connect(hostname, port, &stream, authKey);
-                std::fill(authKey.begin(), authKey.end(), 0);
+            return;
+        }
+        if (!newClient) {
+            if (!error.empty()) {
+                flog::error("Could not connect to SDR: {}", error);
+                lastConnectionError = error;
+                if (error == "Server busy") { serverBusy = true; }
+                if (error == "Authentication failed") { authFailed = true; }
             }
-            else {
-                client = server::connect(hostname, port, &stream);
-            }
+            return;
+        }
+
+        try {
+            client = std::move(newClient);
             deviceInit();
         }
         catch (const std::exception& e) {
-            flog::error("Could not connect to SDR: {}", e.what());
-            if (!strcmp(e.what(), "Server busy")) { serverBusy = true; }
-            if (!strcmp(e.what(), "Authentication failed")) { authFailed = true; }
+            flog::error("Could not initialize SDR connection: {}", e.what());
+            lastConnectionError = e.what();
+            client.reset();
         }
     }
 
@@ -336,18 +454,26 @@ private:
         devConfName = serverConfigName();
 
         // Load settings
-        sampleTypeId = sampleTypeList.valueId(dsp::compression::PCM_TYPE_I16);
-        if (config.conf["servers"][devConfName].contains("sampleType")) {
-            std::string key = config.conf["servers"][devConfName]["sampleType"];
-            if (sampleTypeList.keyExists(key)) { sampleTypeId = sampleTypeList.keyId(key); }
+        config.acquire();
+        try {
+            sampleTypeId = sampleTypeList.valueId(dsp::compression::PCM_TYPE_I16);
+            if (config.conf["servers"][devConfName].contains("sampleType")) {
+                std::string key = config.conf["servers"][devConfName]["sampleType"];
+                if (sampleTypeList.keyExists(key)) { sampleTypeId = sampleTypeList.keyId(key); }
+            }
+            if (config.conf["servers"][devConfName].contains("compression")) {
+                compression = config.conf["servers"][devConfName]["compression"];
+            }
+            rxPrebufferId = prebufferList.valueId(100);
+            if (config.conf["servers"][devConfName].contains("rxPrebuffer")) {
+                int prebufferMsec = config.conf["servers"][devConfName]["rxPrebuffer"];
+                if (prebufferList.valueExists(prebufferMsec)) { rxPrebufferId = prebufferList.valueId(prebufferMsec); }
+            }
+            config.release();
         }
-        if (config.conf["servers"][devConfName].contains("compression")) {
-            compression = config.conf["servers"][devConfName]["compression"];
-        }
-        rxPrebufferId = prebufferList.valueId(100);
-        if (config.conf["servers"][devConfName].contains("rxPrebuffer")) {
-            int prebufferMsec = config.conf["servers"][devConfName]["rxPrebuffer"];
-            if (prebufferList.valueExists(prebufferMsec)) { rxPrebufferId = prebufferList.valueId(prebufferMsec); }
+        catch (...) {
+            config.release();
+            throw;
         }
 
         // Set settings
@@ -511,6 +637,13 @@ private:
     bool compression = false;
 
     std::shared_ptr<server::Client> client;
+    std::shared_ptr<server::Client> pendingClient;
+    std::thread connectionThread;
+    std::mutex connectionMtx;
+    std::string connectionError;
+    std::string lastConnectionError;
+    std::atomic<bool> connecting{false};
+    std::atomic<bool> connectionCancelled{false};
 };
 
 MOD_EXPORT void _INIT_() {
