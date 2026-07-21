@@ -5,10 +5,11 @@
 SpectranHTTPClient::SpectranHTTPClient(std::string host, int port, dsp::stream<dsp::complex_t>* stream) {
     this->stream = stream;
 
-    // Connect to server
+    // Connect to server. Called from the GUI thread (Connect button); bound
+    // DNS + TCP connect instead of freezing the UI for the OS-level timeout.
     this->host = host;
     this->port = port;
-    sock = net::connect(host, port);
+    sock = net::connect(host, port, 5000);
     http = net::http::Client(sock);
 
     // Send sttream request
@@ -47,8 +48,9 @@ void SpectranHTTPClient::close() {
 }
 
 void SpectranHTTPClient::setCenterFrequency(uint64_t freq) {
-    // Connect to control endpoint (TODO: Switch to an always connected endpoint)
-    auto controlSock = net::connect(host, port);
+    // Connect to control endpoint (TODO: Switch to an always connected endpoint).
+    // Bound the connect: a stale control endpoint must not hang the tuning path.
+    auto controlSock = net::connect(host, port, 5000);
     auto controlHttp = net::http::Client(controlSock);
 
     // Encode request body
