@@ -17,7 +17,7 @@ namespace dsp::channel {
 
         void init(stream<complex_t>* in, double offset) {
             phase = lv_cmake(1.0f, 0.0f);
-            phaseDeltaBits.store(packDelta(lv_cmake(cos(offset), sin(offset))), std::memory_order_relaxed);
+            phaseDeltaBits.store(packDelta(lv_cmake((float)cos(offset), (float)sin(offset))), std::memory_order_relaxed);
             base_type::init(in);
         }
 
@@ -31,7 +31,7 @@ namespace dsp::channel {
             // setOffset touches no other shared state, so no ctrlMtx is needed. (It
             // couldn't help anyway: the worker runs process() without ctrlMtx,
             // which is held across the join in tempStop/doStop.)
-            phaseDeltaBits.store(packDelta(lv_cmake(cos(offset), sin(offset))), std::memory_order_relaxed);
+            phaseDeltaBits.store(packDelta(lv_cmake((float)cos(offset), (float)sin(offset))), std::memory_order_relaxed);
         }
 
         void setOffset(double offset, double samplerate) {
