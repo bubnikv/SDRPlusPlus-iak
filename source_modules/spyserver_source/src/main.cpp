@@ -9,9 +9,9 @@
 #include <config.h>
 #include <gui/widgets/stepped_slider.h>
 #include <gui/smgui.h>
-#include <atomic>
-#include <mutex>
-#include <thread>
+#include <utils/async_connector.h>
+#include <algorithm>
+#include <stdexcept>
 
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
@@ -75,10 +75,8 @@ public:
 
     ~SpyServerSourceModule() {
         stop(this);
-        cancelConnection();
-        if (connectionThread.joinable()) {
-            connectionThread.join();
-        }
+        // Stop the connect worker before members it uses are destroyed.
+        connector.shutdown();
         sigpath::sourceManager.unregisterSource("SpyServer");
     }
 
@@ -120,7 +118,7 @@ private:
 
     static void menuDeselected(void* ctx) {
         SpyServerSourceModule* _this = (SpyServerSourceModule*)ctx;
-        _this->cancelConnection();
+        _this->connector.cancel();
         gui::mainWindow.playButtonLocked = false;
         flog::info("SpyServerSourceModule '{0}': Menu Deselect!", _this->name);
     }
@@ -175,7 +173,7 @@ private:
         bool connected = (_this->client && _this->client->isOpen());
         gui::mainWindow.playButtonLocked = !connected;
 
-        const bool connecting = _this->connecting.load();
+        const bool connecting = _this->connector.connecting();
         if (connected || connecting) { SmGui::BeginDisabled(); }
         if (SmGui::InputText(CONCAT("##_spyserver_srv_host_", _this->name), _this->hostname, 1023)) {
             config.acquire();
@@ -253,113 +251,46 @@ private:
         else {
             SmGui::Text("Status:");
             SmGui::SameLine();
-            SmGui::Text(_this->connecting ? "Connecting..." : "Not connected");
-            if (!_this->connecting && !_this->lastConnectionError.empty()) {
-                SmGui::TextColoredF(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Connection failed: %s", _this->lastConnectionError.c_str());
+            SmGui::Text(connecting ? "Connecting..." : "Not connected");
+            if (!connecting && !_this->connector.lastError().empty()) {
+                SmGui::TextColoredF(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Connection failed: %s", _this->connector.lastError().c_str());
             }
         }
     }
 
     void tryConnect() {
-        if (connecting.exchange(true)) { return; }
+        if (connector.connecting()) { return; }
 
         if (port <= 0 || port > 65535) {
-            lastConnectionError = "Port must be between 1 and 65535";
-            connecting = false;
+            connector.setError("Port must be between 1 and 65535");
             return;
         }
 
-        if (connectionThread.joinable()) {
-            connectionThread.join();
-        }
-        connectionCancelled = false;
         if (client) { client.reset(); }
-        {
-            std::lock_guard lck(connectionMtx);
-            connectionError.clear();
-        }
-        lastConnectionError.clear();
 
         const std::string host = hostname;
         const uint16_t targetPort = port;
-        try {
-            connectionThread = std::thread([this, host, targetPort]() {
-                try {
-                    auto newClient = spyserver::connect(host, targetPort, &stream, 3000);
-                    if (!newClient->waitForDevInfo(3000)) {
-                        newClient->close();
-                        throw std::runtime_error("SpyServer didn't respond with device information");
-                    }
-
-                    bool discard = false;
-                    {
-                        std::lock_guard lck(connectionMtx);
-                        discard = connectionCancelled.load();
-                        if (!discard) {
-                            pendingClient = std::move(newClient);
-                        }
-                    }
-                    if (discard) {
-                        newClient->close();
-                    }
-                }
-                catch (const std::exception& e) {
-                    if (!connectionCancelled) {
-                        std::lock_guard lck(connectionMtx);
-                        connectionError = e.what();
-                    }
-                }
-                connecting = false;
-            });
-        }
-        catch (const std::exception& e) {
-            connecting = false;
-            lastConnectionError = std::string("Could not start connection worker: ") + e.what();
-            flog::error("{}", lastConnectionError);
-        }
-    }
-
-    void cancelConnection() {
-        connectionCancelled = true;
-
-        spyserver::SpyServerClient abandonedClient;
-        {
-            std::lock_guard lck(connectionMtx);
-            abandonedClient = std::move(pendingClient);
-            connectionError.clear();
-        }
-        if (abandonedClient) {
-            abandonedClient->close();
-        }
-        lastConnectionError.clear();
+        connector.begin([this, host, targetPort]() {
+            auto newClient = spyserver::connect(host, targetPort, &stream, 3000);
+            if (!newClient) {
+                throw std::runtime_error("Could not connect to SpyServer");
+            }
+            if (!newClient->waitForDevInfo(3000)) {
+                newClient->close();
+                throw std::runtime_error("SpyServer didn't respond with device information");
+            }
+            return newClient;
+        });
     }
 
     void pollConnection() {
-        if (connecting || !connectionThread.joinable()) { return; }
-
-        connectionThread.join();
-
-        const bool cancelled = connectionCancelled.exchange(false);
         spyserver::SpyServerClient newClient;
-        std::string error;
-        {
-            std::lock_guard lck(connectionMtx);
-            newClient = std::move(pendingClient);
-            error = std::move(connectionError);
-        }
-        if (cancelled) {
-            if (newClient) {
-                newClient->close();
-            }
+        auto res = connector.poll(newClient);
+        if (res == SpyConnector::Result::FAILED) {
+            flog::error("Could not connect to spyserver {}", connector.lastError());
             return;
         }
-        if (!newClient) {
-            if (!error.empty()) {
-                flog::error("Could not connect to spyserver {}", error);
-                lastConnectionError = std::move(error);
-            }
-            return;
-        }
+        if (res != SpyConnector::Result::CONNECTED) { return; }
 
         try {
             constexpr uint32_t DEVICE_TYPE_COUNT = sizeof(deviceTypesStr) / sizeof(deviceTypesStr[0]);
@@ -415,7 +346,7 @@ private:
         }
         catch (const std::exception& e) {
             flog::error("Could not initialize SpyServer connection: {}", e.what());
-            lastConnectionError = e.what();
+            connector.setError(e.what());
             if (client) {
                 client->close();
                 client.reset();
@@ -445,13 +376,10 @@ private:
     SourceManager::SourceHandler handler;
 
     spyserver::SpyServerClient client;
-    spyserver::SpyServerClient pendingClient;
-    std::thread connectionThread;
-    std::mutex connectionMtx;
-    std::string connectionError;
-    std::string lastConnectionError;
-    std::atomic<bool> connecting{false};
-    std::atomic<bool> connectionCancelled{false};
+    // Declared after every member its factory uses (stream, client), so its
+    // destructor joins the connect worker before those are destroyed.
+    using SpyConnector = AsyncConnector<spyserver::SpyServerClient>;
+    SpyConnector connector;
 };
 
 MOD_EXPORT void _INIT_() {
