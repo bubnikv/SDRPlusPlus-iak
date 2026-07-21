@@ -450,13 +450,83 @@ static const char* bandCategory(const std::string& type) {
     return "Util";
 }
 
+// Index order matches the RADIO_IFACE_MODE_* enum.
+static const char* const kRadioModeNames[] = { "NFM", "WFM", "AM", "DSB", "USB", "CW", "LSB", "RAW", "CWR" };
+
 static int radioModeFromString(const std::string& mode) {
-    // Index order matches the RADIO_IFACE_MODE_* enum.
-    static const char* names[] = { "NFM", "WFM", "AM", "DSB", "USB", "CW", "LSB", "RAW", "CWR" };
     for (int i = 0; i < 9; i++) {
-        if (mode == names[i]) { return i; }
+        if (mode == kRadioModeNames[i]) { return i; }
     }
     return -1;
+}
+
+static const char* radioModeName(int mode) {
+    return (mode >= RADIO_IFACE_MODE_NFM && mode <= RADIO_IFACE_MODE_CWR) ? kRadioModeNames[mode] : "--";
+}
+
+// Frequency in MHz, trailing zeros trimmed: 14025000 -> "14.025".
+static std::string mhzExact(double hz) {
+    char b[32];
+    snprintf(b, sizeof(b), "%.6f", hz / 1e6);
+    char* e = b + strlen(b) - 1;
+    while (*e == '0') { *e-- = 0; }
+    if (*e == '.') { *e = 0; }
+    return b;
+}
+
+// A stacking register: previously operated frequency (Hz) and mode (enum, -1 if
+// none). Newest first.
+struct BandRegister {
+    double freq;
+    int mode;
+};
+
+// A band's stored registers, newest first, tolerating the legacy single-object
+// format and dropping any entry no longer inside the (possibly changed) band
+// edges — the same containment revalidation the single-slot design used.
+static std::vector<BandRegister> readBandRegisters(const json& mem, const bandplan::Band_t& band) {
+    std::vector<BandRegister> regs;
+    auto it = mem.find(band.name);
+    if (it == mem.end()) { return regs; }
+    auto pushOne = [&](const json& o) {
+        if (!o.is_object()) { return; }
+        double f = o.value("freq", 0.0);
+        if (f < band.start || f > band.end) { return; }
+        int m = o.value("mode", -1);
+        if (m < RADIO_IFACE_MODE_NFM || m > RADIO_IFACE_MODE_CWR) { m = -1; }
+        regs.push_back({ f, m });
+    };
+    if (it->is_array()) {
+        for (const auto& e : *it) {
+            pushOne(e);
+            if (regs.size() >= 3) { break; }
+        }
+    }
+    else {
+        pushOne(*it); // legacy single register
+    }
+    return regs;
+}
+
+// Push freq/mode to the front of a band's register stack: newest first, deduped
+// by frequency, capped at 3. IC-705: "when you change the operating band or the
+// Register, the previously operated frequency and mode are stored."
+static void pushBandRegister(json& mem, const std::string& name, double freq, int mode) {
+    json existing = json::array();
+    auto it = mem.find(name);
+    if (it != mem.end()) {
+        if (it->is_array()) { existing = *it; }
+        else if (it->is_object()) { existing.push_back(*it); } // migrate legacy
+    }
+    json out = json::array();
+    out.push_back({ { "freq", freq }, { "mode", mode } });
+    for (const auto& e : existing) {
+        if (out.size() >= 3) { break; }
+        if (!e.is_object()) { continue; }
+        if (std::abs(e.value("freq", 0.0) - freq) < 1.0) { continue; } // dedup same frequency
+        out.push_back(e);
+    }
+    mem[name] = out;
 }
 
 // Band-type/frequency mode convention applied when a band carries no def_mode.
@@ -538,6 +608,9 @@ void FrequencySelect::drawKeypad() {
     if (keypadRequestOpen) {
         keypadRequestOpen = false;
         entry.clear();
+        pressBand = -1;
+        bandLongPressDone = false;
+        regPopupBand = nullptr;
         // Last-used page/category, and the selected band plan (independent of
         // the bandPlanEnabled display toggle).
         core::configManager.acquire();
@@ -780,6 +853,10 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
         if (effective == "All" || effective == e.cat) { shown.push_back(e.band); }
     }
 
+    // OpenPopup must run at this (modal) scope, not inside the grid child, or
+    // its popup ID won't match the BeginPopup below. The long-press detector
+    // fires inside the child, so it only sets this flag.
+    bool openRegPopup = false;
     if (shown.empty()) {
         ImGui::TextDisabled("No bands in the tuning range");
     }
@@ -792,6 +869,8 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
         bool scrolls = rows > 4;
         float gridH = scrolls ? 4.5f * (keyH + sp.y) : rows * (keyH + sp.y) - sp.y;
         float childW = totalWidth + (scrolls ? ImGui::GetStyle().ScrollbarSize : 0.0f);
+        ImGuiIO& io = ImGui::GetIO();
+        ImVec2 mousePos = ImGui::GetMousePos();
         ImGui::BeginChild("##sdrpp_band_grid", ImVec2(childW, gridH), false);
         ImDrawList* dl = ImGui::GetWindowDrawList();
         ImU32 mainCol = ImGui::GetColorU32(ImGuiCol_Text);
@@ -801,7 +880,28 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
             const bandplan::Band_t& b = *shown[i];
             ImGui::SetCursorPos(ImVec2((i % 4) * (keyW + sp.x), (i / 4) * (keyH + sp.y)));
             snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
-            if (ImGui::Button(id, ImVec2(keyW, keyH))) {
+            bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
+            // A quick tap recalls the newest register; a motionless hold opens
+            // the band's register list. Stepping waits for release so the two
+            // can't both fire (same idiom as the digit long-press).
+            if (ImGui::IsItemActivated()) {
+                pressBand = i;
+                bandLongPressDone = false;
+            }
+            if (pressBand == i && ImGui::IsItemActive() && !bandLongPressDone) {
+                float slop = 10.0f * style::uiScale;
+                float dx = mousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x;
+                float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
+                if ((dx * dx) + (dy * dy) <= (slop * slop) && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
+                    bandLongPressDone = true;
+                    regPopupBand = &b;
+                    openRegPopup = true;
+#ifdef __ANDROID__
+                    backend::hapticTick();
+#endif
+                }
+            }
+            if (clicked && !bandLongPressDone) {
                 selectBand(b, plan);
                 close = true;
             }
@@ -825,10 +925,38 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
         ImGui::EndChild();
     }
 
+    // Register list for a long-pressed band key (IC-705: touch the band key for
+    // 1 second to display the Band Stacking Register contents).
+    if (openRegPopup) { ImGui::OpenPopup("##sdrpp_band_registers"); }
+    if (ImGui::BeginPopup("##sdrpp_band_registers")) {
+        if (regPopupBand) {
+            const bandplan::Band_t& b = *regPopupBand;
+            ImGui::TextDisabled("%s", b.name.c_str());
+            core::configManager.acquire();
+            std::vector<BandRegister> regs = readBandRegisters(core::configManager.conf["bandMemory"], b);
+            core::configManager.release();
+            if (regs.empty()) {
+                ImGui::TextDisabled("No stored registers");
+            }
+            char lbl[64];
+            for (int k = 0; k < (int)regs.size(); k++) {
+                snprintf(lbl, sizeof(lbl), "%d:  %s MHz  %s##sdrpp_reg_%d",
+                         k + 1, mhzExact(regs[k].freq).c_str(), radioModeName(regs[k].mode), k);
+                if (ImGui::Button(lbl, ImVec2(style::dp(150.0f), 0))) {
+                    selectBand(b, plan, true, regs[k].freq, regs[k].mode);
+                    close = true;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        ImGui::EndPopup();
+    }
+
     if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { close = true; }
 }
 
-void FrequencySelect::selectBand(const bandplan::Band_t& band, const bandplan::BandPlan_t& plan) {
+void FrequencySelect::selectBand(const bandplan::Band_t& band, const bandplan::BandPlan_t& plan,
+                                 bool haveExplicit, double explicitFreq, int explicitMode) {
     std::string vfoName = gui::waterfall.selectedVFO;
     bool isRadio = !vfoName.empty() && core::modComManager.interfaceExists(vfoName)
                 && core::modComManager.getModuleName(vfoName) == "radio";
@@ -837,27 +965,28 @@ void FrequencySelect::selectBand(const bandplan::Band_t& band, const bandplan::B
         core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_GET_MODE, NULL, &curMode);
     }
 
-    double targetFreq = 0.0;
-    int targetMode = -1;
+    double targetFreq = haveExplicit ? explicitFreq : 0.0;
+    int targetMode = haveExplicit ? explicitMode : -1;
 
     core::configManager.acquire();
     auto& mem = core::configManager.conf["bandMemory"];
-    // Save the frequency/mode of the band being left so returning restores it.
+    // Push the frequency/mode of the band being left onto its register stack.
+    // Names repeat across plans (and within: e.g. "Shortwave Broadcast"
+    // segments), so the first containing band wins and reads are revalidated by
+    // containment.
     for (const auto& b : plan.bands) {
         if ((double)frequency >= b.start && (double)frequency <= b.end) {
-            mem[b.name] = { { "freq", (double)frequency }, { "mode", curMode } };
+            pushBandRegister(mem, b.name, (double)frequency, curMode);
             break;
         }
     }
-    // Memory is keyed by band name; containment revalidates it because names
-    // repeat across plans (and within: e.g. "Shortwave Broadcast" segments).
-    auto mit = mem.find(band.name);
-    if (mit != mem.end() && mit->is_object()) {
-        double f = mit->value("freq", 0.0);
-        if (f >= band.start && f <= band.end) {
-            targetFreq = f;
-            int m = mit->value("mode", -1);
-            if (m >= RADIO_IFACE_MODE_NFM && m <= RADIO_IFACE_MODE_CWR) { targetMode = m; }
+    // A plain tap recalls the newest register; an explicit pick already has its
+    // target and skips this.
+    if (!haveExplicit) {
+        std::vector<BandRegister> regs = readBandRegisters(mem, band);
+        if (!regs.empty()) {
+            targetFreq = regs[0].freq;
+            targetMode = regs[0].mode;
         }
     }
     core::configManager.release(true);

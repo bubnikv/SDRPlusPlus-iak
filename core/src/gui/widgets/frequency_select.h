@@ -36,7 +36,12 @@ private:
     void drawKeypad();
     void drawKeypadPage(bool& close);
     void drawBandPage(bool& close, float totalWidth);
-    void selectBand(const bandplan::Band_t& band, const bandplan::BandPlan_t& plan);
+    // Tune to a band. Without an explicit target, recalls the band's newest
+    // stacking register (or a default on first visit); with one, tunes to a
+    // specific stored register the user picked. Either way, the frequency/mode
+    // of the band being left is pushed onto its own register stack.
+    void selectBand(const bandplan::Band_t& band, const bandplan::BandPlan_t& plan,
+                    bool haveExplicit = false, double explicitFreq = 0.0, int explicitMode = -1);
     void keypadKey(char key);
     void commitEntry();
 
@@ -75,4 +80,11 @@ private:
     int page = 1;         // 0 = band grid, 1 = keypad
     std::string category; // selected category bucket ("Ham", ..., "All")
     std::string planName; // band plan the grid lists
+
+    // Band-key press tracking: a quick tap recalls the band's newest register,
+    // a motionless hold opens its stacking-register list (IC-705: "touch the
+    // band key for 1 second").
+    int pressBand = -1;   // index into the shown[] grid, -1 = none
+    bool bandLongPressDone = false;
+    const bandplan::Band_t* regPopupBand = nullptr; // band whose registers the popup lists
 };
