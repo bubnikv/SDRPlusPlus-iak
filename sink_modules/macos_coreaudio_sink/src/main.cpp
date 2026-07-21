@@ -272,10 +272,6 @@ private:
         // the real-time audio thread (erase() only shifts the leftover,
         // which is empty in the steady state).
         stereoBuffer.reserve((size_t)bufferFrames * 4);
-        // Quarter of the device period; long enough to deliver real data when
-        // the chain is keeping up, short enough that the render callback
-        // silence-fills instead of stalling CoreAudio when upstream pauses.
-        readTimeout = std::chrono::milliseconds(std::max<int64_t>(1, ((int64_t)bufferFrames * 250) / (int64_t)sampleRate));
 
         status = AudioOutputUnitStart(audioUnit);
         if (status != noErr) {
@@ -320,12 +316,14 @@ private:
         memset(left, 0, inNumberFrames * sizeof(float));
         if (right) { memset(right, 0, inNumberFrames * sizeof(float)); }
 
-        // The packer period matches the device period, so this normally loops
-        // once. The bounded wait keeps the callback from blocking past one
-        // device period when upstream stalls (e.g. radio paused): whatever is
-        // missing stays silence.
+        // Real-time thread: only drain what the packer's worker has already
+        // staged (read_for(0) polls, never waits) and leave the rest as
+        // silence. The packer runs its own thread, so this is the producer;
+        // the callback never blocks, and the reserved capacity keeps insert()
+        // from allocating here. The packer double-buffers a block ahead, so a
+        // chain that is keeping up normally has the next period ready.
         while (_this->stereoBuffer.size() < inNumberFrames) {
-            int count = _this->stereoPacker.out.read_for(_this->readTimeout);
+            int count = _this->stereoPacker.out.read_for(std::chrono::milliseconds(0));
             if (count <= 0) { break; }
             _this->stereoBuffer.insert(_this->stereoBuffer.end(),
                                        _this->stereoPacker.out.readBuf,
@@ -486,7 +484,6 @@ private:
 
     // Only touched by the render callback while the audio unit is running
     std::vector<dsp::stereo_t> stereoBuffer;
-    std::chrono::milliseconds readTimeout{ 4 };
 
     AudioUnit audioUnit = nullptr;
 };
