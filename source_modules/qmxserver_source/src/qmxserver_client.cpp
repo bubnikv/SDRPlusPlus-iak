@@ -293,14 +293,6 @@ namespace qmxserver {
     }
 
     QmxServerClient connect(std::string host, uint16_t port, dsp::stream<dsp::complex_t>* out) {
-#if 0
-        net::Conn conn = net::connect(host, port);
-        if (!conn) {
-            return NULL;
-        }
-        return QmxServerClient(new QmxServerClientClass(std::move(conn), out));
-#endif
-
         if (enet_initialize() != 0) {
 //            ::MessageBoxA(nullptr, "An error occured while initializing ENet.", "ExtIO_Omnia error", MB_OK | MB_ICONERROR);
             return {};

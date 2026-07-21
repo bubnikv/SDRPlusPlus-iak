@@ -1,13 +1,15 @@
 #pragma once
-#include <utils/networking.h>
 #include <qmxserver_protocol.h>
 #include <dsp/stream.h>
 #include <dsp/types.h>
 
 #include <atomic>
-#include <string>
-#include <vector>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include <enet/enet.h>
 
@@ -90,8 +92,6 @@ namespace qmxserver {
         int readSize(int count, uint8_t* buffer);
 
         static void dataHandler(int count, uint8_t* buf, void* ctx);
-
-        // net::Conn client;
 
         uint8_t* readBuf;
         uint8_t* writeBuf;
