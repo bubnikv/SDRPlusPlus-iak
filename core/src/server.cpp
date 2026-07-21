@@ -309,7 +309,7 @@ namespace server {
         // Load additional modules through the config ( TODO: Have a proper type parameter int the info )
         // TODO LATER: Add whitelist/blacklist stuff
         for (auto const& apath : modules) {
-            std::filesystem::path file = std::filesystem::absolute(apath);
+            std::filesystem::path file = core::resolveConfigPath(apath);
             std::string path = file.generic_string();
             std::string fn = file.filename().string();
             if (file.extension().generic_string() != SDRPP_MOD_EXTENTSION) {

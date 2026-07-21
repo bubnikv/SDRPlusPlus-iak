@@ -20,6 +20,10 @@ namespace core {
     // of the persisted config file.
     SDRPP_CPP_EXPORT std::string getModulesDirectory();
     SDRPP_CPP_EXPORT std::string getResourcesDirectory();
+
+    // Resolve a possibly relative path from the config against the
+    // executable's directory (see core.cpp for rationale).
+    SDRPP_CPP_EXPORT std::string resolveConfigPath(const std::string& path);
 };
 
 int sdrpp_main(int argc, char* argv[]);

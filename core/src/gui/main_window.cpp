@@ -26,7 +26,6 @@
 #include <android_backend.h>
 #endif
 #include <filesystem>
-#include <utils/executable_path.h>
 #include <signal_path/source.h>
 #include <gui/dialogs/loading_screen.h>
 #include <gui/colormaps.h>
@@ -150,9 +149,7 @@ void MainWindow::init() {
     // resource directories.
     for (auto const& path : modules) {
 #ifndef __ANDROID__
-        std::filesystem::path modPath(path);
-        if (!modPath.is_absolute()) { modPath = core::getExecutableDirectory() / modPath; }
-        std::string apath = modPath.lexically_normal().string();
+        std::string apath = core::resolveConfigPath(path);
         flog::info("Loading {0}", apath);
         LoadingScreen::show("Loading " + std::filesystem::path(path).filename().string());
         core::moduleManager.loadModule(apath);

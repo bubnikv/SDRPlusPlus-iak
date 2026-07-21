@@ -65,7 +65,7 @@ namespace core {
     // in the MacOS bundle) are interpreted relative to the executable's
     // directory, not the working directory, so the app behaves the same no
     // matter where it is launched from.
-    static std::string resolveConfigPath(const std::string& path) {
+    std::string resolveConfigPath(const std::string& path) {
         std::filesystem::path p(path);
         if (!p.is_absolute()) { p = getExecutableDirectory() / p; }
         return p.lexically_normal().string();
