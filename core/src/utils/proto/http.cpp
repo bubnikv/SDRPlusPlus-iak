@@ -581,6 +581,14 @@ namespace net::http {
     }
 
     Response get(const url::HttpHostPort& endpoint, const RequestOptions& options) {
+        // The whole request (connect, send, header, body, across redirects) is
+        // governed by a single finite deadline; there is no unbounded mode. A
+        // non-positive timeout would block the connect on the OS default yet
+        // expire the deadline before the first send/read, so reject it.
+        if (options.timeoutMs <= 0) {
+            throw std::invalid_argument("http: timeoutMs must be positive");
+        }
+
         url::HttpHostPort current = endpoint;
         current.path = requestPathFor(current);
 
@@ -589,8 +597,7 @@ namespace net::http {
                                   std::chrono::milliseconds(options.timeoutMs);
             // Bound connection establishment (DNS + TCP) by the same request
             // timeout that governs the response below.
-            auto sock = net::connect(current.host, current.port,
-                                     (options.timeoutMs > 0) ? options.timeoutMs : net::NO_TIMEOUT);
+            auto sock = net::connect(current.host, current.port, options.timeoutMs);
 
             RequestHeader request(METHOD_GET, requestPathFor(current), hostHeaderFor(current));
             request.setField("Connection", "close");
