@@ -114,6 +114,11 @@ namespace server {
         std::atomic<int> bytes{0};
         std::atomic<bool> serverBusy{false};
         std::atomic<bool> protocolReady{false};
+        // Server advertised SERVER_PROTOCOL_CAP_HEARTBEAT in its hello ACK.
+        // Once the handshake is done, such a server sends traffic at least
+        // every heartbeat interval, so the worker may treat a long silence
+        // as a dead link (issue #1462).
+        std::atomic<bool> serverHeartbeat{false};
 
     private:
         void init(std::shared_ptr<net::Socket> sock, dsp::stream<dsp::complex_t>* out, const AuthKey* authKey);

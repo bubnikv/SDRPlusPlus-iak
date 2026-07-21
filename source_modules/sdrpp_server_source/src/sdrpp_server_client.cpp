@@ -13,6 +13,9 @@ using namespace std::chrono_literals;
 namespace {
     constexpr int SAMPLE_STREAM_HEADER_SIZE = 8;
     constexpr int DECOMP_INPUT_BUFFER_SIZE = STREAM_BUFFER_SIZE * sizeof(dsp::complex_t) + SAMPLE_STREAM_HEADER_SIZE;
+    // Dead-link watchdog for heartbeat-capable servers, which send traffic at
+    // least every 5 s. Mirrors the server's own HEARTBEAT_TIMEOUT.
+    constexpr int LINK_TIMEOUT_MS = 15000;
 }
 
 namespace server {
@@ -276,8 +279,21 @@ namespace server {
 
     void Client::worker() {
         while (true) {
+            // A handshaken heartbeat-capable server sends traffic at least
+            // every heartbeat interval, so bound the wait and treat a long
+            // silence as a dead link (silent network drop, issue #1462).
+            // Other servers are legitimately silent while stopped: wait
+            // forever and rely on close() waking the recv via shutdown().
+            bool watchdog = protocolReady.load() && serverHeartbeat.load();
+
             // Receive header
-            if (sock->recv(rbuffer.get(), sizeof(PacketHeader), true) <= 0) {
+            int rres = sock->recv(rbuffer.get(), sizeof(PacketHeader), true, watchdog ? LINK_TIMEOUT_MS : net::NO_TIMEOUT);
+            if (rres <= 0) {
+                // recv() only returns 0 with the socket still open on a
+                // timeout; on close/error it closes the socket first.
+                if (rres == 0 && watchdog && sock->isOpen()) {
+                    flog::error("SDR++ server link timed out (no traffic for {0} ms), disconnecting", LINK_TIMEOUT_MS);
+                }
                 break;
             }
 
@@ -419,7 +435,11 @@ namespace server {
             }
         }
 
-        // Connection is gone; release anyone still waiting for an ACK.
+        // Connection is gone. Close the socket so isOpen() reports it — the
+        // GUI stops issuing commands into the dead session (each of which
+        // would block for the full protocol timeout) and shows Disconnected —
+        // then release anyone still waiting for an ACK.
+        sock->close();
         cancelAllWaiters();
         authCnd.notify_all();
     }
@@ -447,6 +467,10 @@ namespace server {
         HelloPayload hello;
         memcpy(&hello, payload.data(), sizeof(hello));
         if (!isCompatibleHello(hello)) { return CONN_ERR_PROTOCOL; }
+
+        // The worker's dead-link watchdog only arms once protocolReady is
+        // also set: the server doesn't heartbeat during the handshake.
+        serverHeartbeat = (hello.capabilities & SERVER_PROTOCOL_CAP_HEARTBEAT) != 0;
 
         if ((hello.capabilities & SERVER_PROTOCOL_CAP_AUTH) != 0) {
             if (!authKey) { return CONN_ERR_AUTH; }
