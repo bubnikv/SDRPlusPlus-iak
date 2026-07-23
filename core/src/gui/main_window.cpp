@@ -469,24 +469,37 @@ void MainWindow::draw() {
     ImGui::SameLine();
     float origY = ImGui::GetCursorPosY();
 
-    // Compute how much space the fixed elements to the right of the volume slider
-    // will need, then give volume whatever is left — down to a minimum of 100dp.
-    // The frequency-keypad button is optional: it shows only when it fits
-    // without squeezing the volume slider below its minimum.
+    // The volume slider and the level meter share the space left over after the
+    // fixed elements between them (frequency display, tuning/keypad buttons, and
+    // the right-edge reserve). When both maxima don't fit, they each take half of
+    // that pool, still capped at their own maxima; whichever hits its cap first
+    // hands the surplus to the other. The frequency-keypad button is optional: it
+    // shows only when it fits without pushing either widget below its minimum.
     float volumeWidth;
-    bool showKeypadButton;
+    float meterWidth;
+    bool  showKeypadButton;
     {
-        float itemSpacing  = ImGui::GetStyle().ItemSpacing.x;
-        float tuningCost   = btnSize.x + 2 * toolbarButtonPadding + itemSpacing; // btn + padding + gap
-        float keypadCost   = btnSize.x + 2 * toolbarButtonPadding + itemSpacing;
-        float freqCost     = gui::freqSelect.getWidth() + itemSpacing;
-        float meterMinWidth = ImGui::GetLevelMeterMinWidth();
-        float meterOffset  = 87.0f * style::uiScale;
-        float rightReserve = meterMinWidth + meterOffset;
-        float available = topBarWidth - ImGui::GetCursorPosX() - freqCost - tuningCost - rightReserve;
-        showKeypadButton = (available >= (100.0f * style::uiScale) + keypadCost);
-        if (showKeypadButton) { available -= keypadCost; }
-        volumeWidth = std::clamp(available, 100.0f * style::uiScale, 248.0f * style::uiScale);
+        float itemSpacing = ImGui::GetStyle().ItemSpacing.x;
+        float tuningCost  = btnSize.x + 2 * toolbarButtonPadding + itemSpacing; // btn + padding + gap
+        float keypadCost  = btnSize.x + 2 * toolbarButtonPadding + itemSpacing;
+        float freqCost    = gui::freqSelect.getWidth() + itemSpacing;
+        float meterOffset = 87.0f * style::uiScale;
+
+        float volMin   = 100.0f * style::uiScale;
+        float volMax   = 248.0f * style::uiScale;
+        float meterMin = ImGui::GetLevelMeterMinWidth();
+        float meterMax = std::max(375.0f * style::uiScale, meterMin);
+
+        // Space shared by the two flexible widgets.
+        float pool = topBarWidth - ImGui::GetCursorPosX() - freqCost - tuningCost - meterOffset;
+        showKeypadButton = (pool - keypadCost >= volMin + meterMin);
+        if (showKeypadButton) { pool -= keypadCost; }
+
+        // Even 50/50 split, honoring each maximum and letting a capped widget's
+        // surplus flow to the other.
+        volumeWidth = std::clamp(pool * 0.5f, volMin, volMax);
+        meterWidth  = std::clamp(pool - volumeWidth, meterMin, meterMax);
+        volumeWidth = std::clamp(pool - meterWidth, volMin, volMax);
     }
     sigpath::sinkManager.showVolumeSlider(gui::waterfall.selectedVFO, "##_sdrpp_main_volume_", volumeWidth, btnSize.x, toolbarButtonPadding, true);
 
@@ -534,12 +547,10 @@ void MainWindow::draw() {
 
     ImGui::SameLine();
 
+    // meterWidth was computed together with volumeWidth above so the two share
+    // the flexible space evenly. Right-align the meter, clamping so it can't
+    // overlap the tuning button on a very narrow window.
     float meterOffset = 87.0f * style::uiScale;
-    float meterMinWidth = ImGui::GetLevelMeterMinWidth();
-    float meterMaxWidth = std::max(375.0f * style::uiScale, meterMinWidth);
-
-    float meterAvailWidth = topBarWidth - ImGui::GetCursorPosX() - meterOffset;
-    float meterWidth = std::clamp(meterAvailWidth, meterMinWidth, meterMaxWidth);
     float meterPos = std::max(topBarWidth - (meterWidth + meterOffset), ImGui::GetCursorPosX());
 
     ImGui::SetCursorPosX(meterPos);
