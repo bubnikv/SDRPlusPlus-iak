@@ -1286,7 +1286,10 @@ namespace ImGui {
     }
 
     bool WaterFall::getAutorangeValues(float& targetMin, float& targetMax) {
-        std::vector<float> vals;
+        // Reuse the member output buffer (collectAutorangeBins clear()s it,
+        // keeping capacity) so the periodic sticky path doesn't alloc/free a
+        // ~65k-float vector on every call.
+        std::vector<float>& vals = autorangeVals;
         if (!collectAutorangeBins(vals, 1)) { return false; }
 
         // Robust quantiles instead of raw min/max: raw min chases single
@@ -1317,7 +1320,7 @@ namespace ImGui {
     // display window). Same robust floor as getAutorangeValues; the span/top is
     // left to the user's Range.
     bool WaterFall::getAutorangeRef(float& refDb, int lines) {
-        std::vector<float> vals;
+        std::vector<float>& vals = autorangeVals; // reused, see getAutorangeValues
         if (!collectAutorangeBins(vals, lines)) { return false; }
 
         size_t k = (size_t)(0.30 * (vals.size() - 1));

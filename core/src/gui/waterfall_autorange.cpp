@@ -127,6 +127,12 @@ void WaterfallAutoRange::update() {
         // avoid flicker. A large jump (band / device / gain change) bypasses
         // the glide and reacquires immediately. applyRef preserves Range.
         float cur = *fftMin;
+        // Deadband: once the floor has settled, the asymptotic EMA would keep
+        // nudging Ref by fractions of a dB every tick forever, and each nudge
+        // forces a full framebuffer recolor for users with fullWaterfallUpdate.
+        // Below this the estimate is noise, so let it rest and stop recoloring.
+        const float DEADBAND_DB = 0.1f;
+        if (std::abs(refTarget - cur) < DEADBAND_DB) { return; }
         float newRef;
         if (std::abs(refTarget - cur) > 25.0f) {
             newRef = refTarget;

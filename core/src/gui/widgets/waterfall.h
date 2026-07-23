@@ -292,6 +292,7 @@ namespace ImGui {
         float* latestFFTHold = NULL;
         float* smoothingBuf = NULL;
         std::vector<float> autorangeScratch; // reused raw-bin snapshot for collectAutorangeBins
+        std::vector<float> autorangeVals;    // reused filtered-bin output for the range estimators
         int currentFFTLine = 0;
         int fftLines = 0;
 
