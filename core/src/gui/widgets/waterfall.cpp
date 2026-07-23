@@ -1215,45 +1215,72 @@ namespace ImGui {
     // lock is safe and lets us read the newest line without racing the DSP
     // write). Returns false if too few bins survive.
     bool WaterFall::collectAutorangeBins(std::vector<float>& out, int lines) {
-        // Snapshot the visible raw bins under buf_mtx with a tight memcpy, then
-        // drop the lock before the branchy exclusion + quantile work so the DSP
-        // thread isn't stalled for the whole scan. Geometry is captured into
-        // locals so the unlocked pass stays consistent with the snapshot;
-        // autorangeScratch is reused so the copy holds the lock for ~a memcpy,
-        // not an allocation.
-        int N, visStart, visEnd, edgeLo, edgeHi, dcLo, dcHi, nLines, span;
+        // The band-edge and DC/LO exclusions are contiguous index ranges, not
+        // per-bin predicates, so resolve them to at most two surviving segments.
+        // All the boundary math is derived here, before taking buf_mtx: it
+        // depends only on the view geometry (GUI-thread-owned, so stable in this
+        // GUI-thread call) and rawFFTSize. The lock then holds for essentially
+        // just the memcpy.
+        //
+        // rawFFTSize is the one caveat: the DSP thread (iq_frontend) reallocates
+        // rawFFTs to a new rawFFTSize under buf_mtx. We snapshot it as N here and
+        // re-check it under the lock before copying -- if it changed, the offsets
+        // no longer match the buffer, so we bail (the caller keeps the previous
+        // range; the next tick reacquires). Every offset below is clamped into
+        // [0, N], so a stale N can only cause a bail, never an out-of-bounds copy.
+        int N = rawFFTSize;
+        if (N <= 0 || wholeBandwidth <= 0.0) { return false; }
+
+        // Visible span in raw-bin coordinates (identical to pushFFT).
+        double offsetRatio = viewOffset / (wholeBandwidth / 2.0);
+        int drawDataSize = (int)((viewBandwidth / wholeBandwidth) * N);
+        int drawDataStart = (int)(((double)N / 2.0) * (offsetRatio + 1)) - (drawDataSize / 2);
+        int visStart = std::clamp<int>(drawDataStart, 0, N);
+        int visEnd = std::clamp<int>(drawDataStart + drawDataSize, 0, N);
+        if (visStart >= visEnd) { return false; }
+
+        // Device band-edge zones (anti-alias roll-off): 15% per side. Keep
+        // [edgeLo, edgeHi); intersect with the visible window to get [a, b).
+        const double EDGE_FRACTION = 0.15;
+        int edgeLo = (int)(EDGE_FRACTION * N);  // [0, edgeLo)  = -Fs/2 edge
+        int edgeHi = N - edgeLo;                // [edgeHi, N)  = +Fs/2 edge
+        int a = std::max(visStart, edgeLo);
+        int b = std::min(visEnd, edgeHi);
+
+        // DC/LO notch at center (N/2): +-250 Hz, capped at 5% of the visible
+        // span so it can't dominate a narrowband source or an extreme zoom.
+        const double CENTER_NOTCH_BANDWIDTH = 250.0; // Hz, half-width
+        double hzPerBin = wholeBandwidth / (double)N;
+        double notchHz = std::min(CENTER_NOTCH_BANDWIDTH, 0.05 * viewBandwidth);
+        int notchHalf = (int)(notchHz / hzPerBin);
+        int dcLo = (N / 2) - notchHalf;
+        int dcHi = (N / 2) + notchHalf;
+
+        // [dcLo, dcHi] inclusive is cut out of [a, b), leaving the bins below the
+        // notch (segment 1) and above it (segment 2). The clamps collapse the
+        // degenerate cases: a notch outside [a, b) leaves the whole interior in
+        // one segment, a notch covering it leaves none. Lengths floored at 0 so
+        // an empty segment contributes nothing; all offsets stay within [0, N].
+        int seg1Lo = a;
+        int len1 = std::max(0, std::min(b, dcLo) - a);
+        int seg2Lo = std::max(a, dcHi + 1);
+        int len2 = std::max(0, b - seg2Lo);
+        int perLine = len1 + len2;
+        if (perLine <= 0) { return false; }
+
         {
             std::lock_guard<std::recursive_mutex> lck(buf_mtx);
-            if (rawFFTs == NULL || fftLines <= 0 || waterfallHeight <= 0) { return false; }
-            N = rawFFTSize;
-            if (N <= 0 || wholeBandwidth <= 0.0) { return false; }
-
-            // Visible span in raw-bin coordinates (identical to pushFFT).
-            double offsetRatio = viewOffset / (wholeBandwidth / 2.0);
-            int drawDataSize = (int)((viewBandwidth / wholeBandwidth) * N);
-            int drawDataStart = (int)(((double)N / 2.0) * (offsetRatio + 1)) - (drawDataSize / 2);
-            visStart = std::clamp<int>(drawDataStart, 0, N);
-            visEnd = std::clamp<int>(drawDataStart + drawDataSize, 0, N);
-            if (visStart >= visEnd) { return false; }
-
-            // Device band-edge zones (anti-alias roll-off): 15% per side.
-            const double EDGE_FRACTION = 0.15;
-            edgeLo = (int)(EDGE_FRACTION * N);  // [0, edgeLo)  = -Fs/2 edge
-            edgeHi = N - edgeLo;                // [edgeHi, N)  = +Fs/2 edge
-
-            // DC/LO notch at center (N/2): +-250 Hz, capped at 5% of the visible
-            // span so it can't dominate a narrowband source or an extreme zoom.
-            const double CENTER_NOTCH_BANDWIDTH = 250.0; // Hz, half-width
-            double hzPerBin = wholeBandwidth / (double)N;
-            double notchHz = std::min(CENTER_NOTCH_BANDWIDTH, 0.05 * viewBandwidth);
-            int notchHalf = (int)(notchHz / hzPerBin);
-            dcLo = (N / 2) - notchHalf;
-            dcHi = (N / 2) + notchHalf;
-
-            nLines = std::clamp<int>(lines, 1, fftLines);
-            span = visEnd - visStart;
-            size_t need = (size_t)span * nLines;
-            if (autorangeScratch.size() < need) { autorangeScratch.resize(need); }
+            // rawFFTSize may have been reallocated under us (DSP thread); if so
+            // the precomputed offsets no longer match rawFFTs -- bail rather than
+            // index past it.
+            if (rawFFTs == NULL || fftLines <= 0 || waterfallHeight <= 0 || rawFFTSize != N) { return false; }
+            int nLines = std::clamp<int>(lines, 1, fftLines);
+            size_t total = (size_t)perLine * nLines;
+            // resize (not reserve) so out.size() is exactly the copied count -- a
+            // prior larger call must not leave a stale tail for the caller's
+            // nth_element. Grows only past capacity, so the pooled buffer keeps
+            // the steady-state path allocation-free.
+            out.resize(total);
             for (int l = 0; l < nLines; l++) {
                 // currentFFTLine is the newest; older lines follow at +1, +2...
                 // When the waterfall is hidden the live line is rawFFTs[0], not
@@ -1261,25 +1288,17 @@ namespace ImGui {
                 const float* line = waterfallVisible
                     ? &rawFFTs[((currentFFTLine + l) % waterfallHeight) * N]
                     : rawFFTs;
-                memcpy(&autorangeScratch[(size_t)l * span], &line[visStart], span * sizeof(float));
+                float* dst = out.data() + (size_t)l * perLine;
+                if (len1 > 0) { memcpy(dst, &line[seg1Lo], len1 * sizeof(float)); dst += len1; }
+                if (len2 > 0) { memcpy(dst, &line[seg2Lo], len2 * sizeof(float)); }
             }
         }
 
-        // Filter (drop band edges, the DC/LO notch and the sentinel /
-        // non-finite values -- nothing real sits below -200 dBFS) into `out`,
-        // unlocked. Absolute bin index i = visStart + j.
-        out.clear();
-        out.reserve((size_t)span * nLines);
-        for (int l = 0; l < nLines; l++) {
-            const float* seg = &autorangeScratch[(size_t)l * span];
-            for (int j = 0; j < span; j++) {
-                int i = visStart + j;
-                if (i < edgeLo || i >= edgeHi) { continue; } // band edge
-                if (i >= dcLo && i <= dcHi) { continue; }     // DC/LO notch
-                float v = seg[j];
-                if (std::isfinite(v) && v > -200.0f) { out.push_back(v); }
-            }
-        }
+        // Reject the sentinel / non-finite values (nothing real sits below
+        // -200 dBFS). Compact in place, unlocked; a no-op on a live band.
+        out.erase(std::remove_if(out.begin(), out.end(),
+                      [](float v) { return !(std::isfinite(v) && v > -200.0f); }),
+                  out.end());
         // Too few bins to trust (e.g. zoomed onto pure roll-off): bail so the
         // caller keeps the previous range.
         return out.size() >= 64;
@@ -1287,7 +1306,7 @@ namespace ImGui {
 
     // Estimate just the noise floor (the bottom of the display window) from the
     // visible raw bins. The span/top is left to the user's Range. Reuses the
-    // member output buffer (collectAutorangeBins clear()s it, keeping capacity)
+    // member output buffer (collectAutorangeBins resize()s it, keeping capacity)
     // so the periodic sticky path doesn't alloc/free a ~65k-float vector every
     // call.
     bool WaterFall::getAutorangeRef(float& refDb, int lines) {
@@ -1306,11 +1325,11 @@ namespace ImGui {
         return true;
     }
 
-    // Release the pooled-snapshot buffer. Call after a multi-line one-shot so
-    // the single-line sticky path doesn't keep the 5x-larger allocation around.
+    // Release the pooled bin buffer. Call after a multi-line one-shot so the
+    // single-line sticky path doesn't keep the 5x-larger allocation around.
     void WaterFall::freeAutorangeScratch() {
         std::lock_guard<std::recursive_mutex> lck(buf_mtx);
-        std::vector<float>().swap(autorangeScratch);
+        std::vector<float>().swap(autorangeVals);
     }
 
     void WaterFall::setCenterFrequency(double freq) {
