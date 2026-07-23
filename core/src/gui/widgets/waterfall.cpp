@@ -1240,7 +1240,7 @@ namespace ImGui {
         targetMax = topDb + topMargin;
 
         // Guarantee a usable span on very quiet / nearly empty bands.
-        const float minSpan = 25.0f;
+        const float minSpan = 60.0f;
         if (targetMax - targetMin < minSpan) { targetMax = targetMin + minSpan; }
         return true;
     }
