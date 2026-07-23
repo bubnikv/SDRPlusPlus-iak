@@ -1204,19 +1204,44 @@ namespace ImGui {
         int start = dataWidth * 0.2;
         int end = dataWidth * 0.8;
         if (start >= end) { return false; }
-        float min = INFINITY;
-        float max = -INFINITY;
+
+        // Collect finite bins so we can take robust quantiles instead of the
+        // raw min/max. Raw min chases single downward noise excursions and raw
+        // max lets one strong carrier blow the range wide open and crush
+        // contrast. latestFFT is the display-width, max-downsampled FFT, i.e.
+        // exactly what the waterfall renders, so fitting to it fits what's
+        // actually shown. Drop the sentinel / smoothing-warmup values (nothing
+        // real sits below -200 dBFS) and any non-finite bins.
+        std::vector<float> vals;
+        vals.reserve(end - start);
         for (int i = start; i < end; i++) {
-            min = std::min<float>(min, latestFFT[i]);
-            max = std::max<float>(max, latestFFT[i]);
+            float v = latestFFT[i];
+            if (std::isfinite(v) && v > -200.0f) { vals.push_back(v); }
         }
-        // Reject non-finite results and the sentinel / smoothing-warmup range
-        // (nothing real sits below -200 dBFS).
-        if (!std::isfinite(min) || !std::isfinite(max) || max <= min || max < -200.0f) {
-            return false;
-        }
-        targetMin = min - 10;
-        targetMax = max + 10;
+        if (vals.size() < 16) { return false; }
+
+        std::sort(vals.begin(), vals.end());
+        auto quantile = [&](float q) {
+            return vals[(int)(q * (vals.size() - 1))];
+        };
+
+        // Noise floor: a low quantile is far more robust than the raw minimum.
+        // The mean of the lowest ~10% sits below the modal floor (it selects
+        // downward fluctuations), so q30 tracks the visible background better.
+        float floorDb = quantile(0.30f);
+        // Signal top: q99.5 ignores the single strongest carrier, so one loud
+        // CW/FM signal no longer dominates the range.
+        float topDb = quantile(0.995f);
+
+        // Margins: keep noise slightly off pure black and leave headroom on top.
+        const float bottomMargin = 8.0f;
+        const float topMargin = 5.0f;
+        targetMin = floorDb - bottomMargin;
+        targetMax = topDb + topMargin;
+
+        // Guarantee a usable span on very quiet / nearly empty bands.
+        const float minSpan = 25.0f;
+        if (targetMax - targetMin < minSpan) { targetMax = targetMin + minSpan; }
         return true;
     }
 
