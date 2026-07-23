@@ -905,36 +905,44 @@ void MainWindow::draw() {
 
     if (sliderSeparators) ImGui::NewLine();
 
-    // While sticky auto-range drives Min/Max, grey the manual sliders out so
-    // the user isn't fighting the auto-scaler (Zoom stays live).
-    ImGui::BeginDisabled(autoRange.sticky());
-
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Max").x / 2.0));
-    ImGui::TextUnformatted("Max");
+    // Range = displayed dynamic range / contrast (fftMax - fftMin). Always
+    // live: the user owns contrast even while sticky auto-range tracks Ref.
+    // Dragging it pivots on Ref (the floor), extending the top.
+    float wfRange = fftMax - fftMin;
+    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Range").x / 2.0));
+    ImGui::TextUnformatted("Range");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool maxSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &fftMax, 0.0, -160.0f, "");
+    bool rangeSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &wfRange, 30.0f, 160.0f, "");
     ImGui::SetItemUsingMouseWheel();
-    if (maxSliderChanged) {
-        fftMax = std::max<float>(fftMax, fftMin + 10);
+    if (rangeSliderChanged) {
+        fftMax = fftMin + wfRange;
         core::configManager.acquire();
+        core::configManager.conf["min"] = fftMin;
         core::configManager.conf["max"] = fftMax;
         core::configManager.release(true);
     }
 
     if (sliderSeparators) ImGui::NewLine();
 
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Min").x / 2.0));
-    ImGui::TextUnformatted("Min");
+    // Ref = noise-floor level (fftMin, bottom of the window). Sticky auto-range
+    // drives it, so grey it out while sticky. Dragging it slides the whole
+    // window, preserving Range.
+    float wfRef = fftMin;
+    ImGui::BeginDisabled(autoRange.sticky());
+    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Ref").x / 2.0));
+    ImGui::TextUnformatted("Ref");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool minSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &fftMin, 0.0, -160.0f, "");
+    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, -160.0f, -30.0f, "");
     ImGui::SetItemUsingMouseWheel();
-    if (minSliderChanged) {
-        fftMin = std::min<float>(fftMax - 10, fftMin);
+    if (refSliderChanged) {
+        float range = fftMax - fftMin; // keep the user's Range, slide the window
+        fftMin = wfRef;
+        fftMax = wfRef + range;
         core::configManager.acquire();
         core::configManager.conf["min"] = fftMin;
+        core::configManager.conf["max"] = fftMax;
         core::configManager.release(true);
     }
-
     ImGui::EndDisabled();
 
     if (sliderSeparators) ImGui::NewLine();

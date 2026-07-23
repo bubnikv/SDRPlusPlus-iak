@@ -10,13 +10,35 @@ void WaterfallAutoRange::init(float* min, float* max, bool stickyFromConfig) {
     fftMax = max;
     stickyEnabled = stickyFromConfig;
     initialized = false;
+    normalizeRange();
+}
+
+void WaterfallAutoRange::normalizeRange() {
+    // Bring legacy / out-of-bounds config into the Ref+Range model on load:
+    // Ref (= fftMin) in [-160,-30], Range (= fftMax-fftMin) in [30,160].
+    // In-memory only; config is rewritten on the next slider change or when
+    // sticky is toggled off.
+    float ref = std::clamp(*fftMin, -160.0f, -30.0f);
+    float range = std::clamp(*fftMax - *fftMin, 30.0f, 160.0f);
+    *fftMin = ref;
+    *fftMax = ref + range;
+}
+
+void WaterfallAutoRange::applyRef(float ref) {
+    // Ref is the floor / bottom of the window. Slide the window to it while
+    // preserving the user's Range (contrast). Ref stays within the slider's
+    // bounds so the greyed Ref slider shows a valid position while sticky.
+    float range = *fftMax - *fftMin;
+    ref = std::clamp(ref, -160.0f, -30.0f);
+    *fftMin = ref;
+    *fftMax = ref + range;
 }
 
 void WaterfallAutoRange::oneShotFit() {
-    float newMin, newMax;
-    if (!gui::waterfall.getAutorangeValues(newMin, newMax)) { return; }
-    *fftMin = newMin;
-    *fftMax = std::max<float>(newMax, *fftMin + 10);
+    // Ref only: re-level to the measured noise floor, keep the user's Range.
+    float ref;
+    if (!gui::waterfall.getAutorangeRef(ref)) { return; }
+    applyRef(ref);
     core::configManager.acquire();
     core::configManager.conf["min"] = *fftMin;
     core::configManager.conf["max"] = *fftMax;
@@ -39,7 +61,7 @@ void WaterfallAutoRange::setSticky(bool on) {
 
 void WaterfallAutoRange::drawButton(float footprint, const ImVec4& tint) {
     // Glyph + padding at a fixed ratio so the button keeps its total footprint
-    // (the surrounding Min/Max slider layout and its centering depend on it).
+    // (the surrounding Range/Ref slider layout and its centering depend on it).
     float pad = footprint * (2.5f / 20.0f);
     float size = footprint - 2.0f * pad;
     // Fill the button when latched so it reads as "on".
@@ -85,28 +107,29 @@ void WaterfallAutoRange::update() {
     float dt = updateAccum;
     updateAccum = 0.0f;
 
-    float tMin, tMax;
-    if (!gui::waterfall.getAutorangeValues(tMin, tMax)) { return; }
+    float refTarget;
+    if (!gui::waterfall.getAutorangeRef(refTarget)) { return; }
 
     if (!initialized) {
         // First fit after latching / reacquisition: snap, don't glide.
-        *fftMin = tMin;
-        *fftMax = tMax;
+        applyRef(refTarget);
         initialized = true;
     }
     else {
-        // Asymmetric smoothing: follow a rising floor / growing signal quickly
-        // so the display can't wash out, but relax downward slowly to avoid
-        // flicker and range pumping. A large jump (band / device / gain
-        // change) bypasses the glide and reacquires immediately.
-        auto ema = [dt](float cur, float tgt, float tauRise, float tauFall) {
-            if (std::abs(tgt - cur) > 25.0f) { return tgt; }
-            float tau = (tgt > cur) ? tauRise : tauFall;
+        // Asymmetric smoothing on Ref (the noise floor): follow a rising floor
+        // quickly so the display can't wash out, but relax downward slowly to
+        // avoid flicker. A large jump (band / device / gain change) bypasses
+        // the glide and reacquires immediately. applyRef preserves Range.
+        float cur = *fftMin;
+        float newRef;
+        if (std::abs(refTarget - cur) > 25.0f) {
+            newRef = refTarget;
+        }
+        else {
+            float tau = (refTarget > cur) ? 0.6f : 3.0f;
             float alpha = 1.0f - expf(-dt / tau);
-            return cur + alpha * (tgt - cur);
-        };
-        *fftMin = ema(*fftMin, tMin, 0.6f, 3.0f);
-        *fftMax = ema(*fftMax, tMax, 1.0f, 8.0f);
+            newRef = cur + alpha * (refTarget - cur);
+        }
+        applyRef(newRef);
     }
-    if (*fftMax < *fftMin + 10.0f) { *fftMax = *fftMin + 10.0f; }
 }

@@ -33,6 +33,8 @@ public:
 private:
     void oneShotFit();
     void setSticky(bool on);
+    void applyRef(float ref);  // set Ref (floor), preserving Range
+    void normalizeRange();     // clamp legacy config into Ref/Range bounds
 
     float* fftMin = nullptr;
     float* fftMax = nullptr;

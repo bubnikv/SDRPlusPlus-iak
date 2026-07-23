@@ -1245,6 +1245,33 @@ namespace ImGui {
         return true;
     }
 
+    // Ref-only variant: estimate just the noise floor (the bottom of the
+    // display window). Same robust floor as getAutorangeValues; the span/top is
+    // left to the user's Range. NOTE: intentionally duplicates the bin
+    // collection for now -- the two can be factored together later.
+    bool WaterFall::getAutorangeRef(float& refDb) {
+        std::lock_guard<std::recursive_mutex> lck(latestFFTMtx);
+        if (fftLines <= 0 || latestFFT == NULL) { return false; }
+        int start = dataWidth * 0.2;
+        int end = dataWidth * 0.8;
+        if (start >= end) { return false; }
+
+        std::vector<float> vals;
+        vals.reserve(end - start);
+        for (int i = start; i < end; i++) {
+            float v = latestFFT[i];
+            if (std::isfinite(v) && v > -200.0f) { vals.push_back(v); }
+        }
+        if (vals.size() < 16) { return false; }
+
+        std::sort(vals.begin(), vals.end());
+        float floorDb = vals[(int)(0.30f * (vals.size() - 1))];
+        // Place the floor 8 dB above the window bottom so noise sits just off
+        // the darkest color instead of pure black.
+        refDb = floorDb - 8.0f;
+        return true;
+    }
+
     void WaterFall::setCenterFrequency(double freq) {
         centerFreq = freq;
         lowerFreq = (centerFreq + viewOffset) - (viewBandwidth / 2.0);
