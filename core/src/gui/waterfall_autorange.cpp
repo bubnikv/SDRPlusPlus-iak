@@ -36,8 +36,10 @@ void WaterfallAutoRange::applyRef(float ref) {
 
 void WaterfallAutoRange::oneShotFit() {
     // Ref only: re-level to the measured noise floor, keep the user's Range.
+    // Pool the last 5 FFT lines so a single click can't land on a transient
+    // whole-band burst (sticky uses 1 line -- its EMA smooths over time).
     float ref;
-    if (!gui::waterfall.getAutorangeRef(ref)) { return; }
+    if (!gui::waterfall.getAutorangeRef(ref, 5)) { return; }
     applyRef(ref);
     core::configManager.acquire();
     core::configManager.conf["min"] = *fftMin;

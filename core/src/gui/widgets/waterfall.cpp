@@ -1207,8 +1207,15 @@ namespace ImGui {
     // slice keeps all of it, while a full-zoom-out drops the roll-off edges and
     // the center spike (matching the SDR Console / gqrx heuristics).
     //
-    // Caller must hold latestFFTMtx. Returns false if too few bins survive.
-    bool WaterFall::collectAutorangeBins(std::vector<float>& out) {
+    // Pooling several lines gives the one-shot a steadier estimate and rejects
+    // a transient whole-band burst at the click instant: the burst's elevated
+    // bins sort into the upper part of the pool, so a low quantile stays on the
+    // good lines. Takes buf_mtx, which guards rawFFTs / currentFFTLine /
+    // geometry (documented lock order buf_mtx -> latestFFTMtx, so this outermost
+    // lock is safe and lets us read the newest line without racing the DSP
+    // write). Returns false if too few bins survive.
+    bool WaterFall::collectAutorangeBins(std::vector<float>& out, int lines) {
+        std::lock_guard<std::recursive_mutex> lck(buf_mtx);
         if (rawFFTs == NULL || fftLines <= 0) { return false; }
         const int N = rawFFTSize;
         if (N <= 0 || wholeBandwidth <= 0.0) { return false; }
@@ -1235,16 +1242,20 @@ namespace ImGui {
         int dcLo = (N / 2) - notchHalf;
         int dcHi = (N / 2) + notchHalf;
 
-        const float* line = &rawFFTs[currentFFTLine * N];
+        int nLines = std::clamp<int>(lines, 1, fftLines);
         out.clear();
-        out.reserve(visEnd - visStart);
-        for (int i = visStart; i < visEnd; i++) {
-            if (i < edgeLo || i >= edgeHi) { continue; } // band edge
-            if (i >= dcLo && i <= dcHi) { continue; }     // DC/LO notch
-            float v = line[i];
-            // Drop non-finite bins and the sentinel / smoothing-warmup values
-            // (nothing real sits below -200 dBFS).
-            if (std::isfinite(v) && v > -200.0f) { out.push_back(v); }
+        out.reserve((size_t)(visEnd - visStart) * nLines);
+        for (int l = 0; l < nLines; l++) {
+            // currentFFTLine is the newest; older lines follow at +1, +2, ...
+            const float* line = &rawFFTs[((currentFFTLine + l) % waterfallHeight) * N];
+            for (int i = visStart; i < visEnd; i++) {
+                if (i < edgeLo || i >= edgeHi) { continue; } // band edge
+                if (i >= dcLo && i <= dcHi) { continue; }     // DC/LO notch
+                float v = line[i];
+                // Drop non-finite bins and the sentinel / smoothing-warmup
+                // values (nothing real sits below -200 dBFS).
+                if (std::isfinite(v) && v > -200.0f) { out.push_back(v); }
+            }
         }
         // Too few bins to trust (e.g. zoomed onto pure roll-off): bail so the
         // caller keeps the previous range.
@@ -1252,9 +1263,8 @@ namespace ImGui {
     }
 
     bool WaterFall::getAutorangeValues(float& targetMin, float& targetMax) {
-        std::lock_guard<std::recursive_mutex> lck(latestFFTMtx);
         std::vector<float> vals;
-        if (!collectAutorangeBins(vals)) { return false; }
+        if (!collectAutorangeBins(vals, 1)) { return false; }
 
         // Robust quantiles instead of raw min/max: raw min chases single
         // downward noise excursions, raw max lets one carrier blow the range
@@ -1283,10 +1293,9 @@ namespace ImGui {
     // Ref-only variant: estimate just the noise floor (the bottom of the
     // display window). Same robust floor as getAutorangeValues; the span/top is
     // left to the user's Range.
-    bool WaterFall::getAutorangeRef(float& refDb) {
-        std::lock_guard<std::recursive_mutex> lck(latestFFTMtx);
+    bool WaterFall::getAutorangeRef(float& refDb, int lines) {
         std::vector<float> vals;
-        if (!collectAutorangeBins(vals)) { return false; }
+        if (!collectAutorangeBins(vals, lines)) { return false; }
 
         size_t k = (size_t)(0.30 * (vals.size() - 1));
         std::nth_element(vals.begin(), vals.begin() + k, vals.end());

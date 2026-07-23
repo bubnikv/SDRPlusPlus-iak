@@ -122,7 +122,7 @@ namespace ImGui {
         void setOffset(double zoomOffset);
 
         bool getAutorangeValues(float& targetMin, float& targetMax);
-        bool getAutorangeRef(float& refDb);
+        bool getAutorangeRef(float& refDb, int lines = 1);
 
         void selectFirstVFO();
 
@@ -231,7 +231,7 @@ namespace ImGui {
         void updateWaterfallTexture();
         void updateAllVFOs(bool checkRedrawRequired = false);
         bool calculateVFOSignalInfo(float* fftLine, WaterfallVFO* vfo, float& strength, float& snr);
-        bool collectAutorangeBins(std::vector<float>& out); // visible raw bins minus edges/DC notch
+        bool collectAutorangeBins(std::vector<float>& out, int lines); // pooled visible raw bins minus edges/DC notch
 
         bool waterfallUpdate = false;
 
