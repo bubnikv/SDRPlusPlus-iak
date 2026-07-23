@@ -912,7 +912,7 @@ void MainWindow::draw() {
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Range").x / 2.0));
     ImGui::TextUnformatted("Range");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool rangeSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &wfRange, 30.0f, 160.0f, "");
+    bool rangeSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &wfRange, WaterfallAutoRange::RANGE_MIN, WaterfallAutoRange::RANGE_MAX, "");
     ImGui::SetItemUsingMouseWheel();
     if (rangeSliderChanged) {
         fftMax = fftMin + wfRange;
@@ -932,7 +932,7 @@ void MainWindow::draw() {
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Ref").x / 2.0));
     ImGui::TextUnformatted("Ref");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, -160.0f, -30.0f, "");
+    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, WaterfallAutoRange::REF_MIN, WaterfallAutoRange::REF_MAX, "");
     ImGui::SetItemUsingMouseWheel();
     if (refSliderChanged) {
         float range = fftMax - fftMin; // keep the user's Range, slide the window

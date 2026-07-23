@@ -18,8 +18,8 @@ void WaterfallAutoRange::normalizeRange() {
     // Ref (= fftMin) in [-160,-30], Range (= fftMax-fftMin) in [30,160].
     // In-memory only; config is rewritten on the next slider change or when
     // sticky is toggled off.
-    float ref = std::clamp(*fftMin, -160.0f, -30.0f);
-    float range = std::clamp(*fftMax - *fftMin, 30.0f, 160.0f);
+    float ref = std::clamp(*fftMin, REF_MIN, REF_MAX);
+    float range = std::clamp(*fftMax - *fftMin, RANGE_MIN, RANGE_MAX);
     *fftMin = ref;
     *fftMax = ref + range;
 }
@@ -29,7 +29,7 @@ void WaterfallAutoRange::applyRef(float ref) {
     // preserving the user's Range (contrast). Ref stays within the slider's
     // bounds so the greyed Ref slider shows a valid position while sticky.
     float range = *fftMax - *fftMin;
-    ref = std::clamp(ref, -160.0f, -30.0f);
+    ref = std::clamp(ref, REF_MIN, REF_MAX);
     *fftMin = ref;
     *fftMax = ref + range;
 }
@@ -133,12 +133,18 @@ void WaterfallAutoRange::update() {
         // Below this the estimate is noise, so let it rest and stop recoloring.
         const float DEADBAND_DB = 0.1f;
         if (std::abs(refTarget - cur) < DEADBAND_DB) { return; }
+        // A large jump (band / device / gain change) bypasses the glide.
+        const float REACQUIRE_JUMP_DB = 25.0f;
+        // Asymmetric time constants: follow a rising floor quickly, relax down
+        // slowly to avoid flicker.
+        const float TAU_RISE_S = 0.6f;
+        const float TAU_FALL_S = 3.0f;
         float newRef;
-        if (std::abs(refTarget - cur) > 25.0f) {
+        if (std::abs(refTarget - cur) > REACQUIRE_JUMP_DB) {
             newRef = refTarget;
         }
         else {
-            float tau = (refTarget > cur) ? 0.6f : 3.0f;
+            float tau = (refTarget > cur) ? TAU_RISE_S : TAU_FALL_S;
             float alpha = 1.0f - expf(-dt / tau);
             newRef = cur + alpha * (refTarget - cur);
         }

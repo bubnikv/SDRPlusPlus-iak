@@ -14,6 +14,14 @@
 // act on the same values.
 class WaterfallAutoRange {
 public:
+    // Slider bounds for the Ref+Range model. The manual sliders in MainWindow
+    // and the auto-scaler's clamps must agree, so they share these: Ref (the
+    // window floor, = fftMin) and Range (= fftMax - fftMin), both in dB.
+    static constexpr float REF_MIN = -160.0f;
+    static constexpr float REF_MAX = -30.0f;
+    static constexpr float RANGE_MIN = 30.0f;
+    static constexpr float RANGE_MAX = 160.0f;
+
     // Bind to MainWindow's fftMin/fftMax and seed the latch from config.
     void init(float* fftMin, float* fftMax, bool stickyFromConfig);
 

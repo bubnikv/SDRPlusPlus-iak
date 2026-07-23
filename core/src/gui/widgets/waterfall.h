@@ -121,7 +121,6 @@ namespace ImGui {
         void setZoom(double zoomLevel);
         void setOffset(double zoomOffset);
 
-        bool getAutorangeValues(float& targetMin, float& targetMax);
         bool getAutorangeRef(float& refDb, int lines = 1);
         void freeAutorangeScratch();
 

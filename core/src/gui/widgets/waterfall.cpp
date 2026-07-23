@@ -1285,44 +1285,18 @@ namespace ImGui {
         return out.size() >= 64;
     }
 
-    bool WaterFall::getAutorangeValues(float& targetMin, float& targetMax) {
-        // Reuse the member output buffer (collectAutorangeBins clear()s it,
-        // keeping capacity) so the periodic sticky path doesn't alloc/free a
-        // ~65k-float vector on every call.
-        std::vector<float>& vals = autorangeVals;
-        if (!collectAutorangeBins(vals, 1)) { return false; }
-
-        // Robust quantiles instead of raw min/max: raw min chases single
-        // downward noise excursions, raw max lets one carrier blow the range
-        // open. nth_element is O(n) vs O(n log n) for a full sort, which matters
-        // on a ~65k-bin raw line. The floor selection partitions the array, so
-        // the top (q99.5, > q30) can be selected within the upper partition.
-        size_t klo = (size_t)(0.30 * (vals.size() - 1));
-        size_t khi = (size_t)(0.995 * (vals.size() - 1));
-        std::nth_element(vals.begin(), vals.begin() + klo, vals.end());
-        float floorDb = vals[klo];
-        std::nth_element(vals.begin() + klo + 1, vals.begin() + khi, vals.end());
-        float topDb = vals[khi];
-
-        // Margins: keep noise slightly off pure black and leave headroom on top.
-        const float bottomMargin = 8.0f;
-        const float topMargin = 5.0f;
-        targetMin = floorDb - bottomMargin;
-        targetMax = topDb + topMargin;
-
-        // Guarantee a usable span on very quiet / nearly empty bands.
-        const float minSpan = 60.0f;
-        if (targetMax - targetMin < minSpan) { targetMax = targetMin + minSpan; }
-        return true;
-    }
-
-    // Ref-only variant: estimate just the noise floor (the bottom of the
-    // display window). Same robust floor as getAutorangeValues; the span/top is
-    // left to the user's Range.
+    // Estimate just the noise floor (the bottom of the display window) from the
+    // visible raw bins. The span/top is left to the user's Range. Reuses the
+    // member output buffer (collectAutorangeBins clear()s it, keeping capacity)
+    // so the periodic sticky path doesn't alloc/free a ~65k-float vector every
+    // call.
     bool WaterFall::getAutorangeRef(float& refDb, int lines) {
-        std::vector<float>& vals = autorangeVals; // reused, see getAutorangeValues
+        std::vector<float>& vals = autorangeVals;
         if (!collectAutorangeBins(vals, lines)) { return false; }
 
+        // Robust low quantile instead of the raw minimum: raw min chases single
+        // downward noise excursions. nth_element is O(n) vs O(n log n) for a
+        // full sort, which matters on a ~65k-bin raw line.
         size_t k = (size_t)(0.30 * (vals.size() - 1));
         std::nth_element(vals.begin(), vals.begin() + k, vals.end());
         float floorDb = vals[k];
