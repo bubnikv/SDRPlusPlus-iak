@@ -207,6 +207,7 @@ void MainWindow::init() {
     core::configManager.acquire();
     fftMin = core::configManager.conf["min"];
     fftMax = core::configManager.conf["max"];
+    autoRange.init(&fftMin, &fftMax, core::configManager.conf["waterfallAutoRange"]);
     gui::waterfall.setFFTMin(fftMin);
     gui::waterfall.setWaterfallMin(fftMin);
     gui::waterfall.setFFTMax(fftMax);
@@ -904,6 +905,10 @@ void MainWindow::draw() {
 
     if (sliderSeparators) ImGui::NewLine();
 
+    // While sticky auto-range drives Min/Max, grey the manual sliders out so
+    // the user isn't fighting the auto-scaler (Zoom stays live).
+    ImGui::BeginDisabled(autoRange.sticky());
+
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Max").x / 2.0));
     ImGui::TextUnformatted("Max");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
@@ -930,26 +935,18 @@ void MainWindow::draw() {
         core::configManager.release(true);
     }
 
+    ImGui::EndDisabled();
+
     if (sliderSeparators) ImGui::NewLine();
 
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    // Glyph + padding kept at a 20px total footprint so the surrounding
-    // Min/Max slider layout and the centering above are unchanged.
-    float autoscaleIconPad = 2.5f * style::uiScale;
-    float autoscaleIconSize = (20.0f * style::uiScale) - 2.0f * autoscaleIconPad;
-    if (ImGui::ImageButton(icons::CONTRAST, ImVec2(autoscaleIconSize, autoscaleIconSize), ImVec2(0, 0), ImVec2(1, 1), (int)autoscaleIconPad, ImVec4(0, 0, 0, 0), textCol)) {
-        float newMin, newMax;
-        if (gui::waterfall.getAutorangeValues(newMin, newMax)) {
-            fftMin = newMin;
-            fftMax = std::max<float>(newMax, fftMin + 10);
-            core::configManager.acquire();
-            core::configManager.conf["min"] = fftMin;
-            core::configManager.conf["max"] = fftMax;
-            core::configManager.release(true);
-        }
-    }
+    autoRange.drawButton(20.0f * style::uiScale, textCol);
 
     ImGui::EndChild();
+
+    // Continuous ("sticky") auto-range steps here (outside the controls child)
+    // so it keeps tracking even when the menu is collapsed.
+    autoRange.update();
 
     gui::waterfall.setFFTMin(fftMin);
     gui::waterfall.setFFTMax(fftMax);

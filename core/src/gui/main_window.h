@@ -8,6 +8,7 @@
 #include <utils/event.h>
 #include <mutex>
 #include <gui/tuner.h>
+#include <gui/waterfall_autorange.h>
 
 #define WINDOW_FLAGS ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground
 
@@ -62,6 +63,8 @@ private:
     bool startedWithMenuClosed = false;
     float fftMin = -70.0;
     float fftMax = 0.0;
+    // Continuous ("sticky") waterfall auto-range behind the autoscale button.
+    WaterfallAutoRange autoRange;
     float bw = 8000000;
     float wheelAccum = 0.0f;
     bool playing = false;
