@@ -123,6 +123,7 @@ namespace ImGui {
 
         bool getAutorangeValues(float& targetMin, float& targetMax);
         bool getAutorangeRef(float& refDb, int lines = 1);
+        void freeAutorangeScratch();
 
         void selectFirstVFO();
 
@@ -290,6 +291,7 @@ namespace ImGui {
         float* latestFFT = NULL;
         float* latestFFTHold = NULL;
         float* smoothingBuf = NULL;
+        std::vector<float> autorangeScratch; // reused raw-bin snapshot for collectAutorangeBins
         int currentFFTLine = 0;
         int fftLines = 0;
 

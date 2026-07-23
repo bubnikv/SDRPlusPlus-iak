@@ -39,7 +39,11 @@ void WaterfallAutoRange::oneShotFit() {
     // Pool the last 5 FFT lines so a single click can't land on a transient
     // whole-band burst (sticky uses 1 line -- its EMA smooths over time).
     float ref;
-    if (!gui::waterfall.getAutorangeRef(ref, 5)) { return; }
+    bool ok = gui::waterfall.getAutorangeRef(ref, 5);
+    // Release the 5x pool buffer (grown even on a failed fit) so the 1-line
+    // sticky path doesn't hold 5x the memory.
+    gui::waterfall.freeAutorangeScratch();
+    if (!ok) { return; }
     applyRef(ref);
     core::configManager.acquire();
     core::configManager.conf["min"] = *fftMin;
