@@ -846,15 +846,33 @@ void MainWindow::draw() {
     ImGui::NextColumn();
     ImGui::BeginChild("WaterfallControls");
 
+    // Rubber-band vertical layout for the three sliders + their labels + the
+    // autoscale button. The budget is measured once, before drawing anything,
+    // so every leftover pixel goes to the sliders while the three labels and
+    // the button are always accounted for and can never be squeezed out. On a
+    // narrow strip we'd rather clip than grow a scrollbar, but in practice the
+    // window is never short enough to reach the minimum slider height.
+    const float lineH       = ImGui::GetTextLineHeightWithSpacing();
+    const float btnH        = 20.0f * style::uiScale;
+    const float idealSlider = 150.0f * style::uiScale;
+    const float minSlider   = 40.0f * style::uiScale;
+    const float availH      = ImGui::GetContentRegionAvail().y;
+
+    // Fixed (non-slider) cost: three labels + the autoscale button. Add the
+    // three blank-line separators only if the ideal-height layout still fits.
+    // The same overhead drives both this choice and the slider height, so the
+    // computed layout matches what actually gets drawn.
+    float sliderOverhead   = 3.0f * lineH + btnH;
+    bool  sliderSeparators = (3.0f * idealSlider + sliderOverhead + 3.0f * lineH) <= availH;
+    if (sliderSeparators) { sliderOverhead += 3.0f * lineH; }
+
+    float sliderH = (availH - sliderOverhead) / 3.0f;
+    sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
+    ImVec2 wfSliderSize(20.0f * style::uiScale, sliderH);
+
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Zoom").x / 2.0));
     ImGui::TextUnformatted("Zoom");
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    ImVec2 wfSliderSize(20.0 * style::uiScale, 150.0 * style::uiScale);
-    bool   sliderSeparators = true;
-    if (3.f * wfSliderSize.y > ImGui::GetContentRegionAvail().y - 5.f * ImGui::GetTextLineHeightWithSpacing()) {
-        wfSliderSize.y = ImGui::GetContentRegionAvail().y / 3.f - ImGui::GetTextLineHeightWithSpacing();
-        sliderSeparators = false;
-    }
     bool zoomSliderChanged = ImGui::VSliderFloat("##_7_", wfSliderSize, &bw, 1.0, 0.0, "");
     // Applies to the last submitted item: keeps wheel events over the slider
     // from scrolling the child window under it.
