@@ -1194,44 +1194,79 @@ namespace ImGui {
         updateWaterfallFb();
     }
 
+    // Collect the raw FFT bins of the currently-visible span (current zoom/pan)
+    // into `out`, excluding the device band edges and the DC/LO notch, so the
+    // range estimators see only the meaningful noise+signal population.
+    //
+    // Estimating from the RAW line (not the max-downsampled display FFT) avoids
+    // the upward bias that max-selection downsampling introduces when zoomed
+    // out. Coordinates: rawFFTs is DC-centered (a (-1)^n factor is folded into
+    // the FFT window, see iq_frontend.cpp), so DC is at N/2 and the +-Fs/2 band
+    // edges are at 0 and N. Both exclusion zones are device-absolute and then
+    // intersected with the visible window, so a zoom into a clean interior
+    // slice keeps all of it, while a full-zoom-out drops the roll-off edges and
+    // the center spike (matching the SDR Console / gqrx heuristics).
+    //
+    // Caller must hold latestFFTMtx. Returns false if too few bins survive.
+    bool WaterFall::collectAutorangeBins(std::vector<float>& out) {
+        if (rawFFTs == NULL || fftLines <= 0) { return false; }
+        const int N = rawFFTSize;
+        if (N <= 0 || wholeBandwidth <= 0.0) { return false; }
+
+        // Visible span in raw-bin coordinates (identical to pushFFT).
+        double offsetRatio = viewOffset / (wholeBandwidth / 2.0);
+        int drawDataSize = (int)((viewBandwidth / wholeBandwidth) * N);
+        int drawDataStart = (int)(((double)N / 2.0) * (offsetRatio + 1)) - (drawDataSize / 2);
+        int visStart = std::clamp<int>(drawDataStart, 0, N);
+        int visEnd = std::clamp<int>(drawDataStart + drawDataSize, 0, N);
+        if (visStart >= visEnd) { return false; }
+
+        // Device band-edge zones (anti-alias roll-off): 15% per side.
+        const double EDGE_FRACTION = 0.15;
+        int edgeLo = (int)(EDGE_FRACTION * N);  // [0, edgeLo)  = -Fs/2 edge
+        int edgeHi = N - edgeLo;                // [edgeHi, N)  = +Fs/2 edge
+
+        // DC/LO notch at center (N/2): +-250 Hz, capped at 5% of the visible
+        // span so it can't dominate a narrowband source or an extreme zoom.
+        const double CENTER_NOTCH_BANDWIDTH = 250.0; // Hz, half-width
+        double hzPerBin = wholeBandwidth / (double)N;
+        double notchHz = std::min(CENTER_NOTCH_BANDWIDTH, 0.05 * viewBandwidth);
+        int notchHalf = (int)(notchHz / hzPerBin);
+        int dcLo = (N / 2) - notchHalf;
+        int dcHi = (N / 2) + notchHalf;
+
+        const float* line = &rawFFTs[currentFFTLine * N];
+        out.clear();
+        out.reserve(visEnd - visStart);
+        for (int i = visStart; i < visEnd; i++) {
+            if (i < edgeLo || i >= edgeHi) { continue; } // band edge
+            if (i >= dcLo && i <= dcHi) { continue; }     // DC/LO notch
+            float v = line[i];
+            // Drop non-finite bins and the sentinel / smoothing-warmup values
+            // (nothing real sits below -200 dBFS).
+            if (std::isfinite(v) && v > -200.0f) { out.push_back(v); }
+        }
+        // Too few bins to trust (e.g. zoomed onto pure roll-off): bail so the
+        // caller keeps the previous range.
+        return out.size() >= 64;
+    }
+
     bool WaterFall::getAutorangeValues(float& targetMin, float& targetMax) {
         std::lock_guard<std::recursive_mutex> lck(latestFFTMtx);
-        // Require at least one real FFT frame. Before that latestFFT holds the
-        // -1000 "hide everything" sentinel and would yield a bogus range.
-        if (fftLines <= 0 || latestFFT == NULL) { return false; }
-        // Scan only the middle 60% of the FFT to avoid band edges, filter
-        // roll-off and the DC/center spike skewing the range.
-        int start = dataWidth * 0.2;
-        int end = dataWidth * 0.8;
-        if (start >= end) { return false; }
-
-        // Collect finite bins so we can take robust quantiles instead of the
-        // raw min/max. Raw min chases single downward noise excursions and raw
-        // max lets one strong carrier blow the range wide open and crush
-        // contrast. latestFFT is the display-width, max-downsampled FFT, i.e.
-        // exactly what the waterfall renders, so fitting to it fits what's
-        // actually shown. Drop the sentinel / smoothing-warmup values (nothing
-        // real sits below -200 dBFS) and any non-finite bins.
         std::vector<float> vals;
-        vals.reserve(end - start);
-        for (int i = start; i < end; i++) {
-            float v = latestFFT[i];
-            if (std::isfinite(v) && v > -200.0f) { vals.push_back(v); }
-        }
-        if (vals.size() < 16) { return false; }
+        if (!collectAutorangeBins(vals)) { return false; }
 
-        std::sort(vals.begin(), vals.end());
-        auto quantile = [&](float q) {
-            return vals[(int)(q * (vals.size() - 1))];
-        };
-
-        // Noise floor: a low quantile is far more robust than the raw minimum.
-        // The mean of the lowest ~10% sits below the modal floor (it selects
-        // downward fluctuations), so q30 tracks the visible background better.
-        float floorDb = quantile(0.30f);
-        // Signal top: q99.5 ignores the single strongest carrier, so one loud
-        // CW/FM signal no longer dominates the range.
-        float topDb = quantile(0.995f);
+        // Robust quantiles instead of raw min/max: raw min chases single
+        // downward noise excursions, raw max lets one carrier blow the range
+        // open. nth_element is O(n) vs O(n log n) for a full sort, which matters
+        // on a ~65k-bin raw line. The floor selection partitions the array, so
+        // the top (q99.5, > q30) can be selected within the upper partition.
+        size_t klo = (size_t)(0.30 * (vals.size() - 1));
+        size_t khi = (size_t)(0.995 * (vals.size() - 1));
+        std::nth_element(vals.begin(), vals.begin() + klo, vals.end());
+        float floorDb = vals[klo];
+        std::nth_element(vals.begin() + klo + 1, vals.begin() + khi, vals.end());
+        float topDb = vals[khi];
 
         // Margins: keep noise slightly off pure black and leave headroom on top.
         const float bottomMargin = 8.0f;
@@ -1247,25 +1282,15 @@ namespace ImGui {
 
     // Ref-only variant: estimate just the noise floor (the bottom of the
     // display window). Same robust floor as getAutorangeValues; the span/top is
-    // left to the user's Range. NOTE: intentionally duplicates the bin
-    // collection for now -- the two can be factored together later.
+    // left to the user's Range.
     bool WaterFall::getAutorangeRef(float& refDb) {
         std::lock_guard<std::recursive_mutex> lck(latestFFTMtx);
-        if (fftLines <= 0 || latestFFT == NULL) { return false; }
-        int start = dataWidth * 0.2;
-        int end = dataWidth * 0.8;
-        if (start >= end) { return false; }
-
         std::vector<float> vals;
-        vals.reserve(end - start);
-        for (int i = start; i < end; i++) {
-            float v = latestFFT[i];
-            if (std::isfinite(v) && v > -200.0f) { vals.push_back(v); }
-        }
-        if (vals.size() < 16) { return false; }
+        if (!collectAutorangeBins(vals)) { return false; }
 
-        std::sort(vals.begin(), vals.end());
-        float floorDb = vals[(int)(0.30f * (vals.size() - 1))];
+        size_t k = (size_t)(0.30 * (vals.size() - 1));
+        std::nth_element(vals.begin(), vals.begin() + k, vals.end());
+        float floorDb = vals[k];
         // Place the floor 8 dB above the window bottom so noise sits just off
         // the darkest color instead of pure black.
         refDb = floorDb - 8.0f;

@@ -231,6 +231,7 @@ namespace ImGui {
         void updateWaterfallTexture();
         void updateAllVFOs(bool checkRedrawRequired = false);
         bool calculateVFOSignalInfo(float* fftLine, WaterfallVFO* vfo, float& strength, float& snr);
+        bool collectAutorangeBins(std::vector<float>& out); // visible raw bins minus edges/DC notch
 
         bool waterfallUpdate = false;
 
