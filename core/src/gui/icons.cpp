@@ -17,6 +17,7 @@ namespace icons {
     ImTextureID NORMAL_TUNING;
     ImTextureID CENTER_TUNING;
     ImTextureID KEYPAD;
+    ImTextureID CONTRAST;
 
     GLuint loadTexture(std::string path) {
         int w, h, n;
@@ -47,6 +48,7 @@ namespace icons {
         NORMAL_TUNING = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/normal_tuning.png");
         CENTER_TUNING = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/center_tuning.png");
         KEYPAD = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/keypad.png");
+        CONTRAST = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/contrast.png");
 
         return true;
     }

@@ -933,7 +933,11 @@ void MainWindow::draw() {
     if (sliderSeparators) ImGui::NewLine();
 
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    if (ImGui::Button("A##_sdrpp_autoscale", ImVec2(20.0 * style::uiScale, 20.0 * style::uiScale))) {
+    // Glyph + padding kept at a 20px total footprint so the surrounding
+    // Min/Max slider layout and the centering above are unchanged.
+    float autoscaleIconPad = 2.5f * style::uiScale;
+    float autoscaleIconSize = (20.0f * style::uiScale) - 2.0f * autoscaleIconPad;
+    if (ImGui::ImageButton(icons::CONTRAST, ImVec2(autoscaleIconSize, autoscaleIconSize), ImVec2(0, 0), ImVec2(1, 1), (int)autoscaleIconPad, ImVec4(0, 0, 0, 0), textCol)) {
         float newMin, newMax;
         if (gui::waterfall.getAutorangeValues(newMin, newMax)) {
             fftMin = newMin;
