@@ -568,6 +568,60 @@ reference exists beyond miweber67/spy2go. Reinforced the independent-FFT/IQ arch
 
 ---
 
+# Part 4 — module consolidation with spyserver_source (design decision)
+
+**Question:** should `spyserver_vfo_source` be merged into `spyserver_source` with a
+config toggle between server FFT (VFO+FFT) and local FFT (Full IQ), since both talk to
+the same server?
+
+**Overlap (measured).** The two modules are largely the same code:
+- `protocol.h` is a verbatim copy (differs by 4 cosmetic lines only).
+- The IQ client path is identical: the original `dataHandler` handles
+  `DEVICE_INFO` + `UINT8/INT16/INT24/FLOAT_IQ` + the `readAsync` re-arm; the VFO client is
+  that **plus** a `UINT8_FFT` branch and `handleFFTFrame`.
+- `main.cpp` is ~70% shared: the VFO module (605 lines) is the original (415) plus ~190
+  lines of FFT machinery. Common: handshake, device-info parse, rate/decimation lists,
+  gain math, connect/disconnect, config, host/port/gain/bit-depth menu.
+
+**The whole delta a mode toggle would gate:** streaming mode (`IQ_ONLY` vs `FFT_IQ`); the
+`UINT8_FFT` branch + dB decode; the poll thread + dual IQ/FFT retune; `setExternalFFTMode`
++ `setDisplayBandwidth` injection; and the UX (FFT bandwidth/dB sliders shown, local
+decimation hidden).
+
+**Decision: yes, consolidate to one "SpyServer" source with a "Full IQ / VFO+FFT (low
+bandwidth)" toggle (mirrors SDR#'s "Full IQ" checkbox) — but sequenced, and by growing the
+fork-only module, not editing upstream.** Rationale:
+- Pro: matches SDR#'s actual UX (one source, a checkbox); removes the confusing second
+  dropdown entry and its discoverability loss; and — the strongest reason — collapses the
+  security-critical code to **one path**, so the shared fixes (M-1 BodySize, CLIENT_SYNC,
+  connect handshake, M-13) are made once instead of twice (both modules carry the same
+  inherited flaws today).
+- Against: `spyserver_source` is (near-)pristine upstream code and this fork actively
+  tracks upstream — grafting VFO+FFT into that file creates recurring merge conflicts. And
+  the VFO+FFT path is still alpha with open blockers, so folding it into the widely-used
+  Full-IQ module now risks regressing a stable, popular path.
+
+**Sequencing:**
+1. **Not now.** Stabilize the VFO+FFT path while it is still isolated (fix Finding 1, M-1,
+   M-2, M-3) — easier to test/contain than a mode inside the stable module.
+2. **Fix M-1 in both modules now regardless** — independent of the merge; both share the
+   BodySize overflow.
+3. **Then consolidate by growing the fork-only `spyserver_vfo_source`** into the combined
+   module and **disabling `spyserver_source` in the fork build** (leaving that upstream
+   file pristine and mergeable, just not compiled). Best-of-both: SDR# UX + single fix path
+   + dedup, without forfeiting upstream-mergeability. Trade-off: hand-port future upstream
+   IQ fixes into the combined module (low-churn — the protocol is frozen).
+4. **Keep the Full-IQ path byte-identical to today's code**; VFO+FFT stays purely additive
+   behind the toggle (regression safety).
+
+**Wrinkles to plan for:** `supportsPostDecimation` must become dynamic (flip on the handler
+per mode — works because the core reads `selectedSourceSupportsPostDecimation()` live, but
+it is a runtime coupling); config migration (one file, default mode = Full IQ so existing
+users are unaffected, migrate VFO device settings, retire `spyserver_vfo_source_config.json`);
+single "SpyServer" dropdown entry; max instances stays 1.
+
+---
+
 ## Bottom line
 
 Both commits are on the branch. Because the module is now the live driver:
@@ -585,6 +639,10 @@ Both commits are on the branch. Because the module is now the live driver:
 - **M-10 axis is corroborated** by spy2go (module's `MaximumBandwidth` approach is correct
   and better than spy2go's fixed 0.8); only the **dB byte->value formula** stays empirical
   — validate against SDR# capture (Part 3).
+- **Consolidation (Part 4):** eventually merge into one "SpyServer" source with a Full IQ /
+  VFO+FFT toggle — but only after the VFO path is stabilized, done by growing the fork-only
+  module and leaving upstream `spyserver_source` pristine. Fix M-1 in both modules now
+  regardless.
 - **Not covered by tests** (SDR++ has ~none): needs a manual matrix — FFT-size change
   while streaming (Finding 1), demod-mode change while streaming (M-2), decimation
   carry-over across source switch (Finding 2), VFO drag under `setDspOffset` (Finding 4),
