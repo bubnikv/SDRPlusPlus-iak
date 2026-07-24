@@ -61,6 +61,15 @@ namespace core {
         flog::info("New DSP samplerate: {0} (source samplerate is {1})", effectiveSr, samplerate);
     }
 
+    void setDisplayBandwidth(double bandwidth) {
+        if (args["server"].b()) { return; }
+
+        gui::waterfall.setBandwidth(bandwidth);
+        gui::waterfall.setViewOffset(0);
+        gui::waterfall.setViewBandwidth(bandwidth);
+        gui::mainWindow.setViewBandwidthSlider(1.0);
+    }
+
     // Relative paths from the config (e.g. "./modules" on Windows, "../Plugins"
     // in the MacOS bundle) are interpreted relative to the executable's
     // directory, not the working directory, so the app behaves the same no

@@ -357,15 +357,17 @@ namespace sourcemenu {
             }
         }
 
-        if (running) { style::beginDisabled(); }
-        ImGui::LeftLabel("Decimation");
-        ImGui::FillWidth();
-        if (ImGui::Combo("##source_decim", &decimId, decimations.txt)) {
-            sigpath::iqFrontEnd.setDecimation(decimations.value(decimId));
-            core::configManager.acquire();
-            core::configManager.conf["decimation"] = decimations.key(decimId);
-            core::configManager.release(true);
+        if (sigpath::sourceManager.selectedSourceSupportsPostDecimation()) {
+            if (running) { style::beginDisabled(); }
+            ImGui::LeftLabel("Decimation");
+            ImGui::FillWidth();
+            if (ImGui::Combo("##source_decim", &decimId, decimations.txt)) {
+                sigpath::iqFrontEnd.setDecimation(decimations.value(decimId));
+                core::configManager.acquire();
+                core::configManager.conf["decimation"] = decimations.key(decimId);
+                core::configManager.release(true);
+            }
+            if (running) { style::endDisabled(); }
         }
-        if (running) { style::endDisabled(); }
     }
 }

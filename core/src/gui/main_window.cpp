@@ -1021,6 +1021,15 @@ void MainWindow::setViewBandwidthSlider(float bandwidth) {
     bw = bandwidth;
 }
 
+void MainWindow::setTuningMode(int mode) {
+    if (mode == tuningMode) { return; }
+    tuningMode = mode;
+    gui::waterfall.VFOMoveSingleClick = (mode == tuner::TUNER_MODE_CENTER);
+    if (mode == tuner::TUNER_MODE_CENTER) {
+        tuner::tune(tuner::TUNER_MODE_CENTER, gui::waterfall.selectedVFO, gui::freqSelect.frequency);
+    }
+}
+
 bool MainWindow::sdrIsRunning() {
     return playing;
 }

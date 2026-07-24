@@ -12,6 +12,7 @@ namespace core {
     SDRPP_EXPORT CommandArgsParser args;
 
     void setInputSampleRate(double samplerate);
+    void setDisplayBandwidth(double bandwidth);
 
     // Effective resource paths. Returns the value from configManager.conf,
     // except under AppImage builds (BUILD_APPIMAGE) on Linux when $APPDIR

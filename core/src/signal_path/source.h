@@ -19,6 +19,15 @@ public:
         void (*stopHandler)(void* ctx);
         void (*tuneHandler)(double freq, void* ctx);
         void* ctx;
+
+        // Whether the generic "Decimation" control in the Source menu makes
+        // sense for this source. Defaults to true (no behaviour change for
+        // any existing source). Set to false for sources that already
+        // manage their own internal sample rate precisely (e.g. one that
+        // keeps a server-side stream in sync with what it reports locally)
+        // and would be silently desynced by an extra local decimation step
+        // it doesn't know about.
+        bool supportsPostDecimation = true;
     };
 
     enum TuningMode {
@@ -46,6 +55,11 @@ public:
     void clearTuningLimits();
 
     std::vector<std::string> getSourceNames();
+
+    // Whether the currently selected source supports the generic
+    // post-decimation control (see SourceHandler::supportsPostDecimation).
+    // True if no source is selected, matching the flag's own default.
+    bool selectedSourceSupportsPostDecimation();
 
     Event<std::string> onSourceRegistered;
     Event<std::string> onSourceUnregister;

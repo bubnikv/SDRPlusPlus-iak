@@ -43,6 +43,10 @@ std::vector<std::string> SourceManager::getSourceNames() {
     return names;
 }
 
+bool SourceManager::selectedSourceSupportsPostDecimation() {
+    return selectedHandler == NULL || selectedHandler->supportsPostDecimation;
+}
+
 void SourceManager::selectSource(std::string name) {
     if (sources.find(name) == sources.end()) {
         flog::error("Tried to select non existent source: {0}", name);

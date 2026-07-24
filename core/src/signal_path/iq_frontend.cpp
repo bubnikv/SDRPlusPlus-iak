@@ -1,4 +1,5 @@
 #include "iq_frontend.h"
+#include <cstring>
 #include "../dsp/window/rectangular.h"
 #include "../dsp/window/hamming.h"
 #include "../dsp/window/hann.h"
@@ -259,10 +260,33 @@ void IQFrontEnd::stop() {
 double IQFrontEnd::getEffectiveSamplerate() {
     return effectiveSr;
 }
+void IQFrontEnd::setExternalFFTMode(bool enabled) {
+    _externalFFTMode = enabled;
+}
+
+void IQFrontEnd::pushExternalFFT(const float* data, int count) {
+    if (!_externalFFTMode || !data || count <= 0) { return; }
+
+    float* fftBuf = _acquireFFTBuffer(_fftCtx);
+    if (fftBuf) {
+        if (count == _fftSize) {
+            memcpy(fftBuf, data, _fftSize * sizeof(float));
+        }
+        else {
+            for (int i = 0; i < _fftSize; i++) {
+                int srcIdx = (int)(((int64_t)i * count) / _fftSize);
+                if (srcIdx >= count) { srcIdx = count - 1; }
+                fftBuf[i] = data[srcIdx];
+            }
+        }
+    }
+    _releaseFFTBuffer(_fftCtx);
+}
 
 void IQFrontEnd::handler(dsp::complex_t* data, int count, void* ctx) {
     IQFrontEnd* _this = (IQFrontEnd*)ctx;
-
+    if (_this->_externalFFTMode) { return; }
+    
     // Apply window
     volk_32fc_32f_multiply_32fc((lv_32fc_t*)_this->fftInBuf, (lv_32fc_t*)data, _this->fftWindowBuf, _this->_nzFFTSize);
 

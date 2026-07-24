@@ -50,7 +50,9 @@ public:
     void setFFTSize(int size);
     void setFFTRate(double rate);
     void setFFTWindow(FFTWindow fftWindow);
-
+    void setExternalFFTMode(bool enabled);
+    inline bool getExternalFFTMode() { return _externalFFTMode; }
+    void pushExternalFFT(const float* data, int count);
     void flushInputBuffer();
 
     void start();
@@ -103,6 +105,7 @@ protected:
     float* (*_acquireFFTBuffer)(void* ctx);
     void (*_releaseFFTBuffer)(void* ctx);
     void* _fftCtx;
+    bool _externalFFTMode = false;
 
     // Processing data
     int _nzFFTSize;

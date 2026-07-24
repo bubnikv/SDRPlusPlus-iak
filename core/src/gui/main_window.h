@@ -37,6 +37,7 @@ public:
 
     // Active tuning mode: tuner::TUNER_MODE_CENTER or tuner::TUNER_MODE_NORMAL
     int getTuningMode() const { return tuningMode; }
+    void setTuningMode(int mode);
 
     struct FrameDrawArgs {
         double deltaTime = 0.0;
