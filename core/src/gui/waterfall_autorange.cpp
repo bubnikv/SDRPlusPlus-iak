@@ -1,6 +1,8 @@
 #include <gui/waterfall_autorange.h>
 #include <gui/gui.h>   // gui::waterfall
 #include <gui/icons.h> // icons::CONTRAST
+#include <gui/style.h>
+#include <gui/widgets/toggle_style.h>
 #include <core.h>      // core::configManager
 #include <algorithm>
 #include <cmath>
@@ -65,18 +67,48 @@ void WaterfallAutoRange::setSticky(bool on) {
     core::configManager.release(true);
 }
 
-void WaterfallAutoRange::drawButton(float footprint, const ImVec4& tint) {
-    // Glyph + padding at a fixed ratio so the button keeps its total footprint
-    // (the surrounding Range/Ref slider layout and its centering depend on it).
-    float pad = footprint * (2.5f / 20.0f);
-    float size = footprint - 2.0f * pad;
-    // Fill the button when latched so it reads as "on".
-    ImVec4 bg = stickyEnabled ? ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive) : ImVec4(0, 0, 0, 0);
-    bool clicked = ImGui::ImageButton(icons::CONTRAST, ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1), (int)pad, bg, tint);
+float WaterfallAutoRange::buttonHeight() {
+    // Same frame height as the mode-grid buttons, with a floor in the touch
+    // style: GetFrameHeight() alone is ~4.7 mm on a phone, thin for a finger.
+    return std::max(ImGui::GetFrameHeight(), style::dp(style::touchStyle ? 32.0f : 20.0f));
+}
+
+void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
+    // A plain Button with the glyph drawn centred on top, rather than an
+    // ImageButton: the frame, rounding and hover/active states then come from
+    // the same path as the mode-grid buttons, and the latched state can use the
+    // shared toggle look. ImageButton's bg_col only covers the area inside the
+    // frame padding, so the old latched fill was a small square painted in
+    // ButtonActive -- i.e. the colour a button shows while being pressed, which
+    // read as "idle" rather than "on".
+    //
+    // The toggle colours are only derived while latched -- the idle button uses
+    // the plain theme colours and the caller's tint.
+    style::SelectedToggleColors cols;
+    if (stickyEnabled) {
+        cols = style::selectedToggleColors();
+        style::pushSelectedToggle(cols);
+    }
+    bool clicked = ImGui::Button("##sdrpp_wf_autorange", size);
     // Capture item state before any other ImGui call (the tooltip) moves the
     // "last item" these queries refer to.
     bool active = ImGui::IsItemActive();
     bool hovered = ImGui::IsItemHovered();
+    ImVec2 rectMin = ImGui::GetItemRectMin();
+    ImVec2 rectMax = ImGui::GetItemRectMax();
+    if (stickyEnabled) {
+        style::drawSelectedToggleStroke(cols);
+        style::popSelectedToggle();
+    }
+
+    // Square glyph, centred, sized off the button height so it tracks the frame
+    // padding the way a label would. Whole-pixel corners keep it sharp.
+    float glyph = std::max(1.0f, std::round(size.y - 2.0f * ImGui::GetStyle().FramePadding.y));
+    ImVec2 glyphMin(std::round((rectMin.x + rectMax.x - glyph) * 0.5f), std::round((rectMin.y + rectMax.y - glyph) * 0.5f));
+    ImGui::GetWindowDrawList()->AddImage(icons::CONTRAST, glyphMin, ImVec2(glyphMin.x + glyph, glyphMin.y + glyph),
+                                         ImVec2(0, 0), ImVec2(1, 1),
+                                         ImGui::GetColorU32(stickyEnabled ? cols.content : tint));
+
     if (hovered) {
         ImGui::SetTooltip("Click: auto-fit range once\nHold: %s continuous auto-range", stickyEnabled ? "disable" : "enable");
     }

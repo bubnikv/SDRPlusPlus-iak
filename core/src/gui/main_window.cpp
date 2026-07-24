@@ -856,111 +856,7 @@ void MainWindow::draw() {
     }
 
     ImGui::NextColumn();
-    // The strip must fit without scrolling: a scrollbar here is as wide as the
-    // sliders themselves and would eat a third of this already narrow column
-    // (and offset the centering, which is computed from the full window width).
-    // The layout below sizes the sliders to the exact available height, so the
-    // flags only matter as a guard for a pathologically short window.
-    ImGui::BeginChild("WaterfallControls", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-
-    // Rubber-band vertical layout for the three sliders + their labels + the
-    // autoscale button. The budget is measured once, before drawing anything,
-    // so every leftover pixel goes to the sliders while the three labels and
-    // the button are always accounted for and can never be squeezed out.
-    const float textH       = ImGui::GetTextLineHeight();
-    const float spacingY    = ImGui::GetStyle().ItemSpacing.y;
-    const float btnH        = 20.0f * style::uiScale;
-    const float idealSlider = 150.0f * style::uiScale;
-    const float minSlider   = 16.0f * style::uiScale; // last resort, see above
-    const float availH      = ImGui::GetContentRegionAvail().y;
-
-    // Fixed (non-slider) cost: three labels, the autoscale button, and the gap
-    // ImGui inserts between consecutive items. That inter-item gap has to be
-    // counted explicitly: each slider carries one of its own, so budgeting the
-    // labels as whole text lines (glyphs + one gap) leaves three gaps unpaid
-    // and overflows the child by exactly that much. The three blank-line
-    // separators are added only if the ideal-height layout still fits with
-    // them. The same cost drives both that choice and the slider height, so
-    // the computed layout matches what actually gets drawn.
-    auto fixedCost = [&](bool separators) {
-        int items = separators ? 10 : 7; // 3x(label + slider) + button [+ 3 separators]
-        return (separators ? 6.0f : 3.0f) * textH + btnH + (float)(items - 1) * spacingY;
-    };
-    bool sliderSeparators = (3.0f * idealSlider + fixedCost(true)) <= availH;
-
-    float sliderH = (availH - fixedCost(sliderSeparators)) / 3.0f;
-    sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
-    ImVec2 wfSliderSize(20.0f * style::uiScale, std::floor(sliderH));
-
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Zoom").x / 2.0));
-    ImGui::TextUnformatted("Zoom");
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool zoomSliderChanged = ImGui::VSliderFloat("##_7_", wfSliderSize, &bw, 1.0, 0.0, "");
-    // Applies to the last submitted item: keeps wheel events over the slider
-    // from scrolling the child window under it.
-    ImGui::SetItemUsingMouseWheel();
-    if (zoomSliderChanged) {
-        double factor = (double)bw * (double)bw;
-
-        // Map 0.0 -> 1.0 to 1000.0 -> bandwidth
-        double wfBw = gui::waterfall.getBandwidth();
-        double delta = wfBw - 1000.0;
-        double finalBw = std::min<double>(1000.0 + (factor * delta), wfBw);
-
-        gui::waterfall.setViewBandwidth(finalBw);
-        if (vfo != NULL) {
-            gui::waterfall.setViewOffset(vfo->centerOffset); // center vfo on screen
-        }
-    }
-
-    if (sliderSeparators) ImGui::NewLine();
-
-    // Range = displayed dynamic range / contrast (fftMax - fftMin). Always
-    // live: the user owns contrast even while sticky auto-range tracks Ref.
-    // Dragging it pivots on Ref (the floor), extending the top.
-    float wfRange = fftMax - fftMin;
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Range").x / 2.0));
-    ImGui::TextUnformatted("Range");
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool rangeSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &wfRange, WaterfallAutoRange::RANGE_MIN, WaterfallAutoRange::RANGE_MAX, "");
-    ImGui::SetItemUsingMouseWheel();
-    if (rangeSliderChanged) {
-        fftMax = fftMin + wfRange;
-        core::configManager.acquire();
-        core::configManager.conf["min"] = fftMin;
-        core::configManager.conf["max"] = fftMax;
-        core::configManager.release(true);
-    }
-
-    if (sliderSeparators) ImGui::NewLine();
-
-    // Ref = noise-floor level (fftMin, bottom of the window). Sticky auto-range
-    // drives it, so grey it out while sticky. Dragging it slides the whole
-    // window, preserving Range.
-    float wfRef = fftMin;
-    ImGui::BeginDisabled(autoRange.sticky());
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Ref").x / 2.0));
-    ImGui::TextUnformatted("Ref");
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, WaterfallAutoRange::REF_MIN, WaterfallAutoRange::REF_MAX, "");
-    ImGui::SetItemUsingMouseWheel();
-    if (refSliderChanged) {
-        float range = fftMax - fftMin; // keep the user's Range, slide the window
-        fftMin = wfRef;
-        fftMax = wfRef + range;
-        core::configManager.acquire();
-        core::configManager.conf["min"] = fftMin;
-        core::configManager.conf["max"] = fftMax;
-        core::configManager.release(true);
-    }
-    ImGui::EndDisabled();
-
-    if (sliderSeparators) ImGui::NewLine();
-
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
-    autoRange.drawButton(20.0f * style::uiScale, textCol);
-
-    ImGui::EndChild();
+    drawWaterfallControls(vfo, textCol);
 
     // Continuous ("sticky") auto-range steps here (outside the controls child)
     // so it keeps tracking even when the menu is collapsed.
@@ -1008,6 +904,136 @@ void MainWindow::draw() {
         ImGui::ShowDemoWindow();
     }
 #endif
+}
+
+// Right-hand strip: Zoom / Range / Ref sliders and the auto-range button.
+void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& textCol) {
+    // The strip must fit without scrolling: a scrollbar here is as wide as the
+    // sliders themselves and would eat a third of this already narrow column
+    // (and offset the centering, which is computed from the full window width).
+    // The layout below sizes the sliders to the exact available height, so the
+    // flags only matter as a guard for a pathologically short window.
+    ImGui::BeginChild("WaterfallControls", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    // Rubber-band vertical layout for the three sliders + their labels + the
+    // autoscale button. The budget is measured once, before drawing anything,
+    // so every leftover pixel goes to the sliders while the three labels and
+    // the button are always accounted for and can never be squeezed out.
+    const float textH       = ImGui::GetTextLineHeight();
+    const float spacingY    = ImGui::GetStyle().ItemSpacing.y;
+    const float btnH        = WaterfallAutoRange::buttonHeight();
+    const float idealSlider = 150.0f * style::uiScale;
+    const float minSlider   = 16.0f * style::uiScale; // 40 dp will not fit a 720p landscape strip
+    const ImVec2 avail      = ImGui::GetContentRegionAvail();
+
+    // Slider track width. 20 dp is fine for a mouse, but on a phone it is ~3.6 mm
+    // against a ~7.6 mm minimum touch target, in a column with 6 mm of unused
+    // width either side -- so the touch style gets a much wider track, and the
+    // grab is bumped with it where it is pushed below.
+    const float sliderW = std::floor(std::min(style::dp(style::touchStyle ? 40.0f : 20.0f), avail.x - 2.0f * style::dp(6.0f)));
+
+    // Fixed (non-slider) cost: three labels, the autoscale button, and the gap
+    // ImGui inserts between consecutive items. That inter-item gap has to be
+    // counted explicitly: each slider carries one of its own, so budgeting the
+    // labels as whole text lines (glyphs + one gap) leaves three gaps unpaid
+    // and overflows the child by exactly that much. The three blank-line
+    // separators are added only if the ideal-height layout still fits with
+    // them. The same cost drives both that choice and the slider height, so
+    // the computed layout matches what actually gets drawn.
+    auto fixedCost = [&](bool separators) {
+        const int textLines = separators ? 6 : 3; // 3 labels [+ 3 blank separators]
+        const int items     = textLines + 4;      // + 3 sliders + the button
+        return textLines * textH + btnH + (items - 1) * spacingY;
+    };
+    const bool sliderSeparators = (3.0f * idealSlider + fixedCost(true)) <= avail.y;
+
+    float sliderH = (avail.y - fixedCost(sliderSeparators)) / 3.0f;
+    sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
+    const ImVec2 wfSliderSize(sliderW, std::floor(sliderH));
+
+    // Everything in the strip is centered on the window rather than on the
+    // content region, so a full-width item's left edge lands exactly on the
+    // child padding.
+    auto centerFor = [](float width) {
+        ImGui::SetCursorPosX(std::round((ImGui::GetWindowSize().x - width) * 0.5f));
+    };
+
+    // Sliders only: a wider track deserves a grab you can see (see sliderW).
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style::dp(style::touchStyle ? 18.0f : 10.0f));
+
+    centerFor(ImGui::CalcTextSize("Zoom").x);
+    ImGui::TextUnformatted("Zoom");
+    centerFor(sliderW);
+    bool zoomSliderChanged = ImGui::VSliderFloat("##_7_", wfSliderSize, &bw, 1.0, 0.0, "");
+    // Applies to the last submitted item: keeps wheel events over the slider
+    // from scrolling the child window under it.
+    ImGui::SetItemUsingMouseWheel();
+    if (zoomSliderChanged) {
+        double factor = (double)bw * (double)bw;
+
+        // Map 0.0 -> 1.0 to 1000.0 -> bandwidth
+        double wfBw = gui::waterfall.getBandwidth();
+        double delta = wfBw - 1000.0;
+        double finalBw = std::min<double>(1000.0 + (factor * delta), wfBw);
+
+        gui::waterfall.setViewBandwidth(finalBw);
+        if (vfo != NULL) {
+            gui::waterfall.setViewOffset(vfo->centerOffset); // center vfo on screen
+        }
+    }
+
+    if (sliderSeparators) ImGui::NewLine();
+
+    // Range = displayed dynamic range / contrast (fftMax - fftMin). Always
+    // live: the user owns contrast even while sticky auto-range tracks Ref.
+    // Dragging it pivots on Ref (the floor), extending the top.
+    float wfRange = fftMax - fftMin;
+    centerFor(ImGui::CalcTextSize("Range").x);
+    ImGui::TextUnformatted("Range");
+    centerFor(sliderW);
+    bool rangeSliderChanged = ImGui::VSliderFloat("##_8_", wfSliderSize, &wfRange, WaterfallAutoRange::RANGE_MIN, WaterfallAutoRange::RANGE_MAX, "");
+    ImGui::SetItemUsingMouseWheel();
+    if (rangeSliderChanged) {
+        fftMax = fftMin + wfRange;
+        core::configManager.acquire();
+        core::configManager.conf["min"] = fftMin;
+        core::configManager.conf["max"] = fftMax;
+        core::configManager.release(true);
+    }
+
+    if (sliderSeparators) ImGui::NewLine();
+
+    // Ref = noise-floor level (fftMin, bottom of the window). Sticky auto-range
+    // drives it, so grey it out while sticky. Dragging it slides the whole
+    // window, preserving Range.
+    float wfRef = fftMin;
+    ImGui::BeginDisabled(autoRange.sticky());
+    centerFor(ImGui::CalcTextSize("Ref").x);
+    ImGui::TextUnformatted("Ref");
+    centerFor(sliderW);
+    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, WaterfallAutoRange::REF_MIN, WaterfallAutoRange::REF_MAX, "");
+    ImGui::SetItemUsingMouseWheel();
+    if (refSliderChanged) {
+        float range = fftMax - fftMin; // keep the user's Range, slide the window
+        fftMin = wfRef;
+        fftMax = wfRef + range;
+        core::configManager.acquire();
+        core::configManager.conf["min"] = fftMin;
+        core::configManager.conf["max"] = fftMax;
+        core::configManager.release(true);
+    }
+    ImGui::EndDisabled();
+
+    ImGui::PopStyleVar(); // GrabMinSize
+
+    if (sliderSeparators) ImGui::NewLine();
+
+    // Spans the strip: the old square glyph button was ~3.6 x 3.6 mm on a phone,
+    // the smallest target on the screen, with the full column width going spare.
+    centerFor(avail.x);
+    autoRange.drawButton(ImVec2(avail.x, btnH), textCol);
+
+    ImGui::EndChild();
 }
 
 void MainWindow::setPlayState(bool _playing) {

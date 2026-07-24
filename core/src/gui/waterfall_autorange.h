@@ -25,10 +25,17 @@ public:
     // Bind to MainWindow's fftMin/fftMax and seed the latch from config.
     void init(float* fftMin, float* fftMax, bool stickyFromConfig);
 
-    // Draw the autoscale button (Material contrast glyph) at the current
-    // cursor and handle the click-vs-hold gesture. `footprint` is the total
-    // button size in pixels; the caller positions the cursor.
-    void drawButton(float footprint, const ImVec4& tint);
+    // Total height of the autoscale button. Depends only on the current ImGui
+    // style, hence static: the caller's vertical layout budget and the draw
+    // below must agree exactly or the controls strip overflows, so both take
+    // the height from here.
+    static float buttonHeight();
+
+    // Draw the autoscale button (Material contrast glyph) at the current cursor
+    // and handle the click-vs-hold gesture. The caller positions the cursor and
+    // gives the full button size; `tint` colours the glyph while the latch is
+    // off (while it is on, the shared latched-toggle colours take over).
+    void drawButton(const ImVec2& size, const ImVec4& tint);
 
     // Step the continuous fit (throttled to ~10 Hz internally). Call once per
     // frame after the controls child so it keeps running with the menu closed.

@@ -52,6 +52,10 @@ public:
 private:
     static void vfoAddedHandler(VFOManager::VFO* vfo, void* ctx);
 
+    // Right-hand strip of the main window: Zoom / Range / Ref sliders and the
+    // auto-range button. Drawn from draw(), into the third window column.
+    void drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& textCol);
+
     // FFT Variables
     int fftSize = 8192 * 8;
     std::mutex fft_mtx;
