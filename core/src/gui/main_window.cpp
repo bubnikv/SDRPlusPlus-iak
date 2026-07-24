@@ -856,31 +856,41 @@ void MainWindow::draw() {
     }
 
     ImGui::NextColumn();
-    ImGui::BeginChild("WaterfallControls");
+    // The strip must fit without scrolling: a scrollbar here is as wide as the
+    // sliders themselves and would eat a third of this already narrow column
+    // (and offset the centering, which is computed from the full window width).
+    // The layout below sizes the sliders to the exact available height, so the
+    // flags only matter as a guard for a pathologically short window.
+    ImGui::BeginChild("WaterfallControls", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     // Rubber-band vertical layout for the three sliders + their labels + the
     // autoscale button. The budget is measured once, before drawing anything,
     // so every leftover pixel goes to the sliders while the three labels and
-    // the button are always accounted for and can never be squeezed out. On a
-    // narrow strip we'd rather clip than grow a scrollbar, but in practice the
-    // window is never short enough to reach the minimum slider height.
-    const float lineH       = ImGui::GetTextLineHeightWithSpacing();
+    // the button are always accounted for and can never be squeezed out.
+    const float textH       = ImGui::GetTextLineHeight();
+    const float spacingY    = ImGui::GetStyle().ItemSpacing.y;
     const float btnH        = 20.0f * style::uiScale;
     const float idealSlider = 150.0f * style::uiScale;
-    const float minSlider   = 40.0f * style::uiScale;
+    const float minSlider   = 16.0f * style::uiScale; // last resort, see above
     const float availH      = ImGui::GetContentRegionAvail().y;
 
-    // Fixed (non-slider) cost: three labels + the autoscale button. Add the
-    // three blank-line separators only if the ideal-height layout still fits.
-    // The same overhead drives both this choice and the slider height, so the
-    // computed layout matches what actually gets drawn.
-    float sliderOverhead   = 3.0f * lineH + btnH;
-    bool  sliderSeparators = (3.0f * idealSlider + sliderOverhead + 3.0f * lineH) <= availH;
-    if (sliderSeparators) { sliderOverhead += 3.0f * lineH; }
+    // Fixed (non-slider) cost: three labels, the autoscale button, and the gap
+    // ImGui inserts between consecutive items. That inter-item gap has to be
+    // counted explicitly: each slider carries one of its own, so budgeting the
+    // labels as whole text lines (glyphs + one gap) leaves three gaps unpaid
+    // and overflows the child by exactly that much. The three blank-line
+    // separators are added only if the ideal-height layout still fits with
+    // them. The same cost drives both that choice and the slider height, so
+    // the computed layout matches what actually gets drawn.
+    auto fixedCost = [&](bool separators) {
+        int items = separators ? 10 : 7; // 3x(label + slider) + button [+ 3 separators]
+        return (separators ? 6.0f : 3.0f) * textH + btnH + (float)(items - 1) * spacingY;
+    };
+    bool sliderSeparators = (3.0f * idealSlider + fixedCost(true)) <= availH;
 
-    float sliderH = (availH - sliderOverhead) / 3.0f;
+    float sliderH = (availH - fixedCost(sliderSeparators)) / 3.0f;
     sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
-    ImVec2 wfSliderSize(20.0f * style::uiScale, sliderH);
+    ImVec2 wfSliderSize(20.0f * style::uiScale, std::floor(sliderH));
 
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - (ImGui::CalcTextSize("Zoom").x / 2.0));
     ImGui::TextUnformatted("Zoom");
