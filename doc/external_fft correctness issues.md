@@ -425,8 +425,11 @@ separate real defects from design choices and find reference code to adopt.
 | racerxdl/spy2go (Go, Apache-2.0) | YES — consumes FFT+IQ with **separate** display/IQ freq+decimation controls; passes raw FFT bytes to callback (no dB decode) | YES: `header.BodySize > spyserverMaxMessageBodySize` | parses ClientSync |
 | miweber67/spyserver_client (CLI, C++) | consumes it, but only sums raw bytes for rtl_power — no dB decode / waterfall | YES: `if (header.BodySize > SPYSERVER_MAX_MESSAGE_BODY_SIZE) throw` | YES: enforces CanControl + Min/MaximumIQCenterFrequency |
 | xritdemod SpyServerFrontend.cpp (C++) | not implemented (`ProcessUInt8FFT()` logs "not implemented") | YES: throws "server is probably buggy" | YES: `ProcessClientSync()`, `canControl = sync.CanControl != 0` |
-| SoapySpyServer, SDRangel, gqrx, CubicSDR | no — consume IQ only, compute their own FFT locally | n/a | varies |
+| N1MM Logger+ Spectrum Display | YES — server FFT as an external panadapter (FFT-only, no IQ demod; Airspy HF+ only) | - | CLOSED (VB.NET, freeware, decompilable via ILSpy/dnSpy) |
+| AIS-catcher | no — `STREAM_MODE_IQ_ONLY` | (references miweber67) | clean, modern IQ-only state machine — good lifecycle reference |
+| SoapySpyServer, SDRangel (`RemoteTCPInput`), gqrx, CubicSDR, qt-dab/qt-ft8/drm-receiver, isakruas/sdrconnect, pclov3r/iq_tool, gr-osmosdr-pluto-spyserver | no — consume IQ only, compute their own FFT locally | n/a | varies |
 | MagicSDR, Demod (iOS) | SpyServer mobile clients; FFT_IQ vs local-FFT unverified (no public source) | unknown | unknown |
+| VibeSDR | design brief only: decodes `UINT8_FFT`/`DINT4_FFT` -> Skia waterfall, independent FFT/IQ decim | draft/exploratory, not shipped | possible **DINT4** lead (spec, not code) |
 | SDR# (official), Airspy WebSpy | YES — the only full FFT+VFO clients | - | both CLOSED-SOURCE |
 
 **spy2go is the closest independent validation of the module's design**: it confirms the
@@ -435,6 +438,26 @@ separate IQ/FFT frequency and decimation controls (`SetCenterFrequency` vs
 correct SpyServer model, and it is the third independent client with the `BodySize` guard
 (M-1 triple-confirmed). Apache-2.0 is one-way compatible into GPLv3, so it is also usable
 as a port source.
+
+**Architectural validation from confirmed FFT clients.** N1MM Logger+ (closed, VB.NET)
+runs the SpyServer FFT as an FFT-only external panadapter and exposes exactly the tuning
+behaviours the module implements — center / **fixed-with-scrolling** (FFT stays put until
+the radio nears the edge) / fixed / respect-subbands. That, plus VibeSDR's design brief
+(narrow IQ for demod + server `UINT8_FFT`/`DINT4_FFT` into the waterfall, independent
+decimation), independently corroborates the module's "keep the wide FFT stream independent
+of the narrow VFO IQ, let the normal waterfall pipeline consume decoded bins" architecture.
+For the still-undocumented **DINT4** format (finding #6), VibeSDR's brief is the only lead
+found, and it is a spec, not code.
+
+**Second independent survey (GPT-5, landscape pass).** A separate GPT-5 research pass
+confirmed the same landscape and found **no additional open-source FFT reference** beyond
+miweber67 and spy2go: it re-verified that N1MM is a real (closed) FFT client, that
+AIS-catcher / SDRangel `RemoteTCPInput` / gr-osmosdr / isakruas/sdrconnect / pclov3r/iq_tool
+/ the JvanKatwijk decoders are all IQ-only + local FFT, and that no public browser JS/TS
+client implements the wire protocol. Its recommended reference ranking matches ours:
+miweber67 for protocol behaviour, our async transport + lifecycle to keep. **AIS-catcher**
+is worth singling out as a small, readable, modern IQ-only connection/reconnection state
+machine — a useful reference for M-3 (stuck client) and M-11 (shutdown race).
 
 miweber67's `spyserver_protocol.h` is byte-identical to this module's
 `spyserver_vfo_protocol.h` (same constants, `MAX_MESSAGE_BODY_SIZE = 1<<20`, same DB
@@ -526,15 +549,22 @@ device-specific `computeDigitalGain`, and dB waterfall are all better than their
   `ss_client_if.cc`)
 - https://github.com/opensatelliteproject/xritdemod/blob/master/demodulator/src/SpyServerFrontend.cpp
 - https://github.com/pothosware/SoapySpyServer (IQ-only, for contrast)
+- AIS-catcher (IQ-only native SpyServer client — clean lifecycle reference): https://github.com/jvde-github/AIS-catcher
+- N1MM Logger+ Spectrum Display (closed, confirmed server-FFT panadapter): https://n1mmwp.hamdocs.com/manual-windows/spectrum-display-window/
 - Airspy WebSpy (closed): https://www.rtl-sdr.com/airspy-webspy-a-high-performance-web-ui-client-for-airspy-sdrs/
 
-## Independent cross-review (GPT-5 deep research, 17m)
+## Independent cross-review (two GPT-5 passes)
 
-A separate GPT-5 deep-research pass over this branch independently reached the **same two
-merge blockers** (untrusted `BodySize` bounds + failed-connection state) and the same core
-findings (M-1, M-2/concurrency, M-3, M-10-empirical, DINT4). It contributed: elevating
-M-13 (short-body struct checks) and M-14 (nearest-neighbour resize), the spy2go reference,
-and the observation that this correctness doc was uncommitted/invisible on the branch.
+**Pass 1 — deep code review (17m).** Independently reached the **same two merge blockers**
+(untrusted `BodySize` bounds + failed-connection state) and the same core findings (M-1,
+M-2/concurrency, M-3, M-10-empirical, DINT4). Contributed: elevating M-13 (short-body
+struct checks) and M-14 (nearest-neighbour resize), the spy2go reference, and the
+observation that this correctness doc was uncommitted/invisible on the branch.
+
+**Pass 2 — landscape survey.** No new code findings. Added N1MM Logger+ as a confirmed
+(closed) FFT-streaming client, AIS-catcher as a clean IQ-only lifecycle reference, the
+VibeSDR SpyServer/DINT4 design brief, and confirmed that no additional open-source FFT
+reference exists beyond miweber67/spy2go. Reinforced the independent-FFT/IQ architecture.
 
 ---
 
