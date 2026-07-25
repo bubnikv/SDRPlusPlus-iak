@@ -284,7 +284,10 @@ private:
                 // remainder is done locally. Either way the wanted freq stays
                 // inside the received IQ band (server reach + IQ half-width spans
                 // the full device rate), so the local mixer can always reach it.
-                double devCtr     = (double)_this->client->devInfo.DeviceCenterFrequency;
+                // "Device center" here is simply the waterfall/FFT center that
+                // tune() drives (the server re-centres both IQ and FFT on it);
+                // SpyServerDeviceInfo carries no center field of its own.
+                double devCtr     = gui::waterfall.getCenterFrequency();
                 double maxIqWidth = (double)_this->client->devInfo.MaximumSampleRate
                                     / (double)(1u << _this->client->devInfo.MinimumIQDecimation);
                 double halfSlack  = (maxIqWidth - _this->iqSampleRate) / 2.0;
