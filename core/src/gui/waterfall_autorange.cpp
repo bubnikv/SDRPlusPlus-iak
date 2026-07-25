@@ -4,6 +4,9 @@
 #include <gui/style.h>
 #include <gui/widgets/toggle_style.h>
 #include <core.h>      // core::configManager
+#ifdef __ANDROID__
+#include <android_backend.h>
+#endif
 #include <algorithm>
 #include <cmath>
 
@@ -93,7 +96,9 @@ void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
     // Capture item state before any other ImGui call (the tooltip) moves the
     // "last item" these queries refer to.
     bool active = ImGui::IsItemActive();
-    bool hovered = ImGui::IsItemHovered();
+#ifndef __ANDROID__
+    bool hovered = ImGui::IsItemHovered(); // feeds the desktop-only tooltip below
+#endif
     ImVec2 rectMin = ImGui::GetItemRectMin();
     ImVec2 rectMax = ImGui::GetItemRectMax();
     if (stickyEnabled) {
@@ -109,9 +114,16 @@ void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
                                          ImVec2(0, 0), ImVec2(1, 1),
                                          ImGui::GetColorU32(stickyEnabled ? cols.content : tint));
 
+#ifndef __ANDROID__
+    // Hover-tooltip is desktop-only, as in the KiwiSDR map: the Android
+    // backend never parks the cursor off-screen (it feeds the touch point on
+    // both DOWN and UP, unlike GLFW), so IsItemHovered() stays true after the
+    // finger lifts and the tooltip would sit over the waterfall until the
+    // next touch elsewhere. Touch users get the haptic tick below instead.
     if (hovered) {
         ImGui::SetTooltip("Click: auto-fit range once\nHold: %s continuous auto-range", stickyEnabled ? "disable" : "enable");
     }
+#endif
 
     // Hold-to-latch: the long-press fires while the button is still held (so
     // the release doesn't also trigger the one-shot). longPressed is consumed
@@ -122,6 +134,12 @@ void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
         if (!longPressed && btnHold >= 0.5f) {
             longPressed = true;
             setSticky(!stickyEnabled);
+#ifdef __ANDROID__
+            // Confirms a long-press that fires while the finger is still down,
+            // as the hamburger hold-to-exit and the menu splitter do. On touch
+            // this is the only cue that the hold (rather than a tap) landed.
+            backend::hapticTick();
+#endif
         }
     }
     if (clicked && !longPressed) {

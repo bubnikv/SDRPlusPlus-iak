@@ -915,10 +915,10 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     // flags only matter as a guard for a pathologically short window.
     ImGui::BeginChild("WaterfallControls", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-    // Rubber-band vertical layout for the three sliders + their labels + the
+    // Rubber-band vertical layout for the sliders + their labels + the
     // autoscale button. The budget is measured once, before drawing anything,
-    // so every leftover pixel goes to the sliders while the three labels and
-    // the button are always accounted for and can never be squeezed out.
+    // so every leftover pixel goes to the sliders while the labels and the
+    // button are always accounted for and can never be squeezed out.
     const float textH       = ImGui::GetTextLineHeight();
     const float spacingY    = ImGui::GetStyle().ItemSpacing.y;
     const float btnH        = WaterfallAutoRange::buttonHeight();
@@ -932,22 +932,37 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     // grab is bumped with it where it is pushed below.
     const float sliderW = std::floor(std::min(style::dp(style::touchStyle ? 40.0f : 20.0f), avail.x - 2.0f * style::dp(6.0f)));
 
-    // Fixed (non-slider) cost: three labels, the autoscale button, and the gap
-    // ImGui inserts between consecutive items. That inter-item gap has to be
-    // counted explicitly: each slider carries one of its own, so budgeting the
-    // labels as whole text lines (glyphs + one gap) leaves three gaps unpaid
-    // and overflows the child by exactly that much. The three blank-line
-    // separators are added only if the ideal-height layout still fits with
-    // them. The same cost drives both that choice and the slider height, so
-    // the computed layout matches what actually gets drawn.
-    auto fixedCost = [&](bool separators) {
-        const int textLines = separators ? 6 : 3; // 3 labels [+ 3 blank separators]
-        const int items     = textLines + 4;      // + 3 sliders + the button
+    // Fixed (non-slider) cost: one label per slider, the autoscale button, and
+    // the gap ImGui inserts between consecutive items. That inter-item gap has
+    // to be counted explicitly: each slider carries one of its own, so
+    // budgeting the labels as whole text lines (glyphs + one gap) leaves one
+    // gap per slider unpaid and overflows the child by exactly that much. The
+    // blank-line separators (one after each slider) are added only if the
+    // ideal-height layout still fits with them. The same cost drives that
+    // choice, the Ref decision and the slider height, so the computed layout
+    // matches what actually gets drawn.
+    auto fixedCost = [&](int sliders, bool separators) {
+        const int textLines = sliders * (separators ? 2 : 1); // labels [+ a blank line after each slider]
+        const int items     = textLines + sliders + 1;        // + the sliders themselves + the button
         return textLines * textH + btnH + (items - 1) * spacingY;
     };
-    const bool sliderSeparators = (3.0f * idealSlider + fixedCost(true)) <= avail.y;
 
-    float sliderH = (avail.y - fixedCost(sliderSeparators)) / 3.0f;
+    // Continuous auto-range owns Ref, and the FFT's dB axis (drawFFT's vertical
+    // scale) already reports the level it tracks -- so on a strip too short for
+    // full-height sliders, drop the slider while latched and hand its pixels to
+    // Zoom and Range. That is worth doing only while the remaining two sliders
+    // would still be short of their ideal height: once they reach it, the freed
+    // space would just pad the strip and strand the button above the bottom, so
+    // Ref stays visible (disabled) instead. On a landscape phone this takes the
+    // two live sliders from ~10 mm of travel to ~17 mm; in portrait and on the
+    // desktop nothing changes.
+    const bool twoSlidersReachIdeal = (2.0f * idealSlider + fixedCost(2, true)) <= avail.y;
+    const bool showRef     = !autoRange.sticky() || twoSlidersReachIdeal;
+    const int  sliderCount = showRef ? 3 : 2;
+
+    const bool sliderSeparators = ((float)sliderCount * idealSlider + fixedCost(sliderCount, true)) <= avail.y;
+
+    float sliderH = (avail.y - fixedCost(sliderCount, sliderSeparators)) / (float)sliderCount;
     sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
     const ImVec2 wfSliderSize(sliderW, std::floor(sliderH));
 
@@ -1004,29 +1019,32 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     if (sliderSeparators) ImGui::NewLine();
 
     // Ref = noise-floor level (fftMin, bottom of the window). Sticky auto-range
-    // drives it, so grey it out while sticky. Dragging it slides the whole
+    // drives it, so grey it out while sticky (and see showRef above: on a short
+    // strip it is dropped rather than greyed). Dragging it slides the whole
     // window, preserving Range.
-    float wfRef = fftMin;
-    ImGui::BeginDisabled(autoRange.sticky());
-    centerFor(ImGui::CalcTextSize("Ref").x);
-    ImGui::TextUnformatted("Ref");
-    centerFor(sliderW);
-    bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, WaterfallAutoRange::REF_MIN, WaterfallAutoRange::REF_MAX, "");
-    ImGui::SetItemUsingMouseWheel();
-    if (refSliderChanged) {
-        float range = fftMax - fftMin; // keep the user's Range, slide the window
-        fftMin = wfRef;
-        fftMax = wfRef + range;
-        core::configManager.acquire();
-        core::configManager.conf["min"] = fftMin;
-        core::configManager.conf["max"] = fftMax;
-        core::configManager.release(true);
+    if (showRef) {
+        float wfRef = fftMin;
+        ImGui::BeginDisabled(autoRange.sticky());
+        centerFor(ImGui::CalcTextSize("Ref").x);
+        ImGui::TextUnformatted("Ref");
+        centerFor(sliderW);
+        bool refSliderChanged = ImGui::VSliderFloat("##_9_", wfSliderSize, &wfRef, WaterfallAutoRange::REF_MIN, WaterfallAutoRange::REF_MAX, "");
+        ImGui::SetItemUsingMouseWheel();
+        if (refSliderChanged) {
+            float range = fftMax - fftMin; // keep the user's Range, slide the window
+            fftMin = wfRef;
+            fftMax = wfRef + range;
+            core::configManager.acquire();
+            core::configManager.conf["min"] = fftMin;
+            core::configManager.conf["max"] = fftMax;
+            core::configManager.release(true);
+        }
+        ImGui::EndDisabled();
+
+        if (sliderSeparators) ImGui::NewLine();
     }
-    ImGui::EndDisabled();
 
     ImGui::PopStyleVar(); // GrabMinSize
-
-    if (sliderSeparators) ImGui::NewLine();
 
     // Spans the strip: the old square glyph button was ~3.6 x 3.6 mm on a phone,
     // the smallest target on the screen, with the full column width going spare.
