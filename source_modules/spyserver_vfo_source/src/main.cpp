@@ -250,7 +250,6 @@ private:
             const auto minSendInterval = std::chrono::milliseconds(1000 / SVFO_MAX_RETUNE_RATE);
             auto lastIqSend = std::chrono::steady_clock::now() - minSendInterval;
             auto lastFftSend = lastIqSend;
-            double lastLoggedWanted = -1.0e18; // debug: only log on tuning change
 
             while (_this->tuneThreadRunning) {
                 std::this_thread::sleep_for(pollInterval);
@@ -309,14 +308,6 @@ private:
                                       + sigpath::vfoManager.getCenterOffset(vfoName)
                                       - sentIq;
                     sigpath::vfoManager.setDspOffset(vfoName, residual);
-                }
-
-                // Debug aid for checking the clamp on HF+ / RTL-SDR; logs only
-                // when the wanted frequency changes. Safe to delete once happy.
-                if (wantedIq != lastLoggedWanted) {
-                    lastLoggedWanted = wantedIq;
-                    flog::debug("VFO+FFT tune: wanted={0} sent={1} shortfall={2} devCtr={3} maxIqW={4} iqW={5} slack={6}",
-                                wantedIq, sentIq, wantedIq - sentIq, devCtr, maxIqWidth, _this->iqSampleRate, halfSlack);
                 }
 
                 if (sentIq != _this->lastSentIqFreq && (now - lastIqSend) >= minSendInterval) {
