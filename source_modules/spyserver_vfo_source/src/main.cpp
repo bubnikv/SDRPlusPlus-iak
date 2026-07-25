@@ -250,6 +250,7 @@ private:
             const auto minSendInterval = std::chrono::milliseconds(1000 / SVFO_MAX_RETUNE_RATE);
             auto lastIqSend = std::chrono::steady_clock::now() - minSendInterval;
             auto lastFftSend = lastIqSend;
+            double lastLoggedWanted = -1.0e18; // debug: only log on tuning change
 
             while (_this->tuneThreadRunning) {
                 std::this_thread::sleep_for(pollInterval);
@@ -258,27 +259,66 @@ private:
                 auto now = std::chrono::steady_clock::now();
 
                 // IQ_FREQUENCY: track the VFO's live position.
-                double vfoOffset = 0.0;
                 std::string vfoName = gui::waterfall.selectedVFO;
+                double vfoOffset = (vfoName != "") ? sigpath::vfoManager.getOffset(vfoName) : 0.0;
+
+                // Absolute frequency the IQ window *wants* to sit on.
+                double wantedIq = gui::waterfall.getCenterFrequency() + vfoOffset;
+
+                // How far the server can actually slide the IQ window off the
+                // device center. An IQ window of width iqSampleRate moves inside
+                // the widest IQ span the device offers, i.e.
+                // MaximumSampleRate / 2^MinimumIQDecimation - the SAME value the
+                // IQ-rate list is built from (its widest entry). So it is right
+                // on every server version and already accounts for a configured
+                // cap: a bandwidth-limited R2 reports MinimumIQDecimation=4 ->
+                // 10MHz/16 = 625kHz, an uncapped HF+ reports 0 -> full rate.
+                // This deliberately does NOT use the server's
+                // Min/MaximumIQCenterFrequency fields, which several server
+                // builds leave zeroed.
+                //
+                // slack = (widest IQ - current IQ)/2 = the room on each side. At
+                // max IQ width slack is 0, so the server is pinned to the device
+                // center and the entire offset is done locally; at narrower
+                // widths the server slides as far as it can and only the
+                // remainder is done locally. Either way the wanted freq stays
+                // inside the received IQ band (server reach + IQ half-width spans
+                // the full device rate), so the local mixer can always reach it.
+                double devCtr     = (double)_this->client->devInfo.DeviceCenterFrequency;
+                double maxIqWidth = (double)_this->client->devInfo.MaximumSampleRate
+                                    / (double)(1u << _this->client->devInfo.MinimumIQDecimation);
+                double halfSlack  = (maxIqWidth - _this->iqSampleRate) / 2.0;
+                if (halfSlack < 0.0) { halfSlack = 0.0; } // guard against rounding
+                double sentIq = std::clamp(wantedIq, devCtr - halfSlack, devCtr + halfSlack);
+
                 if (vfoName != "") {
-                    vfoOffset = sigpath::vfoManager.getOffset(vfoName);
-                    // The IQ we receive is already retuned server-side to
-                    // sit at this exact absolute frequency, so the local
-                    // DSP mixer must not shift by vfoOffset again - but for
-                    // asymmetric modes (USB/LSB) the filter's actual
-                    // passband center isn't the same point as the tuned/
-                    // clicked frequency (it's offset by half the VFO
-                    // bandwidth). getCenterOffset() - getOffset() is
-                    // exactly that residual: 0 for symmetric modes
-                    // (AM/NFM/WFM), +-bandwidth/2 for USB/LSB.
-                    double residual = sigpath::vfoManager.getCenterOffset(vfoName) - vfoOffset;
+                    // Local DSP mixer offset = distance from the IQ stream's
+                    // actual center (sentIq) to the passband center we want.
+                    // Passband center = waterfall center + getCenterOffset (the
+                    // clicked freq for symmetric modes, +-bandwidth/2 off it for
+                    // USB/LSB). When the server reaches the wanted freq exactly
+                    // this reduces to the old "getCenterOffset - getOffset"
+                    // residual (0 for AM/NFM/WFM, +-bw/2 for USB/LSB); when it
+                    // can't (near/at max IQ width) the extra distance is exactly
+                    // the shortfall, finished locally from the full IQ band that
+                    // is present in the stream. One formula, no sign juggling.
+                    double residual = gui::waterfall.getCenterFrequency()
+                                      + sigpath::vfoManager.getCenterOffset(vfoName)
+                                      - sentIq;
                     sigpath::vfoManager.setDspOffset(vfoName, residual);
                 }
-                double targetIq = gui::waterfall.getCenterFrequency() + vfoOffset;
 
-                if (targetIq != _this->lastSentIqFreq && (now - lastIqSend) >= minSendInterval) {
-                    _this->client->setSetting(SPYSERVER_SETTING_IQ_FREQUENCY, targetIq);
-                    _this->lastSentIqFreq = targetIq;
+                // Debug aid for checking the clamp on HF+ / RTL-SDR; logs only
+                // when the wanted frequency changes. Safe to delete once happy.
+                if (wantedIq != lastLoggedWanted) {
+                    lastLoggedWanted = wantedIq;
+                    flog::debug("VFO+FFT tune: wanted={0} sent={1} shortfall={2} devCtr={3} maxIqW={4} iqW={5} slack={6}",
+                                wantedIq, sentIq, wantedIq - sentIq, devCtr, maxIqWidth, _this->iqSampleRate, halfSlack);
+                }
+
+                if (sentIq != _this->lastSentIqFreq && (now - lastIqSend) >= minSendInterval) {
+                    _this->client->setSetting(SPYSERVER_SETTING_IQ_FREQUENCY, sentIq);
+                    _this->lastSentIqFreq = sentIq;
                     lastIqSend = now;
                 }
 
