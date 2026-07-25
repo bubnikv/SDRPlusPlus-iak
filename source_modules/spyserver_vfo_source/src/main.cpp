@@ -264,32 +264,36 @@ private:
                 // Absolute frequency the IQ window *wants* to sit on.
                 double wantedIq = gui::waterfall.getCenterFrequency() + vfoOffset;
 
-                // How far the server can actually slide the IQ window off the
-                // device center. An IQ window of width iqSampleRate moves inside
-                // the widest IQ span the device offers, i.e.
-                // MaximumSampleRate / 2^MinimumIQDecimation - the SAME value the
-                // IQ-rate list is built from (its widest entry). So it is right
-                // on every server version and already accounts for a configured
-                // cap: a bandwidth-limited R2 reports MinimumIQDecimation=4 ->
-                // 10MHz/16 = 625kHz, an uncapped HF+ reports 0 -> full rate.
-                // This deliberately does NOT use the server's
-                // Min/MaximumIQCenterFrequency fields, which several server
-                // builds leave zeroed.
+                // How far the server can slide the IQ window off the device
+                // center. The DDC can place the IQ window anywhere inside the
+                // device's full sampled span (MaximumSampleRate); a configured
+                // "maximum_bandwidth" cap limits only the WIDTH of that window,
+                // not where its center may sit. So the slide room on each side
+                // is (full span - current IQ width)/2.
                 //
-                // slack = (widest IQ - current IQ)/2 = the room on each side. At
-                // max IQ width slack is 0, so the server is pinned to the device
-                // center and the entire offset is done locally; at narrower
-                // widths the server slides as far as it can and only the
-                // remainder is done locally. Either way the wanted freq stays
-                // inside the received IQ band (server reach + IQ half-width spans
-                // the full device rate), so the local mixer can always reach it.
-                // "Device center" here is simply the waterfall/FFT center that
-                // tune() drives (the server re-centres both IQ and FFT on it);
+                // Anchoring on MaximumSampleRate is what makes this correct on a
+                // bandwidth-capped server: a capped R2 streams a narrow IQ (e.g.
+                // 625kHz) yet can still center it anywhere across the full 10MHz.
+                // An earlier version used the capped IQ *width* as the span,
+                // which pinned the window near center and broke off-center
+                // tuning whenever a cap was configured - the regression this
+                // fixes. (It also avoids the server's Min/MaximumIQCenterFrequency
+                // fields, which several server builds leave zeroed.)
+                //
+                // slack = (full span - current IQ)/2. Only when the IQ genuinely
+                // fills the whole device span (max IQ on an uncapped device,
+                // where max IQ == MaximumSampleRate) is slack 0, pinning the
+                // server to center and letting the local mixer do the whole
+                // offset from the full IQ band. A capped device's IQ is always
+                // narrower than the span, so it keeps slide room and tunes
+                // off-center server-side exactly as it did before this feature.
+                //
+                // "Device center" is simply the waterfall/FFT center that tune()
+                // drives (the server re-centres both IQ and FFT on it);
                 // SpyServerDeviceInfo carries no center field of its own.
-                double devCtr     = gui::waterfall.getCenterFrequency();
-                double maxIqWidth = (double)_this->client->devInfo.MaximumSampleRate
-                                    / (double)(1u << _this->client->devInfo.MinimumIQDecimation);
-                double halfSlack  = (maxIqWidth - _this->iqSampleRate) / 2.0;
+                double devCtr    = gui::waterfall.getCenterFrequency();
+                double fullSpan  = (double)_this->client->devInfo.MaximumSampleRate;
+                double halfSlack = (fullSpan - _this->iqSampleRate) / 2.0;
                 if (halfSlack < 0.0) { halfSlack = 0.0; } // guard against rounding
                 double sentIq = std::clamp(wantedIq, devCtr - halfSlack, devCtr + halfSlack);
 
