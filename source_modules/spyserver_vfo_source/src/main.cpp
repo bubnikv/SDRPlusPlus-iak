@@ -336,29 +336,27 @@ private:
         gui::mainWindow.playButtonLocked = !connected;
 
         if (connected) { SmGui::BeginDisabled(); }
+
+        // Hostname box. The small dropdown that appears to its right (only once
+        // at least one server has been remembered) picks a previously used
+        // server and fills in both fields; you can still just type a new
+        // address straight into this box exactly as before.
         if (SmGui::InputText(CONCAT("##_spyserver_vfo_srv_host_", _this->name), _this->hostname, 1023)) {
             svfoConfig.acquire();
             svfoConfig.conf["hostname"] = _this->hostname;
             svfoConfig.release(true);
         }
-        SmGui::SameLine();
-        SmGui::FillWidth();
-        if (SmGui::InputInt(CONCAT("##_spyserver_vfo_srv_port_", _this->name), &_this->port, 0, 0)) {
-            svfoConfig.acquire();
-            svfoConfig.conf["port"] = _this->port;
-            svfoConfig.release(true);
-        }
 
-        // Previously used servers. Hidden until there is at least one, so a
-        // fresh install doesn't show an empty dropdown. Picking an entry
-        // fills in both fields - the port belongs to the address, so having
-        // to retype it would defeat the point.
         if (!_this->recentServers.empty()) {
-            SmGui::LeftLabel("Recent");
-            SmGui::FillWidth();
+            SmGui::SameLine();
+            // Narrow, arrow-only dropdown sitting flush against the hostname
+            // box (SDRSharp style). recentServersTxt keeps a blank entry at
+            // index 0, so the collapsed combo shows no text - just the arrow.
+            SmGui::SetNextItemWidth(roundf(26.0f * style::uiScale));
             if (SmGui::Combo(CONCAT("##_spyserver_vfo_srv_recent_", _this->name), &_this->recentServerId, _this->recentServersTxt.c_str())) {
-                if (_this->recentServerId >= 0 && _this->recentServerId < (int)_this->recentServers.size()) {
-                    auto& rs = _this->recentServers[_this->recentServerId];
+                // Real servers start at index 1 (index 0 is the placeholder).
+                if (_this->recentServerId >= 1 && _this->recentServerId <= (int)_this->recentServers.size()) {
+                    auto& rs = _this->recentServers[_this->recentServerId - 1];
                     strncpy(_this->hostname, rs.hostname.c_str(), sizeof(_this->hostname) - 1);
                     _this->hostname[sizeof(_this->hostname) - 1] = '\0';
                     _this->port = rs.port;
@@ -367,8 +365,18 @@ private:
                     svfoConfig.conf["port"] = _this->port;
                     svfoConfig.release(true);
                 }
+                _this->recentServerId = 0; // fall back to the blank preview
             }
         }
+
+        SmGui::SameLine();
+        SmGui::FillWidth();
+        if (SmGui::InputInt(CONCAT("##_spyserver_vfo_srv_port_", _this->name), &_this->port, 0, 0)) {
+            svfoConfig.acquire();
+            svfoConfig.conf["port"] = _this->port;
+            svfoConfig.release(true);
+        }
+
         if (connected) { SmGui::EndDisabled(); }
 
         if (_this->running) { SmGui::BeginDisabled(); }
@@ -464,7 +472,13 @@ private:
     // Rebuilds the zero-separated string the combo displays. Kept in sync
     // with recentServers rather than regenerated per frame.
     void rebuildRecentServersTxt() {
+        // Index 0 is a blank placeholder so the collapsed combo shows just the
+        // dropdown arrow with no text. It has to be a real (non-empty) entry -
+        // a leading '\0' would make ImGui count zero items - so a single space
+        // is used; the actual servers follow from index 1.
         recentServersTxt.clear();
+        recentServersTxt += ' ';
+        recentServersTxt += '\0';
         for (auto& rs : recentServers) {
             recentServersTxt += rs.hostname + ":" + std::to_string(rs.port);
             recentServersTxt += '\0';
@@ -640,7 +654,7 @@ private:
         int port;
     };
     std::vector<RecentServer> recentServers;
-    std::string recentServersTxt; // "host:port\0host:port\0..." for the combo
+    std::string recentServersTxt; // " \0host:port\0host:port\0..." for the combo (index 0 blank)
     int recentServerId = 0;
     int iqType = 1;
 
