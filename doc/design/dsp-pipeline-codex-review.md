@@ -403,9 +403,9 @@ Timing is also variable:
   separate threads.
 - Audio callback blocking can turn audio underruns into callback stalls.
 
-## Differences From `doc/Pipeline.md`
+## Differences From `doc/design/dsp-pipeline.md`
 
-`doc/Pipeline.md` is broadly right about the central `dsp::stream<T>` protocol
+`doc/design/dsp-pipeline.md` is broadly right about the central `dsp::stream<T>` protocol
 and the general one-thread-per-block model. My main differences are:
 
 1. `SampleFrameBuffer` always starts two threads. In bypass mode the ring reader

@@ -159,7 +159,7 @@ only on user actions (band select, page/category switch), never per-frame.
   Deliver code, list what to verify in their build.
 - Work incrementally; the user reviews and says "commit" explicitly.
   Commit messages end with the Claude co-author trailer.
-- Update `doc/Android UI improvements.md` if a backlog item is affected.
+- Update `doc/todo/android-ui.md` if a backlog item is affected.
 
 ## Acceptance checklist
 
