@@ -142,9 +142,11 @@ void FrequencySelect::draw() {
     ImVec2 digitSz = ImGui::CalcTextSize("0");
     ImVec2 commaSz = ImGui::CalcTextSize(".");
     // Snap the origin to whole pixels — a fractional baseline blurs the big
-    // digits at fractional UI scales.
+    // digits at fractional UI scales. Centred on the top-bar row: the previous
+    // hand-tuned offset carried an unscaled +5, so it was exact at 1x and drew
+    // the digits 5*(uiScale-1) px high everywhere else (10 px on Android).
     widgetPos.x = roundf(widgetPos.x);
-    widgetPos.y = roundf(window->Pos.y + cursorPos.y - ((digitSz.y / 2.0f) - ceilf(15 * style::uiScale) - 5));
+    widgetPos.y = roundf(window->Pos.y + cursorPos.y + style::topBarRowOffset(digitSz.y));
 
     // Recompute the first visible digit only when maxFreq or limitFreq changes
     bool firstDigitChanged = false;
@@ -185,7 +187,13 @@ void FrequencySelect::draw() {
     float textOffset = (float)style::scale(11.0f);
     bool zeros = true;
 
-    ImGui::ItemSize(ImRect(digitTopMins[firstDigit], ImVec2(digitBottomMaxs[11].x + style::dp(17.0f), digitBottomMaxs[11].y)));
+    // Reserve the row height, not the glyph box: one bigFont line is 45 dp,
+    // taller than the row's 40 dp buttons, so reserving it made the frequency
+    // display set the top bar's height and pushed the FFT down by 5 dp for no
+    // reason. The digits still overhang the row by half the difference, which
+    // is what the centring above intends; hit-testing uses the explicit digit
+    // rects below, not this box.
+    ImGui::ItemSize(ImVec2(digitBottomMaxs[11].x + style::dp(17.0f) - digitTopMins[firstDigit].x, style::topBarRowHeight()));
 
     for (int i = firstDigit; i < 12; i++) {
         if (digits[i] != 0) {

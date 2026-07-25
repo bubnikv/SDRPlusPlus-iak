@@ -409,11 +409,21 @@ void MainWindow::draw() {
     // To Bar
     // ImGui::BeginChild("TopBarChild", ImVec2(0, 49.0f * style::uiScale), false, ImGuiWindowFlags_HorizontalScrollbar);
     float topBarWidth = ImGui::GetWindowSize().x;
+    // Top of the row. Everything in it is centred on style::topBarRowHeight()
+    // from here, rather than each widget carrying its own offset -- those were
+    // all tuned at uiScale 1 and drifted apart by up to 22 px on a phone.
+    float rowTop = ImGui::GetCursorPosY();
+    auto centerInRow = [rowTop](float itemHeight) {
+        ImGui::SetCursorPosY(rowTop + style::topBarRowOffset(itemHeight));
+    };
 
     // Whole-pixel icon quads — a fractional size (37.5px at 1.25x) blurs the
     // toolbar icon textures no matter where they land.
     ImVec2 btnSize((float)style::scale(30.0f), (float)style::scale(30.0f));
     int toolbarButtonPadding = style::scale(5.0f);
+    // The buttons define the row height, so this is 0; kept explicit so the
+    // whole row reads the same way.
+    centerInRow(btnSize.y + 2.0f * toolbarButtonPadding);
     ImGui::PushID(ImGui::GetID("sdrpp_menu_btn"));
     bool menuClicked = ImGui::ImageButton(icons::MENU, btnSize, ImVec2(0, 0), ImVec2(1, 1), toolbarButtonPadding, ImVec4(0, 0, 0, 0), textCol) || ImGui::IsKeyPressed(ImGuiKey_Menu, false);
 #ifdef __ANDROID__
@@ -468,14 +478,22 @@ void MainWindow::draw() {
     }
 
     ImGui::SameLine();
-    float origY = ImGui::GetCursorPosY();
+
+    // Logo geometry, needed here because the level meter is right-aligned
+    // against the space the logo reserves: the logo plus the gap in front of it.
+    const float logoSize       = (float)style::scale(32.0f);
+    const float logoRightInset = (float)style::scale(16.0f);
+    const float meterOffset    = logoSize + logoRightInset + ImGui::GetStyle().ItemSpacing.x;
 
     // The volume slider and the level meter share the space left over after the
     // fixed elements between them (frequency display, tuning/keypad buttons, and
-    // the right-edge reserve). When both maxima don't fit, they each take half of
-    // that pool, still capped at their own maxima; whichever hits its cap first
-    // hands the surplus to the other. The frequency-keypad button is optional: it
-    // shows only when it fits without pushing either widget below its minimum.
+    // the right-edge reserve). They each take half of that pool; the volume
+    // slider is capped, and the meter absorbs whatever it leaves over. The meter
+    // is deliberately uncapped: with a cap, everything past both maxima had
+    // nowhere to go and collected in the single gap in front of the meter (~627
+    // px on a 1920 px window, against 8 px everywhere else). The frequency-keypad
+    // button is optional: it shows only when it fits without pushing either
+    // widget below its minimum.
     float volumeWidth;
     float meterWidth;
     bool  showKeypadButton;
@@ -484,35 +502,35 @@ void MainWindow::draw() {
         float tuningCost  = btnSize.x + 2 * toolbarButtonPadding + itemSpacing; // btn + padding + gap
         float keypadCost  = btnSize.x + 2 * toolbarButtonPadding + itemSpacing;
         float freqCost    = gui::freqSelect.getWidth() + itemSpacing;
-        float meterOffset = 87.0f * style::uiScale;
 
         float volMin   = 100.0f * style::uiScale;
         float volMax   = 248.0f * style::uiScale;
         float meterMin = ImGui::GetLevelMeterMinWidth();
-        float meterMax = std::max(375.0f * style::uiScale, meterMin);
 
-        // Space shared by the two flexible widgets.
-        float pool = topBarWidth - ImGui::GetCursorPosX() - freqCost - tuningCost - meterOffset;
+        // Space shared by the two flexible widgets. The trailing itemSpacing is
+        // the gap in front of the meter; without it the pool was one gap too
+        // large and the meter landed a gap right of where it was placed.
+        float pool = topBarWidth - ImGui::GetCursorPosX() - freqCost - tuningCost - itemSpacing - meterOffset;
         showKeypadButton = (pool - keypadCost >= volMin + meterMin);
         if (showKeypadButton) { pool -= keypadCost; }
 
-        // Even 50/50 split, honoring each maximum and letting a capped widget's
-        // surplus flow to the other.
+        // Even 50/50 split, honoring the volume cap and handing its surplus to
+        // the meter.
         volumeWidth = std::clamp(pool * 0.5f, volMin, volMax);
-        meterWidth  = std::clamp(pool - volumeWidth, meterMin, meterMax);
+        meterWidth  = std::max(pool - volumeWidth, meterMin);
         volumeWidth = std::clamp(pool - meterWidth, volMin, volMax);
     }
     sigpath::sinkManager.showVolumeSlider(gui::waterfall.selectedVFO, "##_sdrpp_main_volume_", volumeWidth, btnSize.x, toolbarButtonPadding, true);
 
     ImGui::SameLine();
 
-    ImGui::SetCursorPosY(origY);
+    ImGui::SetCursorPosY(rowTop);
     gui::freqSelect.draw();
 
     ImGui::SameLine();
 
     if (showKeypadButton) {
-        ImGui::SetCursorPosY(origY);
+        ImGui::SetCursorPosY(rowTop);
         ImGui::PushID(ImGui::GetID("sdrpp_freq_keypad_btn"));
         if (ImGui::ImageButton(icons::KEYPAD, btnSize, ImVec2(0, 0), ImVec2(1, 1), toolbarButtonPadding, ImVec4(0, 0, 0, 0), textCol)) {
             gui::freqSelect.openKeypad();
@@ -521,7 +539,7 @@ void MainWindow::draw() {
         ImGui::SameLine();
     }
 
-    ImGui::SetCursorPosY(origY);
+    ImGui::SetCursorPosY(rowTop);
     if (tuningMode == tuner::TUNER_MODE_CENTER) {
         ImGui::PushID(ImGui::GetID("sdrpp_ena_st_btn"));
         if (ImGui::ImageButton(icons::CENTER_TUNING, btnSize, ImVec2(0, 0), ImVec2(1, 1), toolbarButtonPadding, ImVec4(0, 0, 0, 0), textCol)) {
@@ -549,13 +567,14 @@ void MainWindow::draw() {
     ImGui::SameLine();
 
     // meterWidth was computed together with volumeWidth above so the two share
-    // the flexible space evenly. Right-align the meter, clamping so it can't
-    // overlap the tuning button on a very narrow window.
-    float meterOffset = 87.0f * style::uiScale;
+    // the flexible space evenly. Right-align the meter against the logo's
+    // reserve, clamping so it can't overlap the tuning button on a very narrow
+    // window. With the pool accounting fixed this lands exactly one ItemSpacing
+    // after the tuning button, so the row has no oversized gap left in it.
     float meterPos = std::max(topBarWidth - (meterWidth + meterOffset), ImGui::GetCursorPosX());
 
     ImGui::SetCursorPosX(meterPos);
-    ImGui::SetCursorPosY(origY + (5.0f * style::uiScale));
+    centerInRow(ImGui::GetLevelMeterHeight());
     ImGui::SetNextItemWidth(meterWidth);
     if (vfo != NULL) {
         ImGui::LevelMeter(gui::waterfall.selectedVFOLevel, gui::waterfall.selectedVFOLevelMax, gui::waterfall.selectedVFOSNR);
@@ -564,15 +583,17 @@ void MainWindow::draw() {
         ImGui::LevelMeter(-INFINITY, -INFINITY, NAN);
     }
 
-    // Note: this is what makes the vertical size correct, needs to be fixed
+    // Keeps the logo on this line: it is placed by absolute cursor position, so
+    // without this it would start a new one and double the top bar's height.
     ImGui::SameLine();
 
     // ImGui::EndChild();
 
-    // Logo button
-    ImGui::SetCursorPosX(ImGui::GetWindowSize().x - (float)style::scale(48.0f));
-    ImGui::SetCursorPosY((float)style::scale(10.0f));
-    if (ImGui::ImageButton(icons::LOGO, ImVec2((float)style::scale(32.0f), (float)style::scale(32.0f)), ImVec2(0, 0), ImVec2(1, 1), 0)) {
+    // Logo button. Was pinned to an absolute 10 dp from the window top, which
+    // only happened to look centred at uiScale 1.
+    ImGui::SetCursorPosX(ImGui::GetWindowSize().x - logoRightInset - logoSize);
+    centerInRow(logoSize);
+    if (ImGui::ImageButton(icons::LOGO, ImVec2(logoSize, logoSize), ImVec2(0, 0), ImVec2(1, 1), 0)) {
         showCredits = true;
     }
 

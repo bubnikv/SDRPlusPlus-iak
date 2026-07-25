@@ -35,6 +35,21 @@ namespace style {
         return (std::max)(1.0f, std::round(dp(logical)));
     }
 
+    // Height of the main window's top-bar row: the footprint of its icon
+    // buttons (30 dp glyph + 5 dp padding either side). Everything in that row
+    // -- buttons, volume slider, frequency digits, level meter, logo -- centres
+    // on this one height, so it lives here rather than being restated by each
+    // widget with its own hand-tuned offset.
+    inline float topBarRowHeight() {
+        return (float)(scale(30.0f) + 2 * scale(5.0f));
+    }
+
+    // Y offset, from the top of the row, that vertically centres an item of
+    // `itemHeight`. Whole pixels so glyphs and 1px rules stay crisp.
+    inline float topBarRowOffset(float itemHeight) {
+        return std::round((topBarRowHeight() - itemHeight) * 0.5f);
+    }
+
     inline int scaleOrPhysical(float logicalOrPhysical, float physicalThresholdLogical) {
         if (uiScale > 1.0f && logicalOrPhysical >= dp(physicalThresholdLogical)) {
             return (int)std::round(logicalOrPhysical);

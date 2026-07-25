@@ -242,15 +242,27 @@ void SinkManager::setStreamSink(std::string name, std::string providerName) {
 void SinkManager::showVolumeSlider(std::string name, std::string prefix, float width, float btnHeight, int btnBorder, bool sameLine) {
     // TODO: Replace map with some hashmap for it to be faster
     float height = ImGui::GetTextLineHeightWithSpacing() + 2;
-    float sliderHeight = height;
     if (btnHeight > 0) {
         height = btnHeight;
     }
+    // The mute button is drawn as a `height`-sized glyph inside `btnBorder`
+    // padding, so it occupies more than `height`. Budgeting with `height` alone
+    // made the group overrun its requested width by 2 * btnBorder, shifting
+    // everything after it in the top bar.
+    float btnFootprint = height + 2.0f * (float)btnBorder;
+    // The slider's own height, not a stand-in: GetTextLineHeightWithSpacing()+2
+    // happens to equal it under the desktop style (ItemSpacing.y 4 + 2 ==
+    // 2 * FramePadding.y 3) but is 13 px short under the touch style, which
+    // pushed the slider off the button's centre line on Android. Centre it in
+    // whichever of the two is taller -- in the menu (no button border) the
+    // slider is the taller one, and it must not be pulled above the row.
+    float sliderHeight = ImGui::GetFrameHeight();
+    float sliderYOfs   = std::max(btnFootprint - sliderHeight, 0.0f) / 2.0f;
 
     float ypos = ImGui::GetCursorPosY();
     float sliderOffset = ImGui::GetStyle().ItemSpacing.x; // SameLine() gap between button and slider
     float minSliderWidth = style::dp(80.0f);
-    width = std::max(width, height + sliderOffset + minSliderWidth);
+    width = std::max(width, btnFootprint + sliderOffset + minSliderWidth);
 
     if (streams.find(name) == streams.end() || name == "") {
         float dummy = 0.0f;
@@ -259,8 +271,8 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
         ImGui::ImageButton(icons::MUTED, ImVec2(height, height), ImVec2(0, 0), ImVec2(1, 1), btnBorder, ImVec4(0, 0, 0, 0), ImGui::GetStyleColorVec4(ImGuiCol_Text));
         ImGui::PopID();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(std::max(width - height - sliderOffset, minSliderWidth));
-        ImGui::SetCursorPosY(ypos + ((height - sliderHeight) / 2.0f) + btnBorder);
+        ImGui::SetNextItemWidth(std::max(width - btnFootprint - sliderOffset, minSliderWidth));
+        ImGui::SetCursorPosY(ypos + sliderYOfs);
         ImGui::SliderFloat((prefix + name).c_str(), &dummy, 0.0f, 1.0f, "");
         style::endDisabled();
         if (sameLine) { ImGui::SetCursorPosY(ypos); }
@@ -292,8 +304,8 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
 
     ImGui::SameLine();
 
-    ImGui::SetNextItemWidth(std::max(width - height - sliderOffset, minSliderWidth));
-    ImGui::SetCursorPosY(ypos + ((height - sliderHeight) / 2.0f) + btnBorder);
+    ImGui::SetNextItemWidth(std::max(width - btnFootprint - sliderOffset, minSliderWidth));
+    ImGui::SetCursorPosY(ypos + sliderYOfs);
     if (ImGui::SliderFloat((prefix + name).c_str(), &stream->guiVolume, 0.0f, 1.0f, "")) {
         stream->setVolume(stream->guiVolume);
         core::configManager.acquire();

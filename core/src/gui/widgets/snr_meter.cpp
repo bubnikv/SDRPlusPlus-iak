@@ -50,6 +50,15 @@ namespace ImGui {
         return cachedMinWidth;
     }
 
+    float GetLevelMeterHeight() {
+        // Labels sit at scale(16) and are one line tall; the two-line numeric
+        // readout on the right ends at the same place, since the base font is
+        // 16 dp. Was a literal 26 px, which stopped scaling past 1x -- the
+        // widget then painted ~4x its own item box on a phone and only the top
+        // 26 px of it answered clicks.
+        return (float)style::scale(16.0f) + GetTextLineHeight();
+    }
+
     void LevelMeter(float level, float levelMax, float snr, const ImVec2& size_arg) {
         ImGuiWindow* window = GetCurrentWindow();
         ImGuiStyle& style = GImGui->Style;
@@ -57,7 +66,7 @@ namespace ImGui {
         // The meter is placed via a float-computed SetCursorPosX, so snap the
         // origin — all bar/tick geometry below assumes whole-pixel offsets.
         ImVec2 min = ImVec2(floorf(window->DC.CursorPos.x), floorf(window->DC.CursorPos.y));
-        ImVec2 size = CalcItemSize(size_arg, CalcItemWidth(), 26);
+        ImVec2 size = CalcItemSize(size_arg, CalcItemWidth(), GetLevelMeterHeight());
         ImRect bb(min, min + size);
 
         ImU32 text = ImGui::GetColorU32(ImGuiCol_Text);
