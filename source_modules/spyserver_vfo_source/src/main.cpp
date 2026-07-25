@@ -337,25 +337,12 @@ private:
 
         if (connected) { SmGui::BeginDisabled(); }
 
-        // Hostname box, given a fixed width that comfortably fits an IPv4
-        // address ("255.255.255.255") so the arrow and the full port stay
-        // visible next to it. The dropdown that follows (shown only once at
-        // least one server has been remembered) picks a previously used server
-        // and fills in both fields; you can still just type a new address here.
-        SmGui::SetNextItemWidth(roundf(155.0f * style::uiScale));
-        if (SmGui::InputText(CONCAT("##_spyserver_vfo_srv_host_", _this->name), _this->hostname, 1023)) {
-            svfoConfig.acquire();
-            svfoConfig.conf["hostname"] = _this->hostname;
-            svfoConfig.release(true);
-        }
-
+        // Recent-server dropdown at the START of the row (arrow only). Putting
+        // it here, rather than between the fields, is what keeps the address and
+        // port free to resize with the menu column - a fixed-width widget wedged
+        // between them would freeze their layout. The combo is only as wide as
+        // its arrow, so it shows no preview text, just the down-arrow.
         if (!_this->recentServers.empty()) {
-            SmGui::SameLine();
-            // Arrow-only dropdown (width == frame height) sitting right after
-            // the hostname box, so the gap matches the Offset mode combo next
-            // to its +/- buttons. The combo is too narrow to draw any preview
-            // text, so only the standard down-arrow shows - no blank line is
-            // needed in the list.
             SmGui::SetNextItemWidth(roundf(26.0f * style::uiScale));
             if (SmGui::Combo(CONCAT("##_spyserver_vfo_srv_recent_", _this->name), &_this->recentServerId, _this->recentServersTxt.c_str())) {
                 if (_this->recentServerId >= 0 && _this->recentServerId < (int)_this->recentServers.size()) {
@@ -369,6 +356,19 @@ private:
                     svfoConfig.release(true);
                 }
             }
+            SmGui::SameLine();
+        }
+
+        // Address takes the whole remaining line except a fixed slot kept for
+        // the port. A negative width means "fill to the right edge minus this
+        // many pixels", so the field stretches and shrinks with the column (as
+        // it did originally) while the port stays fully visible at any width.
+        // Reserve = port width (70) + one ItemSpacing (10) + a little slack.
+        SmGui::SetNextItemWidth(-roundf(82.0f * style::uiScale));
+        if (SmGui::InputText(CONCAT("##_spyserver_vfo_srv_host_", _this->name), _this->hostname, 1023)) {
+            svfoConfig.acquire();
+            svfoConfig.conf["hostname"] = _this->hostname;
+            svfoConfig.release(true);
         }
 
         SmGui::SameLine();
