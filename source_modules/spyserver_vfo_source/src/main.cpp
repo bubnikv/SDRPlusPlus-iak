@@ -363,8 +363,10 @@ private:
         // the port. A negative width means "fill to the right edge minus this
         // many pixels", so the field stretches and shrinks with the column (as
         // it did originally) while the port stays fully visible at any width.
-        // Reserve = port width (70) + one ItemSpacing (10) + a little slack.
-        SmGui::SetNextItemWidth(-roundf(82.0f * style::uiScale));
+        // Reserve = port width (58, enough for a 5-digit port) + ItemSpacing
+        // (10). Port is kept narrow on purpose so that even at the narrowest
+        // column the address still fits a full "255.255.255.255".
+        SmGui::SetNextItemWidth(-roundf(68.0f * style::uiScale));
         if (SmGui::InputText(CONCAT("##_spyserver_vfo_srv_host_", _this->name), _this->hostname, 1023)) {
             svfoConfig.acquire();
             svfoConfig.conf["hostname"] = _this->hostname;
@@ -372,7 +374,7 @@ private:
         }
 
         SmGui::SameLine();
-        SmGui::SetNextItemWidth(roundf(70.0f * style::uiScale));
+        SmGui::SetNextItemWidth(roundf(58.0f * style::uiScale));
         if (SmGui::InputInt(CONCAT("##_spyserver_vfo_srv_port_", _this->name), &_this->port, 0, 0)) {
             svfoConfig.acquire();
             svfoConfig.conf["port"] = _this->port;
