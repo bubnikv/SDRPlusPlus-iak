@@ -25,17 +25,20 @@ public:
     // Bind to MainWindow's fftMin/fftMax and seed the latch from config.
     void init(float* fftMin, float* fftMax, bool stickyFromConfig);
 
-    // Total height of the autoscale button. Depends only on the current ImGui
-    // style, hence static: the caller's vertical layout budget and the draw
-    // below must agree exactly or the controls strip overflows, so both take
-    // the height from here.
-    static float buttonHeight();
+    // Side of the (square) autoscale button: the app's icon-button footprint,
+    // 30 dp glyph + 5 dp padding, as the toolbar buttons use -- squared so the
+    // round contrast glyph reads as an icon rather than a mark floating in a
+    // pill, and so it is a comfortable target in both axes. Capped by the width
+    // the caller has for it. Depends only on that and the UI scale, hence
+    // static: the caller's vertical layout budget and the draw below must agree
+    // exactly or the controls strip overflows, so both size it from here.
+    static float buttonSize(float maxSide);
 
     // Draw the autoscale button (Material contrast glyph) at the current cursor
     // and handle the click-vs-hold gesture. The caller positions the cursor and
-    // gives the full button size; `tint` colours the glyph while the latch is
-    // off (while it is on, the shared latched-toggle colours take over).
-    void drawButton(const ImVec2& size, const ImVec4& tint);
+    // gives the square button's side; `tint` colours the glyph while the latch
+    // is off (while it is on, the shared latched-toggle colours take over).
+    void drawButton(float side, const ImVec4& tint);
 
     // Step the continuous fit (throttled to ~10 Hz internally). Call once per
     // frame after the controls child so it keeps running with the menu closed.

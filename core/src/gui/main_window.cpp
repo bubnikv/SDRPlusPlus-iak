@@ -919,12 +919,23 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     // autoscale button. The budget is measured once, before drawing anything,
     // so every leftover pixel goes to the sliders while the labels and the
     // button are always accounted for and can never be squeezed out.
+    const ImVec2 avail      = ImGui::GetContentRegionAvail();
     const float textH       = ImGui::GetTextLineHeight();
     const float spacingY    = ImGui::GetStyle().ItemSpacing.y;
-    const float btnH        = WaterfallAutoRange::buttonHeight();
+    const float btnSide     = WaterfallAutoRange::buttonSize(avail.x);
     const float idealSlider = 150.0f * style::uiScale;
     const float minSlider   = 16.0f * style::uiScale; // 40 dp will not fit a 720p landscape strip
-    const ImVec2 avail      = ImGui::GetContentRegionAvail();
+
+    // The strip is flush with the screen edges, and on a phone the window covers
+    // the physical display corners: nothing here applies display insets (the
+    // main window is placed at 0,0 over the full DisplaySize). A corner inset by
+    // d on both axes clears a corner radius of up to 3.41*d, so keep the square
+    // button off the bottom edge -- centring it already gives ~30 px of
+    // horizontal inset on a phone, and a matching bottom margin covers radii to
+    // ~102 px, past anything current phones use. Desktop windows are not
+    // clipped, so no margin there.
+    const float bottomMargin = style::dp(style::touchStyle ? 10.0f : 0.0f);
+    const float budgetH      = avail.y - bottomMargin;
 
     // Slider track width. 20 dp is fine for a mouse, but on a phone it is ~3.6 mm
     // against a ~7.6 mm minimum touch target, in a column with 6 mm of unused
@@ -944,7 +955,7 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     auto fixedCost = [&](int sliders, bool separators) {
         const int textLines = sliders * (separators ? 2 : 1); // labels [+ a blank line after each slider]
         const int items     = textLines + sliders + 1;        // + the sliders themselves + the button
-        return textLines * textH + btnH + (items - 1) * spacingY;
+        return textLines * textH + btnSide + (items - 1) * spacingY;
     };
 
     // Continuous auto-range owns Ref, and the FFT's dB axis (drawFFT's vertical
@@ -956,19 +967,18 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     // Ref stays visible (disabled) instead. On a landscape phone this takes the
     // two live sliders from ~10 mm of travel to ~17 mm; in portrait and on the
     // desktop nothing changes.
-    const bool twoSlidersReachIdeal = (2.0f * idealSlider + fixedCost(2, true)) <= avail.y;
+    const bool twoSlidersReachIdeal = (2.0f * idealSlider + fixedCost(2, true)) <= budgetH;
     const bool showRef     = !autoRange.sticky() || twoSlidersReachIdeal;
     const int  sliderCount = showRef ? 3 : 2;
 
-    const bool sliderSeparators = ((float)sliderCount * idealSlider + fixedCost(sliderCount, true)) <= avail.y;
+    const bool sliderSeparators = ((float)sliderCount * idealSlider + fixedCost(sliderCount, true)) <= budgetH;
 
-    float sliderH = (avail.y - fixedCost(sliderCount, sliderSeparators)) / (float)sliderCount;
+    float sliderH = (budgetH - fixedCost(sliderCount, sliderSeparators)) / (float)sliderCount;
     sliderH = std::max<float>(minSlider, std::min<float>(sliderH, idealSlider));
     const ImVec2 wfSliderSize(sliderW, std::floor(sliderH));
 
-    // Everything in the strip is centered on the window rather than on the
-    // content region, so a full-width item's left edge lands exactly on the
-    // child padding.
+    // Labels, sliders and the button are all narrower than the strip and share
+    // one centre line.
     auto centerFor = [](float width) {
         ImGui::SetCursorPosX(std::round((ImGui::GetWindowSize().x - width) * 0.5f));
     };
@@ -1046,10 +1056,8 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
 
     ImGui::PopStyleVar(); // GrabMinSize
 
-    // Spans the strip: the old square glyph button was ~3.6 x 3.6 mm on a phone,
-    // the smallest target on the screen, with the full column width going spare.
-    centerFor(avail.x);
-    autoRange.drawButton(ImVec2(avail.x, btnH), textCol);
+    centerFor(btnSide);
+    autoRange.drawButton(btnSide, textCol);
 
     ImGui::EndChild();
 }

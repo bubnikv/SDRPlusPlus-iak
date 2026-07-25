@@ -70,13 +70,15 @@ void WaterfallAutoRange::setSticky(bool on) {
     core::configManager.release(true);
 }
 
-float WaterfallAutoRange::buttonHeight() {
-    // Same frame height as the mode-grid buttons, with a floor in the touch
-    // style: GetFrameHeight() alone is ~4.7 mm on a phone, thin for a finger.
-    return std::max(ImGui::GetFrameHeight(), style::dp(style::touchStyle ? 32.0f : 20.0f));
+// Glyph and the padding around it, matching the toolbar's ImageButtons.
+static constexpr float BTN_GLYPH_DP = 30.0f;
+static constexpr float BTN_PAD_DP   = 5.0f;
+
+float WaterfallAutoRange::buttonSize(float maxSide) {
+    return std::floor(std::min(maxSide, style::dp(BTN_GLYPH_DP + 2.0f * BTN_PAD_DP)));
 }
 
-void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
+void WaterfallAutoRange::drawButton(float side, const ImVec4& tint) {
     // A plain Button with the glyph drawn centred on top, rather than an
     // ImageButton: the frame, rounding and hover/active states then come from
     // the same path as the mode-grid buttons, and the latched state can use the
@@ -92,7 +94,7 @@ void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
         cols = style::selectedToggleColors();
         style::pushSelectedToggle(cols);
     }
-    bool clicked = ImGui::Button("##sdrpp_wf_autorange", size);
+    bool clicked = ImGui::Button("##sdrpp_wf_autorange", ImVec2(side, side));
     // Capture item state before any other ImGui call (the tooltip) moves the
     // "last item" these queries refer to.
     bool active = ImGui::IsItemActive();
@@ -106,9 +108,11 @@ void WaterfallAutoRange::drawButton(const ImVec2& size, const ImVec4& tint) {
         style::popSelectedToggle();
     }
 
-    // Square glyph, centred, sized off the button height so it tracks the frame
-    // padding the way a label would. Whole-pixel corners keep it sharp.
-    float glyph = std::max(1.0f, std::round(size.y - 2.0f * ImGui::GetStyle().FramePadding.y));
+    // Glyph centred in the square, inset by the toolbar's icon padding so it
+    // carries the same optical weight as the hamburger and play icons (and
+    // shrinks with the button if the strip was too narrow for the full side).
+    // Whole-pixel corners keep it sharp.
+    float glyph = std::max(1.0f, std::round(side - 2.0f * style::dp(BTN_PAD_DP)));
     ImVec2 glyphMin(std::round((rectMin.x + rectMax.x - glyph) * 0.5f), std::round((rectMin.y + rectMax.y - glyph) * 0.5f));
     ImGui::GetWindowDrawList()->AddImage(icons::CONTRAST, glyphMin, ImVec2(glyphMin.x + glyph, glyphMin.y + glyph),
                                          ImVec2(0, 0), ImVec2(1, 1),
