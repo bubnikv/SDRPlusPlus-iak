@@ -16,6 +16,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include "bookmark.h"
 #include "schedule.h"
 

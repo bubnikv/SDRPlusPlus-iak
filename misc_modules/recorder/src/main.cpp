@@ -9,6 +9,7 @@
 #include <dsp/convert/stereo_to_mono.h>
 #include <thread>
 #include <cassert>
+#include <cstring>
 #include <ctime>
 #include <gui/gui.h>
 #include <filesystem>

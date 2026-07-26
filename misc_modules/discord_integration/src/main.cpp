@@ -6,6 +6,7 @@
 #include <core.h>
 #include <discord_rpc.h>
 #include <cassert>
+#include <cstring>
 #include <thread>
 #include <radio_interface.h>
 

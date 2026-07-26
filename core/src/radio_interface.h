@@ -1,5 +1,4 @@
 #pragma once
-#include <cstring>
 
 enum {
     RADIO_IFACE_CMD_GET_MODE,
@@ -51,24 +50,46 @@ enum {
 // Exactly one name deviates anywhere, and it is a wire protocol rather than a
 // choice: rigctl_server must speak Hamlib, where RIG_MODE_FM is documented as
 // "narrow" band FM. That is a one-line exception in hamlibModeName() there.
-inline const char* const RADIO_IFACE_MODE_NAMES[_RADIO_IFACE_MODE_COUNT] = {
+// The bound is deduced, not written: with an explicit one, appending an
+// enumerator without a name would leave a value-initialized null in the array
+// and radioModeName() would hand it out past its own bounds check. The assert
+// below turns that omission into a compile error instead -- which is the whole
+// point of this table, RADIO_IFACE_MODE_CWR having already been appended once
+// to an enum whose name tables did not follow.
+inline constexpr const char* RADIO_IFACE_MODE_NAMES[] = {
     "NFM", "WFM", "AM", "DSB", "USB", "CW", "LSB", "RAW", "CWR"
 };
+static_assert(sizeof(RADIO_IFACE_MODE_NAMES) / sizeof(*RADIO_IFACE_MODE_NAMES) == _RADIO_IFACE_MODE_COUNT,
+              "every RADIO_IFACE_MODE_* needs an entry in RADIO_IFACE_MODE_NAMES");
 
 // Name of a mode, or "--" for a value that is not one (-1 = nothing stored).
-inline const char* radioModeName(int mode) {
+constexpr const char* radioModeName(int mode) {
     return (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) ? RADIO_IFACE_MODE_NAMES[mode] : "--";
+}
+
+// strcmp is not constexpr in C++17, and these strings are four bytes at most.
+constexpr bool radioModeNameEq(const char* a, const char* b) {
+    while (*a && *a == *b) { ++a; ++b; }
+    return *a == *b;
 }
 
 // Mode for a name, -1 if unrecognised. Foreign spellings are accepted on input
 // so that a hand-written band plan `def_mode` or a config carried over from
 // another program still parses; they are never emitted.
-inline int radioModeFromName(const char* name) {
+constexpr int radioModeFromName(const char* name) {
     if (!name) { return -1; }
     for (int i = 0; i < _RADIO_IFACE_MODE_COUNT; i++) {
-        if (!strcmp(name, RADIO_IFACE_MODE_NAMES[i])) { return i; }
+        if (radioModeNameEq(name, RADIO_IFACE_MODE_NAMES[i])) { return i; }
     }
-    if (!strcmp(name, "FM")) { return RADIO_IFACE_MODE_NFM; }    // Hamlib / transceiver spelling
-    if (!strcmp(name, "CW-R")) { return RADIO_IFACE_MODE_CWR; }  // Icom / earlier builds
+    if (radioModeNameEq(name, "FM")) { return RADIO_IFACE_MODE_NFM; }    // Hamlib / transceiver spelling
+    if (radioModeNameEq(name, "CW-R")) { return RADIO_IFACE_MODE_CWR; }  // Icom / earlier builds
     return -1;
 }
+
+// Both directions agree, checked at compile time rather than trusted.
+static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_NFM)) == RADIO_IFACE_MODE_NFM, "NFM does not round-trip");
+static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_WFM)) == RADIO_IFACE_MODE_WFM, "WFM does not round-trip");
+static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_CWR)) == RADIO_IFACE_MODE_CWR, "CWR does not round-trip");
+static_assert(radioModeFromName("FM") == RADIO_IFACE_MODE_NFM, "the Hamlib spelling must still parse");
+static_assert(radioModeFromName("CW-R") == RADIO_IFACE_MODE_CWR, "the Icom spelling must still parse");
+static_assert(radioModeFromName("nope") == -1, "an unknown name must not resolve");

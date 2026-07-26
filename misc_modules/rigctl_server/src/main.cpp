@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <radio_interface.h>
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
