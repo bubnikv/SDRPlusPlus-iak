@@ -36,6 +36,14 @@ inline void doOverlayText(const char* fmt, ...) {
     ImGui::TextUnformatted(buf);
 }
 
+// Segmented-control button: the selected segment is drawn pressed.
+inline bool segButton(const char* label, bool selected, ImVec2 size) {
+    if (selected) { ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)); }
+    bool clicked = ImGui::Button(label, size);
+    if (selected) { ImGui::PopStyleColor(); }
+    return clicked;
+}
+
 // Bump the button color alpha so labels stay legible when buttons sit on
 // top of a busy background (e.g. the world map). Pair with
 // popOverlayButtonStyle. Doubles alpha clamped to 1.0 — buttons whose

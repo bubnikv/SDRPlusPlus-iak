@@ -1,19 +1,12 @@
 #include <gui/widgets/frequency_select.h>
-#include <gui/widgets/bandplan.h>
 #include <gui/widgets/popup_dialog.h>
-#include <gui/band_stack.h>
-#include <config.h>
-#include <core.h>
 #include <gui/style.h>
 #include <gui/gui.h>
 #include <backend.h>
 #include <utils/hrfreq.h>
 #include <cstdlib>
-#include <cstring>
-#include <cctype>
 #include <cmath>
 #include <algorithm>
-#include <vector>
 #ifdef __ANDROID__
 #include <android_backend.h>
 #endif
@@ -23,7 +16,7 @@
 #endif
 #include <imgui/imgui_internal.h>
 
-bool isInArea(ImVec2 val, ImVec2 min, ImVec2 max) {
+static bool isInArea(ImVec2 val, ImVec2 min, ImVec2 max) {
     return val.x >= min.x && val.x < max.x && val.y >= min.y && val.y < max.y;
 }
 
@@ -110,6 +103,16 @@ void FrequencySelect::moveCursorToDigit(int i) {
     backend::setMouseScreenPos(nxpos, ypos);
 }
 
+// The tuning situation handed to the F-INP dialog each frame.
+freq_input::Context FrequencySelect::inputContext() const {
+    freq_input::Context ctx;
+    ctx.frequency = frequency;
+    ctx.limited = limitFreq;
+    ctx.minFreq = minFreq;
+    ctx.maxFreq = maxFreq;
+    return ctx;
+}
+
 float FrequencySelect::getWidth() {
     // getWidth() is called during top-bar layout before draw() runs, so it
     // must refresh the cache itself when the scale changes — otherwise the
@@ -178,7 +181,7 @@ void FrequencySelect::draw() {
     ImU32 disabledColor = ImGui::GetColorU32(ImGuiCol_Text, 0.3f);
     ImU32 textColor = ImGui::GetColorU32(ImGuiCol_Text);
 
-    
+
     // Same rounded metrics as onPosChange() so drawn digits line up with the
     // cached hitboxes.
     int digitWidth = (int)roundf(digitSz.x);
@@ -200,9 +203,9 @@ void FrequencySelect::draw() {
             zeros = false;
         }
         int pos = i - firstDigit;
-        sprintf(buf, "%d", digits[i]);
+        const char digit[2] = { (char)('0' + digits[i]), 0 };
         window->DrawList->AddText(ImVec2(widgetPos.x + (pos * digitWidth) + commaOffset, widgetPos.y),
-                                  zeros ? disabledColor : textColor, buf);
+                                  zeros ? disabledColor : textColor, digit);
         if ((i + 1) % 3 == 0 && i < 11) {
             commaOffset += commaWidth;
             window->DrawList->AddText(ImVec2(widgetPos.x + (pos * digitWidth) + commaOffset + textOffset, widgetPos.y),
@@ -288,7 +291,7 @@ void FrequencySelect::draw() {
         }
 
         // A press armed on a digit half steps it on a quick release; held
-        // motionless past the threshold it opens the F-INP keypad instead.
+        // motionless past the threshold it opens the F-INP dialog instead.
         // Stepping waits for the release so the two can't both fire.
         if (pressDigit >= 0) {
             if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
@@ -300,7 +303,7 @@ void FrequencySelect::draw() {
                 }
                 else if (!longPressDone && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
                     longPressDone = true;
-                    keypadRequestOpen = true;
+                    dialog.open();
 #ifdef __ANDROID__
                     backend::hapticTick();
 #endif
@@ -375,503 +378,14 @@ void FrequencySelect::draw() {
 
     ImGui::SetCursorPosX(digitBottomMaxs[11].x + (float)style::scale(17.0f));
 
-    drawKeypad();
-}
-
-// Format a frequency in Hz with '.' group separators, matching the widget.
-static std::string groupHz(uint64_t hz) {
-    std::string s = std::to_string(hz);
-    for (int pos = (int)s.size() - 3; pos > 0; pos -= 3) {
-        s.insert(pos, ".");
+    // The dialog draws last, after the bigFont pop and after the digit
+    // hit-testing above: while it is open, ImGui blocks hover on the top bar, so
+    // the two consumers of InputQueueCharacters can't both fire in one frame.
+    freq_input::Outcome result = dialog.draw(inputContext());
+    if (result.commit) {
+        setFrequency((int64_t)result.frequency);
+        frequencyChanged = true;
     }
-    return s;
-}
-
-static int digitCount(uint64_t value) {
-    int count = 1;
-    while (value >= 10) {
-        value /= 10;
-        count++;
-    }
-    return count;
-}
-
-static int keypadIntegerDigitLimit(bool limitFreq, uint64_t maxFreq) {
-    if (!limitFreq) { return 6; } // dialog entry is MHz, capped at 999999 MHz
-    uint64_t maxMHz = maxFreq / 1000000;
-    return std::min(6, digitCount(maxMHz));
-}
-
-static uint64_t clampKeypadHz(double hz, bool limitFreq, uint64_t minFreq, uint64_t maxFreq) {
-    if (!std::isfinite(hz) || hz < 0.0) { hz = 0.0; }
-    hz = std::min(hz, 999999999999.0);
-
-    if (limitFreq) {
-        const uint64_t lo = std::min(minFreq, maxFreq);
-        const uint64_t hi = std::max(minFreq, maxFreq);
-        hz = std::clamp(hz, (double)lo, (double)hi);
-    }
-
-    return (uint64_t)hz;
-}
-
-void FrequencySelect::keypadKey(char key) {
-    if (key >= '0' && key <= '9') {
-        size_t dot = entry.find('.');
-        if (dot == std::string::npos) {
-            if (entry == "0") { entry.clear(); }
-            uint64_t activeMax = limitFreq ? std::max(minFreq, maxFreq) : maxFreq;
-            if ((int)entry.size() < keypadIntegerDigitLimit(limitFreq, activeMax)) { entry += key; }
-        }
-        else if (entry.size() - dot - 1 < 6) { // down to 1 Hz
-            entry += key;
-        }
-    }
-    else if (key == '.') {
-        if (entry.empty()) {
-            // IC-705 shorthand: [.] first re-enters the current MHz digits, so
-            // retuning within the band is just [.] plus the kHz digits.
-            uint64_t currentHz = clampKeypadHz((double)frequency, limitFreq, minFreq, maxFreq);
-            entry = std::to_string(currentHz / 1000000) + '.';
-        }
-        else if (entry.find('.') == std::string::npos) {
-            entry += '.';
-        }
-    }
-}
-
-void FrequencySelect::commitEntry() {
-    if (entry.empty()) { return; }
-    // The entry is a decimal number in MHz; digits left blank below the last
-    // entered one become zeros, same as the IC-705's [ENT].
-    uint64_t hz = clampKeypadHz(round(atof(entry.c_str()) * 1e6), limitFreq, minFreq, maxFreq);
-    setFrequency((int64_t)hz);
-    frequencyChanged = true;
-}
-
-// Coarse filter bucket for the band picker's category row.
-static const char* bandCategory(const std::string& type) {
-    if (type == "amateur" || type == "amateur1") { return "Ham"; }
-    if (type == "broadcast") { return "Bcast"; }
-    if (type == "aviation" || type == "aircraft") { return "Air"; }
-    if (type == "marine" || type == "marine1") { return "Marine"; }
-    return "Util";
-}
-
-// Frequency in MHz, trailing zeros trimmed: 14025000 -> "14.025".
-static std::string mhzExact(double hz) {
-    char b[32];
-    snprintf(b, sizeof(b), "%.6f", hz / 1e6);
-    char* e = b + strlen(b) - 1;
-    while (*e == '0') { *e-- = 0; }
-    if (*e == '.') { *e = 0; }
-    return b;
-}
-
-// "40m Ham Band" -> "40m"; empty when the name has no wavelength token.
-static std::string wavelengthToken(const std::string& name) {
-    size_t n = name.size();
-    for (size_t i = 0; i < n; i++) {
-        if (!isdigit((unsigned char)name[i])) { continue; }
-        if (i > 0 && isalnum((unsigned char)name[i - 1])) { continue; }
-        size_t j = i;
-        while (j < n && (isdigit((unsigned char)name[j]) || name[j] == '.')) { j++; }
-        size_t k = j;
-        while (k < n && isalpha((unsigned char)name[k])) { k++; }
-        std::string unit = name.substr(j, k - j);
-        if (unit == "m" || unit == "cm" || unit == "mm") {
-            return name.substr(i, k - i);
-        }
-        i = k;
-    }
-    return "";
-}
-
-// Compact MHz main label for a band key: "1.8", "10.1", "144".
-static std::string mhzLabel(double hz) {
-    double mhz = hz / 1e6;
-    char buf[16];
-    if (mhz >= 20.0) { snprintf(buf, sizeof(buf), "%.0f", mhz); }
-    else if (mhz >= 1.0) { snprintf(buf, sizeof(buf), "%.1f", mhz); }
-    else { snprintf(buf, sizeof(buf), "%.2f", mhz); }
-    if (strchr(buf, '.')) {
-        char* end = buf + strlen(buf) - 1;
-        while (*end == '0') { *end-- = 0; }
-        if (*end == '.') { *end = 0; }
-    }
-    return buf;
-}
-
-// Centered AddText that shrinks the font size to fit maxWidth. bigFont only
-// covers '.'-'9', so callers pass baseFont for any label containing letters.
-static void centeredLabel(ImDrawList* dl, ImFont* font, float size, ImVec2 center, float maxWidth, ImU32 col, const char* text) {
-    ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
-    if (ts.x > maxWidth && ts.x > 0.0f) {
-        size *= maxWidth / ts.x;
-        ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
-    }
-    dl->AddText(font, size, ImVec2(center.x - ts.x / 2.0f, center.y - ts.y / 2.0f), col, text);
-}
-
-// Segmented-control button: the selected segment is drawn pressed.
-static bool segButton(const char* label, bool selected, ImVec2 size) {
-    if (selected) { ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)); }
-    bool clicked = ImGui::Button(label, size);
-    if (selected) { ImGui::PopStyleColor(); }
-    return clicked;
-}
-
-void FrequencySelect::drawKeypad() {
-    if (keypadRequestOpen) {
-        keypadRequestOpen = false;
-        entry.clear();
-        pressBand = -1;
-        bandLongPressDone = false;
-        regPopupBand = nullptr;
-        // Last-used page and category.
-        core::configManager.acquire();
-        auto& conf = core::configManager.conf;
-        page = (conf.value("freqEntryPage", "keypad") == "band") ? 0 : 1;
-        category = conf.value("freqEntryCategory", "Ham");
-        core::configManager.release();
-        ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
-    }
-
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (!ImGui::BeginPopupModal("F-INP##sdrpp_freq_keypad", NULL, ImGuiWindowFlags_AlwaysAutoResize)) { return; }
-
-    // Page toggle, sized to the keypad grid width so the popup width matches
-    // on both pages.
-    ImVec2 tsp = ImGui::GetStyle().ItemSpacing;
-    float totalWidth = 3.0f * style::dp(56.0f) + 3.0f * tsp.x + style::dp(84.0f);
-    float halfWidth = (totalWidth - tsp.x) / 2.0f;
-    ImVec2 toggleSz(halfWidth, style::dp(34.0f));
-    int newPage = page;
-    if (segButton("BAND##sdrpp_finp_page", page == 0, toggleSz)) { newPage = 0; }
-    ImGui::SameLine();
-    if (segButton("F-INP##sdrpp_finp_page", page == 1, toggleSz)) { newPage = 1; }
-    if (newPage != page) {
-        page = newPage;
-        core::configManager.acquire();
-        core::configManager.conf["freqEntryPage"] = (page == 0) ? "band" : "keypad";
-        core::configManager.release(true);
-    }
-    ImGui::Spacing();
-
-    bool close = false;
-    if (page == 0) { drawBandPage(close, totalWidth); }
-    else { drawKeypadPage(close); }
-
-    if (PopupDialog::cancelKeyPressed()) { close = true; }
-    if (close) { ImGui::CloseCurrentPopup(); }
-    ImGui::EndPopup();
-}
-
-void FrequencySelect::drawKeypadPage(bool& close) {
-    ImGuiIO& kio = ImGui::GetIO();
-    ImVec2 keySz(style::dp(56.0f), style::dp(42.0f));
-    const bool hasRange = limitFreq;
-    const uint64_t rangeLo = hasRange ? std::min(minFreq, maxFreq) : 0;
-    const uint64_t rangeHi = hasRange ? std::max(minFreq, maxFreq) : 0;
-    const ImVec4 errorCol(1.0f, 0.20f, 0.12f, 1.0f);
-    double rawHz = 0.0;
-    uint64_t targetHz = 0;
-    bool belowRange = false;
-    bool aboveRange = false;
-    if (!entry.empty()) {
-        rawHz = std::min(round(atof(entry.c_str()) * 1e6), 999999999999.0);
-        targetHz = clampKeypadHz(rawHz, limitFreq, minFreq, maxFreq);
-        belowRange = hasRange && rawHz < (double)rangeLo;
-        aboveRange = hasRange && rawHz > (double)rangeHi;
-    }
-    const bool outOfRange = belowRange || aboveRange;
-
-    // Entered value in MHz; before any key, the current frequency dimmed.
-    ImGui::PushFont(style::bigFont);
-    if (entry.empty()) {
-        char cur[32];
-        snprintf(cur, sizeof(cur), "%.6f", (double)frequency / 1e6);
-        char* end = cur + strlen(cur) - 1;
-        while (*end == '0') { *end-- = 0; }
-        if (*end == '.') { *end = 0; }
-        ImGui::TextDisabled("%s", cur);
-    }
-    else {
-        if (outOfRange) { ImGui::PushStyleColor(ImGuiCol_Text, errorCol); }
-        ImGui::TextUnformatted(entry.c_str());
-        if (outOfRange) { ImGui::PopStyleColor(); }
-    }
-    ImGui::PopFont();
-
-    if (entry.empty()) {
-        ImGui::TextDisabled("Enter frequency in MHz");
-    }
-    else {
-        if (outOfRange) { ImGui::PushStyleColor(ImGuiCol_Text, errorCol); }
-        if (limitFreq && targetHz != (uint64_t)rawHz) {
-            ImGui::Text("= %s Hz -> %s Hz", groupHz((uint64_t)rawHz).c_str(), groupHz(targetHz).c_str());
-        }
-        else {
-            ImGui::Text("= %s Hz", groupHz(targetHz).c_str());
-        }
-        if (outOfRange) { ImGui::PopStyleColor(); }
-        if (belowRange) {
-            ImGui::TextColored(errorCol, "Below source range: minimum is %s Hz", groupHz(rangeLo).c_str());
-        }
-        else if (aboveRange) {
-            ImGui::TextColored(errorCol, "Above source range: maximum is %s Hz", groupHz(rangeHi).c_str());
-        }
-    }
-    if (hasRange) {
-        ImGui::TextDisabled("Range: %s - %s Hz", groupHz(rangeLo).c_str(), groupHz(rangeHi).c_str());
-    }
-    ImGui::Spacing();
-
-    // 4x4 grid, placed explicitly since the double-height ENT would otherwise
-    // stretch its row: digit block with the backspace at its bottom-right
-    // (Android PIN-pad convention), function column CE / Cancel / tall ENT.
-    ImVec2 sp = ImGui::GetStyle().ItemSpacing;
-    float fnW = style::dp(84.0f);
-    ImVec2 origin = ImGui::GetCursorPos();
-    auto cellPos = [&](int r, int c) {
-        return ImVec2(origin.x + c * (keySz.x + sp.x), origin.y + r * (keySz.y + sp.y));
-    };
-
-    const char* dig[4][3] = {
-        { "7", "8", "9" },
-        { "4", "5", "6" },
-        { "1", "2", "3" },
-        { ".", "0", NULL } // NULL = backspace, drawn below
-    };
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 3; c++) {
-            if (!dig[r][c]) { continue; }
-            ImGui::SetCursorPos(cellPos(r, c));
-            if (ImGui::Button(dig[r][c], keySz)) { keypadKey(dig[r][c][0]); }
-        }
-    }
-
-    // Backspace key: undoes the last keypress. Roboto-Medium ships no arrow or
-    // erase glyph, so the icon is drawn by hand; GetColorU32 picks up the
-    // disabled-state alpha automatically.
-    ImGui::SetCursorPos(cellPos(3, 2));
-    ImGui::BeginDisabled(entry.empty());
-    bool bksp = ImGui::Button("##sdrpp_finp_bksp", keySz);
-    {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        ImVec2 bmin = ImGui::GetItemRectMin();
-        ImVec2 bmax = ImGui::GetItemRectMax();
-        ImVec2 ctr((bmin.x + bmax.x) / 2.0f, (bmin.y + bmax.y) / 2.0f);
-        float iw = style::dp(11.0f);    // icon half-width
-        float ih = style::dp(7.0f);     // icon half-height
-        float notch = style::dp(7.0f);  // depth of the pointed tip
-        float th = style::dp(1.5f);
-        ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
-        ImVec2 pts[5] = {
-            ImVec2(ctr.x - iw, ctr.y),
-            ImVec2(ctr.x - iw + notch, ctr.y - ih),
-            ImVec2(ctr.x + iw, ctr.y - ih),
-            ImVec2(ctr.x + iw, ctr.y + ih),
-            ImVec2(ctr.x - iw + notch, ctr.y + ih)
-        };
-        dl->AddPolyline(pts, 5, col, ImDrawFlags_Closed, th);
-        float bx = ctr.x + notch / 2.0f; // center of the icon body
-        float xr = style::dp(3.0f);
-        dl->AddLine(ImVec2(bx - xr, ctr.y - xr), ImVec2(bx + xr, ctr.y + xr), col, th);
-        dl->AddLine(ImVec2(bx - xr, ctr.y + xr), ImVec2(bx + xr, ctr.y - xr), col, th);
-    }
-    ImGui::EndDisabled();
-    if (bksp) { entry.pop_back(); }
-
-    ImGui::SetCursorPos(cellPos(0, 3));
-    if (ImGui::Button("CE", ImVec2(fnW, keySz.y))) { entry.clear(); }
-    ImGui::SetCursorPos(cellPos(1, 3));
-    if (ImGui::Button("Cancel##sdrpp_finp", ImVec2(fnW, keySz.y))) { close = true; }
-    ImGui::SetCursorPos(cellPos(2, 3));
-    if (ImGui::Button("ENT##sdrpp_finp", ImVec2(fnW, 2.0f * keySz.y + sp.y))) {
-        commitEntry();
-        close = true;
-    }
-
-    // Hardware keyboard: digits, '.', Backspace, Enter (Escape is handled
-    // page-independently in drawKeypad).
-    for (int j = 0; j < kio.InputQueueCharacters.Size; j++) {
-        char c = (char)kio.InputQueueCharacters[j];
-        if ((c >= '0' && c <= '9') || c == '.') { keypadKey(c); }
-        else if (c == ',') { keypadKey('.'); }
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Backspace) && !entry.empty()) { entry.pop_back(); }
-    if (PopupDialog::confirmKeyPressed()) {
-        commitEntry();
-        close = true;
-    }
-}
-
-void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
-    ImVec2 sp = ImGui::GetStyle().ItemSpacing;
-    ImVec2 cancelSz(totalWidth, style::dp(42.0f));
-
-    // The plan the waterfall ruler shows, resolved once by bandplanmenu and
-    // independent of the bandPlanEnabled display toggle. Resolving it again here
-    // would give the grid a different plan whenever the configured one is not
-    // installed, since the two fallbacks differ.
-    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    if (!plan) {
-        ImGui::TextDisabled("No band plan loaded");
-        if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { close = true; }
-        return;
-    }
-
-    // Bands within the source tuning range (minFreq/maxFreq are display-domain,
-    // same as the band plan), tagged with their category bucket.
-    struct BandEntry {
-        const bandplan::Band_t* band;
-        const char* cat;
-    };
-    std::vector<BandEntry> avail;
-    for (const auto& b : plan->bands) {
-        if (limitFreq && (b.end < (double)minFreq || b.start > (double)maxFreq)) { continue; }
-        avail.push_back({ &b, bandCategory(b.type) });
-    }
-
-    // Category row: only non-empty buckets, plus All. A persisted category that
-    // vanished (plan or tuning range changed) falls back to All for display.
-    static const char* buckets[] = { "Ham", "Bcast", "Air", "Marine", "Util" };
-    bool present[5] = {};
-    for (const auto& e : avail) {
-        for (int i = 0; i < 5; i++) {
-            if (!strcmp(e.cat, buckets[i])) { present[i] = true; break; }
-        }
-    }
-    std::string effective = "All";
-    for (int i = 0; i < 5; i++) {
-        if (present[i] && category == buckets[i]) { effective = category; }
-    }
-    std::string newCategory;
-    for (int i = 0; i < 5; i++) {
-        if (!present[i]) { continue; }
-        if (segButton(buckets[i], effective == buckets[i], ImVec2(0, 0))) { newCategory = buckets[i]; }
-        ImGui::SameLine();
-    }
-    if (segButton("All", effective == "All", ImVec2(0, 0))) { newCategory = "All"; }
-    if (!newCategory.empty() && newCategory != category) {
-        category = newCategory;
-        effective = newCategory;
-        core::configManager.acquire();
-        core::configManager.conf["freqEntryCategory"] = category;
-        core::configManager.release(true);
-    }
-    ImGui::Spacing();
-
-    std::vector<const bandplan::Band_t*> shown;
-    for (const auto& e : avail) {
-        if (effective == "All" || effective == e.cat) { shown.push_back(e.band); }
-    }
-
-    // OpenPopup must run at this (modal) scope, not inside the grid child, or
-    // its popup ID won't match the BeginPopup below. The long-press detector
-    // fires inside the child, so it only sets this flag.
-    bool openRegPopup = false;
-    if (shown.empty()) {
-        ImGui::TextDisabled("No bands in the tuning range");
-    }
-    else {
-        // 4-column grid of band keys in a child capped at ~4.5 rows; the half
-        // row hints that the grid scrolls.
-        float keyW = (totalWidth - 3.0f * sp.x) / 4.0f;
-        float keyH = style::dp(52.0f);
-        int rows = ((int)shown.size() + 3) / 4;
-        bool scrolls = rows > 4;
-        float gridH = scrolls ? 4.5f * (keyH + sp.y) : rows * (keyH + sp.y) - sp.y;
-        float childW = totalWidth + (scrolls ? ImGui::GetStyle().ScrollbarSize : 0.0f);
-        ImGuiIO& io = ImGui::GetIO();
-        ImVec2 mousePos = ImGui::GetMousePos();
-        ImGui::BeginChild("##sdrpp_band_grid", ImVec2(childW, gridH), false);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        ImU32 mainCol = ImGui::GetColorU32(ImGuiCol_Text);
-        ImU32 subCol = ImGui::GetColorU32(ImGuiCol_Text, 0.75f);
-        char id[32];
-        for (int i = 0; i < (int)shown.size(); i++) {
-            const bandplan::Band_t& b = *shown[i];
-            ImGui::SetCursorPos(ImVec2((i % 4) * (keyW + sp.x), (i / 4) * (keyH + sp.y)));
-            snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
-            bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
-            // A quick tap recalls the newest register; a motionless hold opens
-            // the band's register list. Stepping waits for release so the two
-            // can't both fire (same idiom as the digit long-press).
-            if (ImGui::IsItemActivated()) {
-                pressBand = i;
-                bandLongPressDone = false;
-            }
-            if (pressBand == i && ImGui::IsItemActive() && !bandLongPressDone) {
-                float slop = 10.0f * style::uiScale;
-                float dx = mousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x;
-                float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
-                if ((dx * dx) + (dy * dy) <= (slop * slop) && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
-                    bandLongPressDone = true;
-                    regPopupBand = &b;
-                    openRegPopup = true;
-#ifdef __ANDROID__
-                    backend::hapticTick();
-#endif
-                }
-            }
-            if (clicked && !bandLongPressDone) {
-                gui::bandStack.selectBand(b);
-                close = true;
-#ifdef __ANDROID__
-                backend::hapticTick();
-#endif
-            }
-            ImVec2 bmin = ImGui::GetItemRectMin();
-            ImVec2 bmax = ImGui::GetItemRectMax();
-            float cx = (bmin.x + bmax.x) / 2.0f;
-            float maxW = keyW - style::dp(8.0f);
-            std::string main = mhzLabel(b.start);
-            std::string sub = wavelengthToken(b.name);
-            if (sub.empty() && strcmp(bandCategory(b.type), "Ham")) { sub = b.name; }
-            dl->PushClipRect(bmin, bmax, true);
-            if (sub.empty()) {
-                centeredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, mainCol, main.c_str());
-            }
-            else {
-                centeredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, mainCol, main.c_str());
-                centeredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(cx, bmin.y + keyH * 0.76f), maxW, subCol, sub.c_str());
-            }
-            dl->PopClipRect();
-        }
-        ImGui::EndChild();
-    }
-
-    // Register list for a long-pressed band key (IC-705: touch the band key for
-    // 1 second to display the Band Stacking Register contents).
-    if (openRegPopup) { ImGui::OpenPopup("##sdrpp_band_registers"); }
-    if (ImGui::BeginPopup("##sdrpp_band_registers")) {
-        if (regPopupBand) {
-            const bandplan::Band_t& b = *regPopupBand;
-            ImGui::TextDisabled("%s", b.name.c_str());
-            std::vector<BandRegister> regs = gui::bandStack.registersFor(b);
-            if (regs.empty()) {
-                ImGui::TextDisabled("No stored registers");
-            }
-            char lbl[64];
-            for (int k = 0; k < (int)regs.size(); k++) {
-                snprintf(lbl, sizeof(lbl), "%d:  %s MHz  %s##sdrpp_reg_%d",
-                         k + 1, mhzExact(regs[k].freq).c_str(), radioModeName(regs[k].mode), k);
-                if (ImGui::Button(lbl, ImVec2(style::dp(150.0f), 0))) {
-                    gui::bandStack.recallRegister(b, k);
-                    close = true;
-                    ImGui::CloseCurrentPopup();
-#ifdef __ANDROID__
-                    backend::hapticTick();
-#endif
-                }
-            }
-        }
-        ImGui::EndPopup();
-    }
-
-    if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { close = true; }
 }
 
 void FrequencySelect::setFrequency(int64_t freq) {

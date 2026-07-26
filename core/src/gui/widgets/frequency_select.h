@@ -2,11 +2,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <stdint.h>
-#include <string>
-
-namespace bandplan {
-    struct Band_t;
-}
+#include <gui/widgets/freq_input.h>
 
 class FrequencySelect {
 public:
@@ -15,8 +11,8 @@ public:
     void draw();
     float getWidth();
     void setFrequency(int64_t freq);
-    // Open the F-INP direct-entry keypad (same dialog the digit long-press opens).
-    void openKeypad() { keypadRequestOpen = true; }
+    // Open the F-INP direct-entry dialog (same one the digit long-press opens).
+    void openKeypad() { dialog.open(); }
 
     uint64_t frequency;
     bool frequencyChanged = false;
@@ -28,15 +24,10 @@ public:
 
 private:
     void onPosChange();
-    void onResize();
     void incrementDigit(int i);
     void decrementDigit(int i);
     void moveCursorToDigit(int i);
-    void drawKeypad();
-    void drawKeypadPage(bool& close);
-    void drawBandPage(bool& close, float totalWidth);
-    void keypadKey(char key);
-    void commitEntry();
+    freq_input::Context inputContext() const;
 
     ImVec2 widgetPos;
     ImVec2 lastWidgetPos;
@@ -54,29 +45,16 @@ private:
     bool lastLimitFreq = false;
     uint64_t lastScaleEpoch = 0;
 
-    char buf[100];
     float cachedWidth_ = 0.0f;
     float wheelAccum = 0.0f;
 
     // Press tracking on digits: a quick release steps the digit, a motionless
-    // hold opens the F-INP direct-entry keypad.
+    // hold opens the F-INP direct-entry dialog.
     int pressDigit = -1;  // digit index the press started on, -1 = none
     int pressDir = 0;     // +1 = top half (increment), -1 = bottom half (decrement)
     bool longPressDone = false;
 
-    // F-INP keypad state. `entry` holds the typed value in MHz: digits plus at
-    // most one decimal point, IC-705 style.
-    bool keypadRequestOpen = false;
-    std::string entry;
-
-    // Band picker page state, loaded from config each time the dialog opens.
-    int page = 1;         // 0 = band grid, 1 = keypad
-    std::string category; // selected category bucket ("Ham", ..., "All")
-
-    // Band-key press tracking: a quick tap recalls the band's newest register,
-    // a motionless hold opens its stacking-register list (IC-705: "touch the
-    // band key for 1 second").
-    int pressBand = -1;   // index into the shown[] grid, -1 = none
-    bool bandLongPressDone = false;
-    const bandplan::Band_t* regPopupBand = nullptr; // band whose registers the popup lists
+    // The F-INP dialog this widget opens. It draws nothing until asked; see
+    // freq_input.h for what it is handed and what it hands back.
+    freq_input::Dialog dialog;
 };
