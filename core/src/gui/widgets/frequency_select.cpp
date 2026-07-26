@@ -1,9 +1,9 @@
 #include <gui/widgets/frequency_select.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/popup_dialog.h>
+#include <gui/band_stack.h>
 #include <config.h>
 #include <core.h>
-#include <radio_interface.h>
 #include <gui/style.h>
 #include <gui/gui.h>
 #include <backend.h>
@@ -458,20 +458,6 @@ static const char* bandCategory(const std::string& type) {
     return "Util";
 }
 
-// Index order matches the RADIO_IFACE_MODE_* enum.
-static const char* const kRadioModeNames[] = { "NFM", "WFM", "AM", "DSB", "USB", "CW", "LSB", "RAW", "CWR" };
-
-static int radioModeFromString(const std::string& mode) {
-    for (int i = 0; i < 9; i++) {
-        if (mode == kRadioModeNames[i]) { return i; }
-    }
-    return -1;
-}
-
-static const char* radioModeName(int mode) {
-    return (mode >= RADIO_IFACE_MODE_NFM && mode <= RADIO_IFACE_MODE_CWR) ? kRadioModeNames[mode] : "--";
-}
-
 // Frequency in MHz, trailing zeros trimmed: 14025000 -> "14.025".
 static std::string mhzExact(double hz) {
     char b[32];
@@ -480,83 +466,6 @@ static std::string mhzExact(double hz) {
     while (*e == '0') { *e-- = 0; }
     if (*e == '.') { *e = 0; }
     return b;
-}
-
-// A stacking register: previously operated frequency (Hz) and mode (enum, -1 if
-// none). Newest first.
-struct BandRegister {
-    double freq;
-    int mode;
-};
-
-// A band's stored registers, newest first, tolerating the legacy single-object
-// format and dropping any entry no longer inside the (possibly changed) band
-// edges — the same containment revalidation the single-slot design used.
-static std::vector<BandRegister> readBandRegisters(const json& mem, const bandplan::Band_t& band) {
-    std::vector<BandRegister> regs;
-    auto it = mem.find(band.name);
-    if (it == mem.end()) { return regs; }
-    auto pushOne = [&](const json& o) {
-        if (!o.is_object()) { return; }
-        double f = o.value("freq", 0.0);
-        if (f < band.start || f > band.end) { return; }
-        int m = o.value("mode", -1);
-        if (m < RADIO_IFACE_MODE_NFM || m > RADIO_IFACE_MODE_CWR) { m = -1; }
-        regs.push_back({ f, m });
-    };
-    if (it->is_array()) {
-        for (const auto& e : *it) {
-            pushOne(e);
-            if (regs.size() >= 3) { break; }
-        }
-    }
-    else {
-        pushOne(*it); // legacy single register
-    }
-    return regs;
-}
-
-// Push freq/mode to the front of a band's register stack: newest first, deduped
-// by frequency, capped at 3. IC-705: "when you change the operating band or the
-// Register, the previously operated frequency and mode are stored."
-static void pushBandRegister(json& mem, const std::string& name, double freq, int mode) {
-    json existing = json::array();
-    auto it = mem.find(name);
-    if (it != mem.end()) {
-        if (it->is_array()) { existing = *it; }
-        else if (it->is_object()) { existing.push_back(*it); } // migrate legacy
-    }
-    json out = json::array();
-    out.push_back({ { "freq", freq }, { "mode", mode } });
-    for (const auto& e : existing) {
-        if (out.size() >= 3) { break; }
-        if (!e.is_object()) { continue; }
-        if (std::abs(e.value("freq", 0.0) - freq) < 1.0) { continue; } // dedup same frequency
-        out.push_back(e);
-    }
-    mem[name] = out;
-}
-
-// Band-type/frequency mode convention applied when a band carries no def_mode.
-// Keep in sync with heuristic_mode() in scripts/enrich_bandplans.py.
-static int heuristicRadioMode(const bandplan::Band_t& b) {
-    if (b.type == "amateur" || b.type == "amateur1") {
-        if (b.end <= 600000.0) { return RADIO_IFACE_MODE_CW; }                            // 2200 m / 630 m
-        if (b.start >= 5200000.0 && b.start <= 5500000.0) { return RADIO_IFACE_MODE_USB; } // 60 m channels
-        if (b.start < 10000000.0) { return RADIO_IFACE_MODE_LSB; }
-        if (b.start < 100000000.0) { return RADIO_IFACE_MODE_USB; }                       // 30 m .. 6 m/4 m
-        return RADIO_IFACE_MODE_NFM;                                                      // 2 m and up: repeaters
-    }
-    if (b.type == "broadcast") {
-        return (b.start >= 30000000.0) ? RADIO_IFACE_MODE_WFM : RADIO_IFACE_MODE_AM;
-    }
-    if (b.type == "aviation" || b.type == "aircraft") {
-        return (b.start < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_AM;
-    }
-    if (b.type == "marine" || b.type == "marine1") {
-        return (b.start < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_NFM;
-    }
-    return -1; // no mode change for other band types
 }
 
 // "40m Ham Band" -> "40m"; empty when the name has no wavelength token.
@@ -619,13 +528,11 @@ void FrequencySelect::drawKeypad() {
         pressBand = -1;
         bandLongPressDone = false;
         regPopupBand = nullptr;
-        // Last-used page/category, and the selected band plan (independent of
-        // the bandPlanEnabled display toggle).
+        // Last-used page and category.
         core::configManager.acquire();
         auto& conf = core::configManager.conf;
         page = (conf.value("freqEntryPage", "keypad") == "band") ? 0 : 1;
         category = conf.value("freqEntryCategory", "Ham");
-        planName = conf.value("bandPlan", "General");
         core::configManager.release();
         ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
     }
@@ -804,16 +711,16 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
     ImVec2 sp = ImGui::GetStyle().ItemSpacing;
     ImVec2 cancelSz(totalWidth, style::dp(42.0f));
 
-    // Resolve the selected plan with the same fallback as bandplanmenu::init().
-    auto it = bandplan::bandplans.find(planName);
-    if (it == bandplan::bandplans.end()) { it = bandplan::bandplans.find("General"); }
-    if (it == bandplan::bandplans.end() && !bandplan::bandplans.empty()) { it = bandplan::bandplans.begin(); }
-    if (it == bandplan::bandplans.end()) {
+    // The plan the waterfall ruler shows, resolved once by bandplanmenu and
+    // independent of the bandPlanEnabled display toggle. Resolving it again here
+    // would give the grid a different plan whenever the configured one is not
+    // installed, since the two fallbacks differ.
+    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
+    if (!plan) {
         ImGui::TextDisabled("No band plan loaded");
         if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { close = true; }
         return;
     }
-    const bandplan::BandPlan_t& plan = it->second;
 
     // Bands within the source tuning range (minFreq/maxFreq are display-domain,
     // same as the band plan), tagged with their category bucket.
@@ -822,7 +729,7 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
         const char* cat;
     };
     std::vector<BandEntry> avail;
-    for (const auto& b : plan.bands) {
+    for (const auto& b : plan->bands) {
         if (limitFreq && (b.end < (double)minFreq || b.start > (double)maxFreq)) { continue; }
         avail.push_back({ &b, bandCategory(b.type) });
     }
@@ -910,8 +817,11 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
                 }
             }
             if (clicked && !bandLongPressDone) {
-                selectBand(b, plan);
+                gui::bandStack.selectBand(b);
                 close = true;
+#ifdef __ANDROID__
+                backend::hapticTick();
+#endif
             }
             ImVec2 bmin = ImGui::GetItemRectMin();
             ImVec2 bmax = ImGui::GetItemRectMax();
@@ -940,9 +850,7 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
         if (regPopupBand) {
             const bandplan::Band_t& b = *regPopupBand;
             ImGui::TextDisabled("%s", b.name.c_str());
-            core::configManager.acquire();
-            std::vector<BandRegister> regs = readBandRegisters(core::configManager.conf["bandMemory"], b);
-            core::configManager.release();
+            std::vector<BandRegister> regs = gui::bandStack.registersFor(b);
             if (regs.empty()) {
                 ImGui::TextDisabled("No stored registers");
             }
@@ -951,9 +859,12 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
                 snprintf(lbl, sizeof(lbl), "%d:  %s MHz  %s##sdrpp_reg_%d",
                          k + 1, mhzExact(regs[k].freq).c_str(), radioModeName(regs[k].mode), k);
                 if (ImGui::Button(lbl, ImVec2(style::dp(150.0f), 0))) {
-                    selectBand(b, plan, true, regs[k].freq, regs[k].mode);
+                    gui::bandStack.recallRegister(b, k);
                     close = true;
                     ImGui::CloseCurrentPopup();
+#ifdef __ANDROID__
+                    backend::hapticTick();
+#endif
                 }
             }
         }
@@ -961,67 +872,6 @@ void FrequencySelect::drawBandPage(bool& close, float totalWidth) {
     }
 
     if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { close = true; }
-}
-
-void FrequencySelect::selectBand(const bandplan::Band_t& band, const bandplan::BandPlan_t& plan,
-                                 bool haveExplicit, double explicitFreq, int explicitMode) {
-    std::string vfoName = gui::waterfall.selectedVFO;
-    bool isRadio = !vfoName.empty() && core::modComManager.interfaceExists(vfoName)
-                && core::modComManager.getModuleName(vfoName) == "radio";
-    int curMode = -1;
-    if (isRadio) {
-        core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_GET_MODE, NULL, &curMode);
-    }
-
-    double targetFreq = haveExplicit ? explicitFreq : 0.0;
-    int targetMode = haveExplicit ? explicitMode : -1;
-
-    core::configManager.acquire();
-    auto& mem = core::configManager.conf["bandMemory"];
-    // Push the frequency/mode of the band being left onto its register stack.
-    // Names repeat across plans (and within: e.g. "Shortwave Broadcast"
-    // segments), so the first containing band wins and reads are revalidated by
-    // containment.
-    for (const auto& b : plan.bands) {
-        if ((double)frequency >= b.start && (double)frequency <= b.end) {
-            pushBandRegister(mem, b.name, (double)frequency, curMode);
-            break;
-        }
-    }
-    // A plain tap recalls the newest register; an explicit pick already has its
-    // target and skips this.
-    if (!haveExplicit) {
-        std::vector<BandRegister> regs = readBandRegisters(mem, band);
-        if (!regs.empty()) {
-            targetFreq = regs[0].freq;
-            targetMode = regs[0].mode;
-        }
-    }
-    core::configManager.release(true);
-
-    if (targetFreq <= 0.0) {
-        targetFreq = (band.defFreq > 0.0) ? band.defFreq
-                                          : round((band.start + band.end) / 2.0 / 1000.0) * 1000.0;
-    }
-    if (targetMode < 0) {
-        targetMode = radioModeFromString(band.defMode);
-        if (targetMode < 0) { targetMode = heuristicRadioMode(band); }
-    }
-
-    setFrequency((int64_t)round(targetFreq));
-    frequencyChanged = true;
-    if (isRadio && targetMode >= 0) {
-        core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_MODE, &targetMode, NULL);
-    }
-    // Channelized bands set the VFO snap after the mode change, which would
-    // otherwise reset the snap to the mode default.
-    if (band.chan > 0.0 && !vfoName.empty()) {
-        auto vit = gui::waterfall.vfos.find(vfoName);
-        if (vit != gui::waterfall.vfos.end() && vit->second) { vit->second->setSnapInterval(band.chan); }
-    }
-#ifdef __ANDROID__
-    backend::hapticTick();
-#endif
 }
 
 void FrequencySelect::setFrequency(int64_t freq) {

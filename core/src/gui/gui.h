@@ -6,10 +6,12 @@
 #include <module.h>
 #include <gui/main_window.h>
 #include <gui/theme_manager.h>
+#include <gui/band_stack.h>
 
 namespace gui {
     SDRPP_EXPORT ImGui::WaterFall waterfall;
     SDRPP_EXPORT FrequencySelect freqSelect;
+    SDRPP_EXPORT BandStack bandStack;
     SDRPP_EXPORT Menu menu;
     SDRPP_EXPORT ThemeManager themeManager;
     SDRPP_EXPORT MainWindow mainWindow;
