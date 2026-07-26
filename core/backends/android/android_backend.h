@@ -94,4 +94,5 @@ namespace backend {
     void setSleepTimerConfig(int mode, int dimAfterSec, int darkAfterSec);
     // Whether to restart the SDR source automatically when the app returns to the foreground.
     void setRestartOnResume(bool value);
+    void setPlayInBackground(bool value);
 }
