@@ -29,7 +29,7 @@ exception, and it is a wire protocol rather than a naming choice:
 
 - **rigctl_server** must speak Hamlib, where `RIG_MODE_FM` is documented as
   `/*!< FM -- "narrow" band FM */`. `hamlibModeName()` / `hamlibModeFromName()`
-  (`main.cpp:340`) are one `if` each over the canonical table. Hamlib's `CWR`
+  (`main.cpp:346`, `:360`) are one `if` each over the canonical table. Hamlib's `CWR`
   needs no exception -- it is the canonical spelling. Input is otherwise left to
   `radioModeFromName()`, lenient aliases included: a client that sends `NFM`
   means the same mode the server reports as `FM`, so refusing it would buy
@@ -64,7 +64,7 @@ with the name used elsewhere.
   defaults are re-seeded. Accepted deliberately — no release has shipped.
 - Two latent crashes are gone, both consequences of `CWR` being appended to the
   enum after these tables were written:
-  - `recorder/main.cpp:578` assigned `std::map::operator[]`'s value-initialised
+  - `recorder/main.cpp:578` (as reviewed) assigned `std::map::operator[]`'s value-initialised
     `nullptr` to `const char* modeStr` for the missing key 8, and that null
     reached `std::regex_replace` at `:590`. Recording in CW-R with `$r` in the
     filename template was undefined behaviour.
@@ -85,8 +85,17 @@ with the name used elsewhere.
   `importBookmarks()`, and `j["frequency"]` on a *const* `json` with a missing
   key is undefined behaviour rather than a throw — so the `try`/`catch` around
   the import loop would not have caught a bookmark file missing that key.
-- rigctl gained CW reverse, so Hamlib clients can now select and read it
-  instead of getting the `"RAW"` fallback.
+- rigctl gained CW reverse in both conversion directions, so a Hamlib client
+  that sends `M CWR` gets it, and reads it back, instead of the `"RAW"`
+  fallback. The `M ?` / `\set_mode ?` capability reply was **missed** in that
+  pass and fixed in `2693030f`: it was the hard-coded literal
+  `"FM WFM AM DSB USB CW LSB RAW\n"`, so the module accepted nine modes,
+  reported nine, and advertised eight — while its own `dump_state` already set
+  `RIG_MODE_CWR` (0x80) in the mode bitfield and offered `0x82` = `CW | CWR`
+  filter widths. It is now built by `hamlibModeList()` from
+  `RADIO_IFACE_MODE_NAMES` through `hamlibModeName()`, so the advertised list,
+  the accepted list and the reported name cannot diverge again. On the wire this
+  changes `…CW LSB RAW` to `…CW LSB RAW CWR`; nothing else moves.
 - Discord's presence line no longer shows broadcast FM as `FM` (it now says
   `WFM`), and `RAW`/`CW-R` no longer fall through to `"Raw"`. Its `int modeNum`
   was also uninitialised before the `GET_MODE` call.
@@ -98,11 +107,11 @@ with the name used elsewhere.
 | canonical | `core/src/radio_interface.h` — `RADIO_IFACE_MODE_NAMES[]`, `radioModeName()`, `radioModeFromName()` | — (new) |
 | radio menu | `radio_module.h:206` — `modeIDs` order only; labels via `radioModeName()` | `modeLabels` string list |
 | demod name | `demodulators/*.h` — `getName()` returns `radioModeName(RADIO_IFACE_MODE_*)` | string literals, `"FM"` and `"CW-R"` |
-| rigctl | `rigctl_server/src/main.cpp:339` — `hamlibModeName()` / `hamlibModeFromName()` | `radioModeToString` map |
+| rigctl | `rigctl_server/src/main.cpp:346` — `hamlibModeName()` / `hamlibModeFromName()` | `radioModeToString` map |
 | freq_manager | `frequency_manager/src/main.cpp` — `radioModeName()`, combo over `RADIO_IFACE_MODE_NAMES` | `demodModeList[]`, `demodModeListTxt` in `bookmark.cpp` |
-| recorder | `recorder/src/main.cpp:567` — `radioModeName()` | `radioModeToString` map |
-| discord | `discord_integration/src/main.cpp:88` — `radioModeName()` | if/else chain |
-| band stack | `core/src/gui/band_stack.*`, `frequency_select.cpp` — `radioModeName()` | `kRadioModeNames` |
+| recorder | `recorder/src/main.cpp:577` — `radioModeName()` | `radioModeToString` map |
+| discord | `discord_integration/src/main.cpp:97` — `radioModeName()` | if/else chain |
+| band stack | `core/src/gui/band_stack.*`, `gui/widgets/freq_input/bands.cpp` — `radioModeName()` | `kRadioModeNames` |
 | QMX wire | `libqmx/src/QmxCatStatus.cpp:57,95` — `decodeModeChar`, `encodeModeCommand` | unchanged (own enum, rig-defined digits) |
 | QMX panel label | `qmx_source/src/main.cpp:582` — `qmxModeToRadioIface()` + `radioModeName()`; `FSK`/`FSKR` local | own switch, spelled `CW-R` |
 | band plan `def_mode` | `root/res/bandplans/*.json` + `scripts/enrich_bandplans.py:117` | unchanged (already canonical) |
