@@ -118,8 +118,13 @@ namespace dsp::multirate {
         };
 
         void reconfigure() {
-            // Calculate highest power-of-two decimation for the power decimator 
-            int predecPower = std::min<int>(floor(log2(_inSamplerate / _outSamplerate)), PowerDecimator<T>::getMaxRatio());
+            // Calculate highest power-of-two decimation for the power decimator.
+            // Only meaningful when decimating: when upsampling, log2() is negative
+            // and shifting by a negative count is undefined behaviour.
+            int predecPower = 0;
+            if (_inSamplerate > _outSamplerate) {
+                predecPower = std::min<int>(floor(log2(_inSamplerate / _outSamplerate)), PowerDecimator<T>::getMaxRatio());
+            }
             int predecRatio = std::min<int>(1 << predecPower, PowerDecimator<T>::getMaxRatio());
             double intSamplerate = _inSamplerate;
 
