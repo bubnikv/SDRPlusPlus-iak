@@ -712,6 +712,11 @@ namespace ImGui {
             avgCount++;
         }
 
+        // A VFO spanning the whole sampled band (or clamped against both FFT
+        // edges) leaves no out-of-band bins, so there is no noise reference and
+        // SNR is undefined. Report no info rather than dividing by zero: a NaN
+        // here poisons the caller's rolling noise window for LEVEL_HOLD_FRAMES.
+        if (avgCount == 0) { return false; }
         avg /= (double)(avgCount);
 
         // Calculate max
