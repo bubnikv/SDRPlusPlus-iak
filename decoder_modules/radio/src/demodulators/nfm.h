@@ -49,7 +49,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "FM"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_NFM); }
         double getIFSampleRate() { return 50000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 12500.0; }

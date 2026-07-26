@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <module.h>
 #include <qmx/QmxDevice.h>
+#include <radio_interface.h>
 #include <signal_path/signal_path.h>
 #include <utils/flog.h>
 #include <utils/optionlist.h>
@@ -580,19 +581,17 @@ private:
 
     static std::string formatModeLabel(const qmx::QmxStatus& status) {
         if (status.hasMode()) {
+            // Modes the app also has go through the same QMX->SDR++ mapping the
+            // sync uses, so the panel cannot name a mode differently from the
+            // radio menu it is driving.
+            int radioMode = FreqModeSync::qmxModeToRadioIface(status.mode);
+            if (radioMode >= 0) { return radioModeName(radioMode); }
+            // Rig modes with no demodulator here, so no canonical name exists.
             switch (status.mode) {
-            case qmx::QmxMode::CW:
-                return "CW";
-            case qmx::QmxMode::CWR:
-                return "CW-R";
             case qmx::QmxMode::FSK:
                 return "FSK";
             case qmx::QmxMode::FSKR:
                 return "FSKR";
-            case qmx::QmxMode::USB:
-                return "USB";
-            case qmx::QmxMode::LSB:
-                return "LSB";
             default:
                 return "Unknown";
             }

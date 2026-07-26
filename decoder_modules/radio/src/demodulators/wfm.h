@@ -240,7 +240,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "WFM"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_WFM); }
         double getIFSampleRate() { return 250000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 150000.0; }

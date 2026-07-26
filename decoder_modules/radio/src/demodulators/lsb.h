@@ -45,7 +45,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "LSB"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_LSB); }
         double getIFSampleRate() { return 24000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 2800.0; }

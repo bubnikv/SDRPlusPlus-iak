@@ -5,6 +5,7 @@
 #include <gui/style.h>
 #include <core.h>
 #include <discord_rpc.h>
+#include <cassert>
 #include <thread>
 #include <radio_interface.h>
 
@@ -83,27 +84,16 @@ private:
         strcpy(mode, "Raw");
         if (core::modComManager.interfaceExists(selectedName)) {
             if (core::modComManager.getModuleName(selectedName) == "radio") {
-                int modeNum;
+                // Initialized: the radio rejects the command when it has no
+                // demodulator selected, and "Raw" is the right answer then.
+                // Above that, the radio only ever reports an ID that
+                // instantiateDemod() accepted, so the upper bound cannot trip;
+                // it is kept so an NDEBUG build shows "Raw" rather than
+                // radioModeName()'s "--" in the presence line.
+                int modeNum = -1;
                 core::modComManager.callInterface(selectedName, RADIO_IFACE_CMD_GET_MODE, NULL, &modeNum);
-                if (modeNum == RADIO_IFACE_MODE_NFM) { strcpy(mode, "NFM"); }
-                else if (modeNum == RADIO_IFACE_MODE_WFM) {
-                    strcpy(mode, "FM");
-                }
-                else if (modeNum == RADIO_IFACE_MODE_AM) {
-                    strcpy(mode, "AM");
-                }
-                else if (modeNum == RADIO_IFACE_MODE_DSB) {
-                    strcpy(mode, "DSB");
-                }
-                else if (modeNum == RADIO_IFACE_MODE_USB) {
-                    strcpy(mode, "USB");
-                }
-                else if (modeNum == RADIO_IFACE_MODE_CW) {
-                    strcpy(mode, "CW");
-                }
-                else if (modeNum == RADIO_IFACE_MODE_LSB) {
-                    strcpy(mode, "LSB");
-                }
+                assert(modeNum < _RADIO_IFACE_MODE_COUNT);
+                if (modeNum >= 0 && modeNum < _RADIO_IFACE_MODE_COUNT) { strcpy(mode, radioModeName(modeNum)); }
             }
         }
 

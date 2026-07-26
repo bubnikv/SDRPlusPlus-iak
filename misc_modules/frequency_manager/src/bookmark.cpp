@@ -1,27 +1,26 @@
 #include "bookmark.h"
+#include <radio_interface.h>
 #include <algorithm>
 #include <cctype>
 
-const char* demodModeList[] = {
-    "NFM",
-    "WFM",
-    "AM",
-    "DSB",
-    "USB",
-    "CW",
-    "LSB",
-    "RAW"
-};
-
-const char* demodModeListTxt = "NFM\0WFM\0AM\0DSB\0USB\0CW\0LSB\0RAW\0";
-
+// Bookmarks are not all self-written: importBookmarks() feeds this an arbitrary
+// user-supplied file, having checked only that a "bookmarks" object exists. So
+// every field is both presence- and type-checked. Note that a bare
+// `j["frequency"]` would not merely be lax -- operator[] on a *const* json with
+// a missing key is undefined behaviour rather than a throw, so the try/catch
+// around the import loop would not have caught it.
 FrequencyBookmark bookmarkFromJson(const json& j) {
     FrequencyBookmark bm;
-    bm.frequency = j["frequency"];
-    bm.bandwidth = j["bandwidth"];
-    bm.mode = j["mode"];
-    bm.startTime = j.contains("startTime") ? (int)j["startTime"] : 0;
-    bm.endTime = j.contains("endTime") ? (int)j["endTime"] : 0;
+    bm.frequency = (j.contains("frequency") && j["frequency"].is_number()) ? (double)j["frequency"] : 0.0;
+    bm.bandwidth = (j.contains("bandwidth") && j["bandwidth"].is_number()) ? (double)j["bandwidth"] : 0.0;
+    // -1 for an unusable value, never RAW: RAW is a real demodulator and a
+    // bookmark asking for it must be one the user actually chose. -1 says "no
+    // usable mode was recorded", and applyBookmark() then leaves the
+    // demodulator alone -- the same convention the band stack registers use.
+    bm.mode = (j.contains("mode") && j["mode"].is_number_integer()) ? (int)j["mode"] : -1;
+    if (bm.mode < 0 || bm.mode >= _RADIO_IFACE_MODE_COUNT) { bm.mode = -1; }
+    bm.startTime = (j.contains("startTime") && j["startTime"].is_number_integer()) ? (int)j["startTime"] : 0;
+    bm.endTime = (j.contains("endTime") && j["endTime"].is_number_integer()) ? (int)j["endTime"] : 0;
     for (int i = 0; i < 7; i++) { bm.days[i] = true; }
     if (j.contains("days") && j["days"].is_array()) {
         int count = std::min<int>(7, j["days"].size());

@@ -100,28 +100,45 @@ private:
         else {
             if (core::modComManager.interfaceExists(vfoName)) {
                 if (core::modComManager.getModuleName(vfoName) == "radio") {
-                    int mode = bm.mode;
-                    float bandwidth = bm.bandwidth;
-                    core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_MODE, &mode, NULL);
-                    core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_BANDWIDTH, &bandwidth, NULL);
+                    // Unrecorded fields are left alone rather than imposed. The
+                    // bandwidth guard is not cosmetic: setBandwidth() clamps a 0
+                    // to the demodulator's minimum and *persists* it into
+                    // radio_config.json, so recalling a bookmark taken without a
+                    // radio VFO used to destroy the saved bandwidth of whatever
+                    // mode it had just switched to.
+                    if (bm.mode >= 0) {
+                        int mode = bm.mode;
+                        core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_MODE, &mode, NULL);
+                    }
+                    if (bm.bandwidth > 0) {
+                        float bandwidth = bm.bandwidth;
+                        core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_BANDWIDTH, &bandwidth, NULL);
+                    }
                 }
             }
             tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, bm.frequency);
         }
     }
 
-    // Bandwidth and mode captured from the currently selected VFO (0 / RAW if
-    // no VFO is selected), used to seed a freshly created bookmark.
+    // Bandwidth and mode captured from the currently selected VFO, used to seed
+    // a freshly created bookmark. Either can come back unrecorded: mode -1 when
+    // the VFO is not a radio (or there is none), bandwidth 0 when there is no
+    // VFO at all. applyBookmark() then leaves that setting alone, so a bookmark
+    // only ever imposes what was actually observed. RAW is deliberately not used
+    // as the unknown value -- it is a real demodulator, and a bookmark asking
+    // for it must be one the user chose.
     void currentBookmarkBwMode(double& bandwidth, int& mode) {
-        if (gui::waterfall.selectedVFO == "") {
-            bandwidth = 0;
-            mode = 7;
-            return;
-        }
+        bandwidth = 0;
+        mode = -1;
+        if (gui::waterfall.selectedVFO == "") { return; }
         bandwidth = sigpath::vfoManager.getBandwidth(gui::waterfall.selectedVFO);
-        mode = 7;
         if (core::modComManager.getModuleName(gui::waterfall.selectedVFO) == "radio") {
-            int m;
+            // Seeded rather than merely assigned to: callInterface() invokes no
+            // handler at all when the interface is not registered, and the radio
+            // ignores the command while it has no demodulator selected. Reading
+            // an uninitialized `m` in either case stored stack garbage as the
+            // bookmark's mode.
+            int m = -1;
             core::modComManager.callInterface(gui::waterfall.selectedVFO, RADIO_IFACE_CMD_GET_MODE, NULL, &m);
             mode = m;
         }
@@ -255,7 +272,27 @@ private:
             ImGui::LeftLabel("Mode");
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(editWinSize);
-            ImGui::Combo(("##freq_manager_edit_mode" + name).c_str(), &editedBookmark.mode, demodModeListTxt);
+            // BeginCombo rather than Combo: the preview is a separate parameter
+            // from the item list, so "not set" can be shown as a prompt without
+            // being an entry the user could choose. A bookmark reaches mode -1
+            // by being taken without a radio VFO, or by carrying an unusable
+            // value in the file -- never by selection, and picking a real mode
+            // is one-way.
+            {
+                bool modeNotSet = (editedBookmark.mode < 0 || editedBookmark.mode >= _RADIO_IFACE_MODE_COUNT);
+                const char* preview = modeNotSet ? "(not set)" : RADIO_IFACE_MODE_NAMES[editedBookmark.mode];
+                if (modeNotSet) { ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled)); }
+                bool modeOpen = ImGui::BeginCombo(("##freq_manager_edit_mode" + name).c_str(), preview);
+                if (modeNotSet) { ImGui::PopStyleColor(); }
+                if (modeOpen) {
+                    for (int i = 0; i < _RADIO_IFACE_MODE_COUNT; i++) {
+                        bool selected = (editedBookmark.mode == i);
+                        if (ImGui::Selectable(RADIO_IFACE_MODE_NAMES[i], selected)) { editedBookmark.mode = i; }
+                        if (selected) { ImGui::SetItemDefaultFocus(); }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -677,7 +714,7 @@ private:
                 }
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s %s", utils::formatFreq(cbm.frequency).c_str(), demodModeList[cbm.mode]);
+                ImGui::Text("%s %s", utils::formatFreq(cbm.frequency).c_str(), radioModeName(cbm.mode));
 
                 if (_this->scrollToClickedBookmark && cbm.selected) {
                     ImGui::SetScrollHereY(0.5f);
@@ -979,7 +1016,7 @@ private:
         ImGui::Text("List: %s", hoveredBookmark.listName.c_str());
         ImGui::Text("Frequency: %s", utils::formatFreq(hoveredBookmark.bookmark.frequency).c_str());
         ImGui::Text("Bandwidth: %s", utils::formatFreq(hoveredBookmark.bookmark.bandwidth).c_str());
-        ImGui::Text("Mode: %s", demodModeList[hoveredBookmark.bookmark.mode]);
+        ImGui::Text("Mode: %s", radioModeName(hoveredBookmark.bookmark.mode));
         if (hoveredBookmark.bookmark.startTime != 0 || hoveredBookmark.bookmark.endTime != 0) {
             ImGui::Text("Time: %04d - %04d UTC", hoveredBookmark.bookmark.startTime, hoveredBookmark.bookmark.endTime);
         }

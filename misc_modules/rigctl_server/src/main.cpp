@@ -8,6 +8,7 @@
 #include <recorder_interface.h>
 #include <meteor_demodulator_interface.h>
 #include <config.h>
+#include <cassert>
 #include <cctype>
 #include <cmath>
 #include <radio_interface.h>
@@ -336,16 +337,32 @@ private:
         _this->client->readAsync(1024, _this->dataBuf, dataHandler, _this, false);
     }
 
-    std::map<int, const char*> radioModeToString = {
-        { RADIO_IFACE_MODE_NFM, "FM" },
-        { RADIO_IFACE_MODE_WFM, "WFM" },
-        { RADIO_IFACE_MODE_AM,  "AM"  },
-        { RADIO_IFACE_MODE_DSB, "DSB" },
-        { RADIO_IFACE_MODE_USB, "USB" },
-        { RADIO_IFACE_MODE_CW,  "CW"  },
-        { RADIO_IFACE_MODE_LSB, "LSB" },
-        { RADIO_IFACE_MODE_RAW, "RAW" }
-    };
+    // Hamlib mode names. The app's canonical spellings (RADIO_IFACE_MODE_NAMES)
+    // are used unchanged except for one, and that is the protocol's requirement
+    // rather than a naming preference, so it lives here and not in the shared
+    // table: Hamlib's RIG_MODE_FM is documented as "narrow" band FM, with
+    // RIG_MODE_WFM as the broadcast one, so our NFM goes out as "FM".
+    static const char* hamlibModeName(int mode) {
+        if (mode == RADIO_IFACE_MODE_NFM) { return "FM"; }
+        // Unreachable: the caller seeds `mode` with a valid value, and the radio
+        // only ever writes selectedDemodID, which selectDemodByID() assigns from
+        // an ID instantiateDemod() accepted. An out-of-range selectedDemodID
+        // (corrupt radio_config.json) leaves selectedDemod NULL, and the module
+        // rejects the whole command in that state. Still guarded rather than
+        // asserted alone, because an NDEBUG build must not put radioModeName()'s
+        // "--" placeholder on the wire for a client to parse as a mode.
+        assert(mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT);
+        if (mode < 0 || mode >= _RADIO_IFACE_MODE_COUNT) { return "RAW"; }
+        return radioModeName(mode);
+    }
+
+    static int hamlibModeFromName(const std::string& name) {
+        // radioModeFromName() happens to accept "FM" as well, but that is
+        // leniency for hand-edited data and may go away; here it is the
+        // protocol's requirement, so it is stated rather than relied upon.
+        if (name == "FM") { return RADIO_IFACE_MODE_NFM; }
+        return radioModeFromName(name.c_str());
+    }
 
     static bool isVfoToken(const std::string& s) {
         return s == "VFO" || s == "VFOA" || s == "VFOB" || s == "VFOC" || s == "currVFO" ||
@@ -471,15 +488,12 @@ private:
             const std::string& newModeStr = parts[1];
             float newBandwidth = std::atoi(parts[2].c_str());
             
-            auto it = std::find_if(radioModeToString.begin(), radioModeToString.end(), [&newModeStr](const auto& e) {
-                return e.second == newModeStr;
-            });
-            if (it == radioModeToString.end()) {
+            int newMode = hamlibModeFromName(newModeStr);
+            if (newMode < 0) {
                 resp = "RPRT 1\n";
                 client->write(resp.size(), (uint8_t*)resp.c_str());
                 return;
             }
-            int newMode = it->first;
 
             // If tuning is enabled, set the mode and optionally the bandwidth
             if (!selectedVfo.empty() && core::modComManager.getModuleName(selectedVfo) == "radio" && tuningEnabled) {
@@ -501,8 +515,7 @@ private:
                 // selected, so initialize to a value with a known name.
                 int mode = RADIO_IFACE_MODE_RAW;
                 core::modComManager.callInterface(selectedVfo, RADIO_IFACE_CMD_GET_MODE, NULL, &mode);
-                auto modeIt = radioModeToString.find(mode);
-                resp = std::string((modeIt != radioModeToString.end()) ? modeIt->second : "RAW") + "\n";
+                resp = std::string(hamlibModeName(mode)) + "\n";
             }
 
             // Append the bandwidth of the VFO if there is one

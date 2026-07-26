@@ -8,6 +8,7 @@
 #include <dsp/audio/volume.h>
 #include <dsp/convert/stereo_to_mono.h>
 #include <thread>
+#include <cassert>
 #include <ctime>
 #include <gui/gui.h>
 #include <filesystem>
@@ -532,17 +533,6 @@ private:
         if (dbLvl.r > lvl.r) { lvl.r = dbLvl.r; }
     }
 
-    std::map<int, const char*> radioModeToString = {
-        { RADIO_IFACE_MODE_NFM, "NFM" },
-        { RADIO_IFACE_MODE_WFM, "WFM" },
-        { RADIO_IFACE_MODE_AM,  "AM"  },
-        { RADIO_IFACE_MODE_DSB, "DSB" },
-        { RADIO_IFACE_MODE_USB, "USB" },
-        { RADIO_IFACE_MODE_CW,  "CW"  },
-        { RADIO_IFACE_MODE_LSB, "LSB" },
-        { RADIO_IFACE_MODE_RAW, "RAW" }
-    };
-
     std::string genFileName(std::string templ, int mode, std::string name) {
         // Get data
         time_t now = time(0);
@@ -575,7 +565,15 @@ private:
         if (core::modComManager.getModuleName(name) == "radio") {
             int mode = -1;
             core::modComManager.callInterface(name, RADIO_IFACE_CMD_GET_MODE, NULL, &mode);
-            if (mode >= 0) { modeStr = radioModeToString[mode]; };
+            // mode stays -1 when the radio has no demodulator selected -- it
+            // rejects the command in that state -- which is not an error: the
+            // "Unknown"/"IQ" placeholder is the right answer then. Anything
+            // else is necessarily a real mode, since the radio only ever
+            // reports an ID that instantiateDemod() accepted. The upper bound
+            // is kept anyway so an NDEBUG build writes that placeholder rather
+            // than radioModeName()'s "--" into a filename.
+            assert(mode < _RADIO_IFACE_MODE_COUNT);
+            if (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) { modeStr = radioModeName(mode); }
         }
 
         // Replace in template

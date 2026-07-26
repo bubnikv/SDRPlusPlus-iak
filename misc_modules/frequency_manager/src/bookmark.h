@@ -34,9 +34,6 @@ struct BookmarkRectangle {
     double max;
 };
 
-extern const char* demodModeList[];
-extern const char* demodModeListTxt;
-
 FrequencyBookmark bookmarkFromJson(const json& j);
 json bookmarkToJson(const FrequencyBookmark& bm);
 

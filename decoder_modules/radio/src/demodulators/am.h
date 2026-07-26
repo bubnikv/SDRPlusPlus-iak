@@ -91,7 +91,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "AM"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_AM); }
         double getIFSampleRate() { return 15000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 10000.0; }

@@ -45,7 +45,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "RAW"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_RAW); }
         double getIFSampleRate() { return audioSampleRate; }
         double getAFSampleRate() { return audioSampleRate; }
         double getDefaultBandwidth() { return audioSampleRate; }

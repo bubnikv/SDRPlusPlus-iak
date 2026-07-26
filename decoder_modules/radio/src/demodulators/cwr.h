@@ -49,7 +49,7 @@ namespace demod {
 
         void AFSampRateChanged(double newSR) {}
 
-        const char* getName() { return "CW-R"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_CWR); }
         double getIFSampleRate() { return 3000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 500.0; }

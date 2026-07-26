@@ -53,7 +53,7 @@ namespace demod {
 
         // ============= INFO =============
 
-        const char* getName() { return "CW"; }
+        const char* getName() { return radioModeName(RADIO_IFACE_MODE_CW); }
         double getIFSampleRate() { return 3000.0; }
         double getAFSampleRate() { return getIFSampleRate(); }
         double getDefaultBandwidth() { return 500.0; }

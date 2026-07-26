@@ -200,12 +200,18 @@ private:
         ImGui::BeginGroup();
 
         // Display order differs from DemodID order: related modes grouped so
-        // the default 5+4 wrap yields NFM WFM AM DSB RAW / LSB USB CW CW-R.
-        static const std::vector<std::string> modeLabels = { "NFM", "WFM", "AM", "DSB", "RAW", "LSB", "USB", "CW", "CW-R" };
+        // the default 5+4 wrap yields NFM WFM AM DSB RAW / LSB USB CW CWR.
+        // Only the order is local -- the labels themselves come from the shared
+        // table, so a button can never disagree with the name used elsewhere.
         static const std::array<DemodID, _RADIO_DEMOD_COUNT> modeIDs = {
             RADIO_DEMOD_NFM, RADIO_DEMOD_WFM, RADIO_DEMOD_AM, RADIO_DEMOD_DSB, RADIO_DEMOD_RAW,
             RADIO_DEMOD_LSB, RADIO_DEMOD_USB, RADIO_DEMOD_CW, RADIO_DEMOD_CWR
         };
+        static const std::vector<std::string> modeLabels = [] {
+            std::vector<std::string> l;
+            for (DemodID id : modeIDs) { l.push_back(radioModeName(id)); }
+            return l;
+        }();
         auto modeIt = std::find(modeIDs.begin(), modeIDs.end(), (DemodID)_this->selectedDemodID);
         int modeIdx = (modeIt != modeIDs.end()) ? (int)std::distance(modeIDs.begin(), modeIt) : 0;
         if (doToggleButtonGrid("##_radio_mode_" + _this->name, modeIdx, modeLabels)) {
