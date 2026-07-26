@@ -45,6 +45,7 @@ namespace backend {
     bool exited = false;
     static bool wasPlayingBeforeSuspend = false;
     static bool restartOnResume = true;
+    static bool playInBackground = false; // keep the radio running when backgrounded / screen off
     static common::ScaleState scaleState;
     // Sleep-reset heartbeat state — accessed only from the app thread (same thread as render loop).
     static bool sleepResetMotionPending = false;
@@ -101,6 +102,8 @@ namespace backend {
 
     void setRestartOnResume(bool value) { restartOnResume = value; }
 
+    void setPlayInBackground(bool value) { playInBackground = value; }
+
     void hapticTick() { callActivityVoidMethod("hapticTick"); }
 
     void finishAppAndRemoveTask() { callActivityVoidMethod("finishAppAndRemoveTask"); }
@@ -154,8 +157,15 @@ namespace backend {
             break;
         case APP_CMD_PAUSE:
             flog::warn("APP_CMD_PAUSE");
-            wasPlayingBeforeSuspend = gui::mainWindow.sdrIsRunning();
-            gui::mainWindow.setPlayState(false);
+            if (playInBackground) {
+                // Keep the radio running in the background; the DSP and audio
+                // threads are independent of the (now-gone) render window, so
+                // audio keeps flowing. Nothing to restore on resume.
+                wasPlayingBeforeSuspend = false;
+            } else {
+                wasPlayingBeforeSuspend = gui::mainWindow.sdrIsRunning();
+                gui::mainWindow.setPlayState(false);
+            }
             break;
         case APP_CMD_RESUME:
             flog::warn("APP_CMD_RESUME");
