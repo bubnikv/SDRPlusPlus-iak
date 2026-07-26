@@ -365,6 +365,27 @@ private:
         return radioModeFromName(name.c_str());
     }
 
+    // The `M ?` capability list: every mode the server accepts, in enum order,
+    // under the same names `m` reports. Derived from the canonical table rather
+    // than written out, because the hand-written literal this replaces was left
+    // behind when CWR was appended to the enum -- it advertised eight modes
+    // while hamlibModeFromName() accepted nine, and while this module's own
+    // dump_state already set RIG_MODE_CWR (0x80) in its mode bitfield and
+    // offered CW|CWR filter widths. Building it here is what keeps the three
+    // from disagreeing again.
+    static const std::string& hamlibModeList() {
+        static const std::string list = [] {
+            std::string s;
+            for (int i = 0; i < _RADIO_IFACE_MODE_COUNT; i++) {
+                if (i) { s += ' '; }
+                s += hamlibModeName(i);
+            }
+            s += '\n';
+            return s;
+        }();
+        return list;
+    }
+
     static bool isVfoToken(const std::string& s) {
         return s == "VFO" || s == "VFOA" || s == "VFOB" || s == "VFOC" || s == "currVFO" ||
                s == "Main" || s == "Sub" || s == "MEM" || s == "TX" || s == "RX" || s == "None";
@@ -463,7 +484,7 @@ private:
 
             // If client is querying, respond accordingly
             if (parts.size() >= 2 && parts[1] == "?") {
-                resp = "FM WFM AM DSB USB CW LSB RAW\n";
+                resp = hamlibModeList();
                 client->write(resp.size(), (uint8_t*)resp.c_str());
                 return;
             }
