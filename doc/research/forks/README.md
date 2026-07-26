@@ -9,6 +9,7 @@ links. Forks that got a full review have their own file here:
 - [ericek111](ericek111.md)
 - [qmx-panadapter (SteffenLav)](qmx-panadapter.md)
 - [Community Edition (LunaeMons)](community-edition.md)
+- [LDighera / WB6BBB](ldighera.md) — AI-assisted Pi5 fork: S-meter, manual notch, SSB AGC, CW/SSTV/FreeDV/HD Radio
 
 ## Survey
 
@@ -89,6 +90,12 @@ https://github.com/noah04n/SDRPlusPlus/
 
 ?? active, chinese? USRP?
 https://github.com/JustZhenya/SDRPlusPlus
+
+WB6BBB, AI-assisted, Pi5/Trixie Debian packages, 4 stars — reviewed, see ldighera.md
+https://github.com/LDighera/SDRPlusPlus
+https://github.com/LDighera/SDRPlusPlus/tree/release/1.3-beta-20260723
+beta test thread, 83 msgs (bot-walled, needs a browser):
+https://groups.io/g/linuxham/topic/sdr_1_3_source_beta_preview/118709023
 
 SDDC, ???
 https://github.com/syehorov/SDRPlusPlus
