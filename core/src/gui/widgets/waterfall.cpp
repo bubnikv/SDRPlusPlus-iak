@@ -244,17 +244,13 @@ namespace ImGui {
     }
 
     void WaterFall::selectFirstVFO() {
-        bool available = false;
-        for (auto const& [name, vfo] : vfos) {
-            available = true;
-            selectedVFO = name;
-            selectedVFOChanged = true;
-            return;
-        }
-        if (!available) {
-            selectedVFO = "";
-            selectedVFOChanged = true;
-        }
+        // Only signal a change when the selection actually moved: this is called
+        // on every teardown and on startup with no VFOs yet, and a spurious
+        // selectedVFOChanged makes listeners re-run their VFO switch handling.
+        std::string first = vfos.empty() ? "" : vfos.begin()->first;
+        if (first == selectedVFO) { return; }
+        selectedVFO = first;
+        selectedVFOChanged = true;
     }
 
     void WaterFall::processInputs() {
