@@ -14,6 +14,7 @@ namespace androidmenu {
     static const int   SLEEP_MODE_COUNT = 4;
 
     bool restartOnResume = true;  // restart SDR when app returns to foreground
+    bool playInBackground = false;  // keep the radio running while backgrounded / screen off
     int sleepMode     = 3;   // default: Dim and Blank
     int screenDimMin  = 3;   // total minutes from start until screen dims
     int screenDarkMin = 8;   // total minutes from start until screen goes dark (> screenDimMin)
@@ -24,6 +25,7 @@ namespace androidmenu {
 
     void init() {
         restartOnResume = core::configManager.conf.value("restartOnResume", true);
+        playInBackground = core::configManager.conf.value("playInBackground", false);
         sleepMode     = core::configManager.conf.value("sleepMode",    3);
         screenDimMin  = core::configManager.conf.value("sleepDimMin",  3);
         screenDarkMin = core::configManager.conf.value("sleepDarkMin", 8);
@@ -34,6 +36,7 @@ namespace androidmenu {
         screenDarkMin = std::max(screenDimMin + 1, screenDarkMin);
 
         backend::setRestartOnResume(restartOnResume);
+        backend::setPlayInBackground(playInBackground);
         applyConfig();
     }
 
@@ -43,6 +46,16 @@ namespace androidmenu {
             backend::setRestartOnResume(restartOnResume);
             core::configManager.acquire();
             core::configManager.conf["restartOnResume"] = restartOnResume;
+            core::configManager.release(true);
+        }
+
+        // Keep the radio running when the app is sent to the background or the
+        // screen is switched off manually. Without this the app deliberately
+        // stops playback on APP_CMD_PAUSE.
+        if (ImGui::Checkbox("Play in background##android_play_background", &playInBackground)) {
+            backend::setPlayInBackground(playInBackground);
+            core::configManager.acquire();
+            core::configManager.conf["playInBackground"] = playInBackground;
             core::configManager.release(true);
         }
 
