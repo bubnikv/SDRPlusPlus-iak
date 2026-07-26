@@ -58,6 +58,7 @@ itself belongs in `design/` or `todo/`. Fork surveys live in
 - [kiwisdr-ui.md](todo/kiwisdr-ui.md) — KiwiSDR map selector UI/UX
 - [band-picker.md](todo/band-picker.md) — F-INP band grid; acceptance checklist still open
 - [eibi-schedules-module.md](todo/eibi-schedules-module.md) — EiBi station schedules overlay module
+- [cleanup.md](todo/cleanup.md) — mechanical improvements worth doing in passing, with what they actually cost
 
 **Bugs**
 - [ui-thread-sync.md](bugs/ui-thread-sync.md) — cross-thread GUI/DSP mutation; full fix postponed
