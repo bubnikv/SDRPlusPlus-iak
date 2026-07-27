@@ -94,6 +94,14 @@ this fork does not have — are skipped and listed by name at the end rather
 than being quietly lost.
 
 --------------------------------------------------------------------------
+
+**Radiosonde decoder module:**
+The module does not crash anymore when the decoding starts on Android
+
+<img width="639" height="800" alt="1000437445" src="https://github.com/user-attachments/assets/ea95a5f8-3cc9-4297-bafd-26be2dd1220e" />
+
+--------------------------------------------------------------------------
+
 **Please do not report bugs in this fork to original author.**
 
 **Report bugs in this fork on this page, in ISSUES.** 
