@@ -36,8 +36,8 @@ namespace spyservervfo {
         // in the .cpp). Keep these in sync with whatever you send via
         // setSetting(SPYSERVER_SETTING_FFT_DB_OFFSET/_DB_RANGE, ...) -
         // main.cpp's UI does this whenever the sliders change.
-        int fftDbOffset = -10;
-        int fftDbRange = 100;
+        int fftDbOffset = 0;
+        int fftDbRange = 150;
 
     private:
         void sendCommand(uint32_t command, void* data, int len);
