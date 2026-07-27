@@ -45,7 +45,7 @@ namespace backend {
     bool exited = false;
     static bool wasPlayingBeforeSuspend = false;
     static bool restartOnResume = true;
-    static bool playInBackground = false; // keep the radio running when backgrounded / screen off
+    static bool playInBackground = true; // keep the radio running when backgrounded / screen off
     static common::ScaleState scaleState;
     // Sleep-reset heartbeat state — accessed only from the app thread (same thread as render loop).
     static bool sleepResetMotionPending = false;

@@ -60,7 +60,7 @@ const int svfoIqFormatsBitCount[] = {
 #define SVFO_MAX_RETUNE_RATE 8
 
 // How many previously used servers to keep in the dropdown.
-#define SVFO_MAX_RECENT 5
+#define SVFO_MAX_RECENT 8
 
 ConfigManager svfoConfig;
 
@@ -601,8 +601,8 @@ private:
                 svfoConfig.conf["devices"][devRef]["fftDecimId"] = 0;
                 svfoConfig.conf["devices"][devRef]["sampleBitDepthId"] = 1;
                 svfoConfig.conf["devices"][devRef]["gainId"] = 0;
-                svfoConfig.conf["devices"][devRef]["fftDbOffset"] = -10;
-                svfoConfig.conf["devices"][devRef]["fftDbRange"] = 100;
+                svfoConfig.conf["devices"][devRef]["fftDbOffset"] = 0;
+                svfoConfig.conf["devices"][devRef]["fftDbRange"] = 150;
             }
             iqDecimId = svfoConfig.conf["devices"][devRef]["iqDecimId"];
             fftDecimId = svfoConfig.conf["devices"][devRef]["fftDecimId"];
@@ -702,8 +702,8 @@ private:
     std::vector<double> fftRates;
     std::string fftRatesTxt;
 
-    int fftDbOffset = -10;
-    int fftDbRange = 100;
+    int fftDbOffset = 0;
+    int fftDbRange = 150;
 
     // FFT_FREQUENCY: only updated on real device-retune events, set by
     // tune(). IQ_FREQUENCY: continuously tracked from the VFO's live
