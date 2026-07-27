@@ -94,3 +94,23 @@ endif ()
 
 file(WRITE "${_f}" "${_content}")
 message(STATUS "Patched ${_f}")
+
+# --- Patch 5: rs41.c serial strncpy over-read (SIGABRT under _FORTIFY_SOURCE) ---
+# status->serial is an 8-byte packed frame field (RS41_SERIAL_LEN) with no NUL
+# terminator, but the copy length was sizeof(dst->serial)-1 == 31, so strncpy
+# reads past the 8-byte source. Benign on x86 without fortify, but Android
+# builds with -D_FORTIFY_SOURCE=2, whose __strncpy_chk2 aborts on the over-read
+# (SIGABRT in rs41_decode). Copy the source's own size instead; the existing
+# dst->serial[8] = 0 on the next line still NUL-terminates it.
+set(_rs41 "${SRC}/sonde/rs41/rs41.c")
+if (NOT EXISTS "${_rs41}")
+    message(FATAL_ERROR "patch_sondedump: ${_rs41} not found")
+endif ()
+file(READ "${_rs41}" _rs41c)
+string(REPLACE "\r\n" "\n" _rs41c "${_rs41c}")
+patch_replace_or_fail(_rs41c
+"strncpy(dst->serial, status->serial, sizeof(dst->serial)-1);"
+"strncpy(dst->serial, status->serial, sizeof(status->serial));"
+)
+file(WRITE "${_rs41}" "${_rs41c}")
+message(STATUS "Patched ${_rs41}")
