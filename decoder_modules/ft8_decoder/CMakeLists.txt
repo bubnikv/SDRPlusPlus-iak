@@ -38,11 +38,8 @@ target_include_directories(ft8_decoder PRIVATE "src/" "src/vendor/")
 
 # The WSPR core uses single-precision FFTW. SDR++ already depends on FFTW, so
 # this adds no new system dependency.
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFTW3F REQUIRED fftw3f)
-target_include_directories(ft8_decoder PRIVATE ${FFTW3F_INCLUDE_DIRS})
-target_link_directories(ft8_decoder PRIVATE ${FFTW3F_LIBRARY_DIRS})
-target_link_libraries(ft8_decoder PRIVATE ${FFTW3F_LIBRARIES})
+# Using `sdrpp_link_dep` ensures compatibility across all platforms (Windows, Linux, Android)
+sdrpp_link_dep(ft8_decoder FFTW3f PUBLIC PC_NAME fftw3f TARGETS FFTW3::fftw3f)
 
 # Some vendored C uses POSIX-2008 functions (e.g. stpcpy).
 target_compile_definitions(ft8_decoder PRIVATE _GNU_SOURCE)
