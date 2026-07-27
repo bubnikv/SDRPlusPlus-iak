@@ -1,8 +1,8 @@
 # SDR++ jp (fork), is not the original bloat-free SDR software
 
-**Spyserver IQ+FFT module:** 
+**Spyserver VFO+FFT module:** 
 
-The fork is to support Spyserver IQ+FFT (VFO+FFT) - new module Spyserver VFO+FFT added to support this mode instead of FULL IQ Spyserver mode. 
+The fork is to support Spyserver VFO+FFT - new module Spyserver VFO+FFT added to support this mode instead of FULL IQ Spyserver mode. Only portion of IQ around tuned frequency is streamed to save the internet bandwidth. You can set various values of IQ bandwidth.
 Please, keep in mind there are still some bugs in this module!!! 
 
 <img width="443" height="750" alt="Screenshot_2026-07-22-09-52-33-260_org jp sdrpp debug" src="https://github.com/user-attachments/assets/21bffd34-60e6-4563-9922-69dab5a0c921" />
@@ -13,7 +13,8 @@ Please, keep in mind there are still some bugs in this module!!!
 
 <img width="446" height="800" alt="1000435057" src="https://github.com/user-attachments/assets/631af0fd-ceef-4b75-88a1-72922437e8d4" />
 
-Support export / import frequencies and groups on Android. It is necessary to allow Manage all files permission in Android settings for this application. Exported json (imported json) path: /storage/emulated/0/Download
+Support export / import frequencies and groups on Android. It is necessary to allow Manage all files permission in Android settings for this application. Exported json (imported json) path: /storage/emulated/0/Download.
+
 You can export all lists (groups), current list or selected bookmarks only (there is the multiselect option for select more items on Android)
 
 Script located at `scripts/freqconv.py` converts frequency bookmarks between this fork's
@@ -96,7 +97,7 @@ than being quietly lost.
 --------------------------------------------------------------------------
 
 **Radiosonde decoder module:**
-The module does not crash anymore when the decoding starts on Android
+Fixed crashing SDR++ when radiosonde decoding starts on Android.
 
 <img width="639" height="800" alt="1000437445" src="https://github.com/user-attachments/assets/ea95a5f8-3cc9-4297-bafd-26be2dd1220e" />
 
