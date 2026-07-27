@@ -97,6 +97,7 @@ than being quietly lost.
 --------------------------------------------------------------------------
 
 **Radiosonde decoder module:**
+
 Fixed crashing SDR++ when radiosonde decoding starts on Android.
 
 <img width="639" height="800" alt="1000437445" src="https://github.com/user-attachments/assets/ea95a5f8-3cc9-4297-bafd-26be2dd1220e" />
