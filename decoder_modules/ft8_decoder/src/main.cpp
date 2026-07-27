@@ -77,6 +77,7 @@ struct DecodeRow {
     std::string freq;   // "1000 Hz" (FT8/FT4) or "14.097105 MHz" (WSPR)
     std::string drift;  // Hz (WSPR only)
     std::string msg;    // decoded text
+    double receivedEpoch; // epoch of decode time of each row
 };
 
 // A captured audio slot waiting to be decoded on the worker thread.
@@ -344,9 +345,11 @@ private:
     }
 
     void addRow(const DecodeRow& row) {
+        DecodeRow nonConstRow = row;
+        nonConstRow.receivedEpoch = nowEpoch();
         {
             std::lock_guard<std::mutex> lck(rowsMtx);
-            rows.push_back(row);
+            rows.push_back(nonConstRow);
             while (rows.size() > MAX_ROWS) { rows.pop_front(); }
             scrollToBottom = true;
         }
@@ -522,11 +525,11 @@ private:
         int nCols = isWspr ? 6 : 5;
         if (ImGui::BeginTable(CONCAT("##ft8dec_table_", name), nCols, flags)) {
             ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("UTC", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+            ImGui::TableSetupColumn("UTC", ImGuiTableColumnFlags_WidthFixed, 85.0f);
             ImGui::TableSetupColumn("dB", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-            ImGui::TableSetupColumn("DT", ImGuiTableColumnFlags_WidthFixed, 45.0f);
+            ImGui::TableSetupColumn("DT", ImGuiTableColumnFlags_WidthFixed, 55.0f);
             ImGui::TableSetupColumn(isWspr ? "Freq" : "Hz",
-                                    ImGuiTableColumnFlags_WidthFixed, isWspr ? 95.0f : 60.0f);
+                                    ImGuiTableColumnFlags_WidthFixed, isWspr ? 110.0f : 85.0f);
             if (isWspr) {
                 ImGui::TableSetupColumn("Drift", ImGuiTableColumnFlags_WidthFixed, 45.0f);
             }
@@ -534,9 +537,17 @@ private:
             ImGui::TableHeadersRow();
 
             {
+                double now = nowEpoch(); // Zjistíme aktuální čas
                 std::lock_guard<std::mutex> lck(rowsMtx);
                 for (const auto& r : rows) {
                     ImGui::TableNextRow();
+                    
+                    // If a row is less than 5.0 seconds old, we'll use a light red color (R=1.0, G=0.35, B=0.35, A=1.0)
+                    bool isNew = (now - r.receivedEpoch) < 5.0;
+                    if (isNew) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
+                    }
+
                     ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(r.time.c_str());
                     ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(r.snr.c_str());
                     ImGui::TableSetColumnIndex(2); ImGui::TextUnformatted(r.dt.c_str());
@@ -547,8 +558,14 @@ private:
                         col = 5;
                     }
                     ImGui::TableSetColumnIndex(col); ImGui::TextUnformatted(r.msg.c_str());
+
+                    // If we've applied a style, we need to clear (reset) it again
+                    if (isNew) {
+                        ImGui::PopStyleColor();
+                    }
                 }
             }
+
 
             if (autoScroll && scrollToBottom) {
                 ImGui::SetScrollHereY(1.0f);
