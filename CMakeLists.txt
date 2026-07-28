@@ -81,6 +81,7 @@ option(OPT_BUILD_RADIOSONDE_DECODER "Build the radiosonde decoder module (no dep
 option(OPT_BUILD_RYFI_DECODER "RyFi data link decoder" OFF)
 option(OPT_BUILD_VOR_RECEIVER "VOR beacon receiver" OFF)
 option(OPT_BUILD_WEATHER_SAT_DECODER "Build the HRPT decoder module (no dependencies required)" OFF)
+option(OPT_BUILD_FT8_DECODER "Build FT8/FT4/WSPR decoder module" ON)
 
 # Misc
 option(OPT_BUILD_DISCORD_PRESENCE "Build the Discord Rich Presence module" ON)
@@ -297,6 +298,7 @@ sdrpp_add_optional_modules(
     RYFI_DECODER:decoder_modules/ryfi_decoder
     VOR_RECEIVER:decoder_modules/vor_receiver
     WEATHER_SAT_DECODER:decoder_modules/weather_sat_decoder
+    FT8_DECODER:decoder_modules/ft8_decoder
 )
 
 # Misc

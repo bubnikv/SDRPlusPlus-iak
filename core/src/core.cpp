@@ -381,6 +381,7 @@ int sdrpp_main(int argc, char* argv[]) {
     core::configManager.conf["modules"][modCount++] = "meteor_demodulator.so";
     core::configManager.conf["modules"][modCount++] = "radio.so";
     core::configManager.conf["modules"][modCount++] = "radiosonde_decoder.so";
+    core::configManager.conf["modules"][modCount++] = "ft8_decoder.so";
 
     core::configManager.conf["modules"][modCount++] = "frequency_manager.so";
     core::configManager.conf["modules"][modCount++] = "noise_reduction_logmmse.so";
