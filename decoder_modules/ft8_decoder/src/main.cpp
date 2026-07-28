@@ -652,16 +652,16 @@ private:
         int nCols = isWspr ? 7 : 6;
         if (ImGui::BeginTable(CONCAT("##ft8dec_table_", name), nCols, flags)) {
             ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("UTC", ImGuiTableColumnFlags_WidthFixed, 85.0f);
+            ImGui::TableSetupColumn("UTC", ImGuiTableColumnFlags_WidthFixed, 95.0f);
             ImGui::TableSetupColumn("dB", ImGuiTableColumnFlags_WidthFixed, 40.0f);
             ImGui::TableSetupColumn("DT", ImGuiTableColumnFlags_WidthFixed, 55.0f);
             ImGui::TableSetupColumn(isWspr ? "Freq" : "Hz",
-                                    ImGuiTableColumnFlags_WidthFixed, isWspr ? 110.0f : 85.0f);
+                                    ImGuiTableColumnFlags_WidthFixed, isWspr ? 120.0f : 95.0f);
             if (isWspr) {
                 ImGui::TableSetupColumn("Drift", ImGuiTableColumnFlags_WidthFixed, 45.0f);
             }
             ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Dist", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+            ImGui::TableSetupColumn("Dist", ImGuiTableColumnFlags_WidthFixed, 90.0f);
             ImGui::TableHeadersRow();
 
             {
