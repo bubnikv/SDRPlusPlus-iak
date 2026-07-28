@@ -31,6 +31,7 @@ namespace spyservervfo {
         int computeDigitalGain(int serverBits, int deviceGain, int decimationId);
 
         SpyServerDeviceInfo devInfo;
+        uint32_t canControl = 1;
 
         // Used to decode incoming UINT8 FFT frames (see handleFFTFrame()
         // in the .cpp). Keep these in sync with whatever you send via
