@@ -5,7 +5,8 @@
 The fork is to support Spyserver VFO+FFT - new module Spyserver VFO+FFT added to support this mode instead of FULL IQ Spyserver mode. Only portion of IQ around tuned frequency is streamed to save the internet bandwidth. You can set various values of IQ bandwidth.
 Please, keep in mind there are still some bugs in this module!!! 
 
-<img width="443" height="750" alt="Screenshot_2026-07-22-09-52-33-260_org jp sdrpp debug" src="https://github.com/user-attachments/assets/21bffd34-60e6-4563-9922-69dab5a0c921" />
+<img width="447" height="800" alt="1000437473" src="https://github.com/user-attachments/assets/2e38aef2-0aaa-483b-bfc9-5a5827c2e5ce" />
+
 
 ----------------------------------------------------------------------------------
 
@@ -103,6 +104,14 @@ Fixed crashing SDR++ when radiosonde decoding starts on Android.
 <img width="639" height="800" alt="1000437445" src="https://github.com/user-attachments/assets/ea95a5f8-3cc9-4297-bafd-26be2dd1220e" />
 
 --------------------------------------------------------------------------
+
+**FT8/FT4/WSPR decoder module**
+
+<img width="700" height="570" alt="e27061ef-1ded-495a-82d5-f83c2e5f6ead" src="https://github.com/user-attachments/assets/1783208d-a163-47de-88d6-2330a481f9f9" />
+
+Implemented FT8/FT4/WSPR decoder module from SwissKnifeEdition SDR++ (from F4JTV), added some improvements, when you provide your QTH square, it calculates and shows distance between squares for received messages.
+
+---------------------------------------------------------------------------
 
 **Please do not report bugs in this fork to original author.**
 
