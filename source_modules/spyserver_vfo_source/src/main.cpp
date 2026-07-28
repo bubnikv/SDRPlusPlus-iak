@@ -506,7 +506,15 @@ private:
 
             SmGui::Text("Status:");
             SmGui::SameLine();
-            SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+            float connectedPosX = ImGui::GetCursorPosX();
+            if (_this->client->canControl) {
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+            }
+            else {
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+                ImGui::SetCursorPosX(connectedPosX);
+                SmGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "[shared mode]");
+            }
         }
         else {
             SmGui::Text("Status:");
