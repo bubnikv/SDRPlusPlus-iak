@@ -41,14 +41,20 @@
 #include <cstring>
 #include <string>
 #include <filesystem>
+#include <algorithm>
+#include <sstream>
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 SDRPP_MOD_INFO{
     /* Name:            */ "ft8_decoder",
     /* Description:     */ "FT8 / FT4 / WSPR decoder",
     /* Author:          */ "SDR++ Community",
-    /* Version:         */ 1, 0, 0,
+    /* Version:         */ 1, 1, 0,
     /* Max instances    */ -1
 };
 
@@ -77,7 +83,8 @@ struct DecodeRow {
     std::string freq;   // "1000 Hz" (FT8/FT4) or "14.097105 MHz" (WSPR)
     std::string drift;  // Hz (WSPR only)
     std::string msg;    // decoded text
-    double receivedEpoch; // epoch of decode time of each row
+    std::string dist;   // Distance in km (calculated if locators exist)
+    double receivedEpoch; // Timestamp in seconds of when this row was added
 };
 
 // A captured audio slot waiting to be decoded on the worker thread.
@@ -87,6 +94,91 @@ struct AudioSlot {
     double dialFreqMHz;         // absolute dial frequency at capture time
     std::vector<float> audio;   // 12 kHz mono USB audio
 };
+
+// Helper function to validate and convert a 4-char Maidenhead locator grid to Lat/Lon
+static bool locatorToLatLon(const std::string& locator, double& lat, double& lon) {
+    if (locator.size() < 4) { return false; }
+    
+    char lonField = std::toupper(locator[0]);
+    char latField = std::toupper(locator[1]);
+    char lonSquare = locator[2];
+    char latSquare = locator[3];
+    
+    if (lonField < 'A' || lonField > 'R') { return false; }
+    if (latField < 'A' || latField > 'R') { return false; }
+    if (lonSquare < '0' || lonSquare > '9') { return false; }
+    if (latSquare < '0' || latSquare > '9') { return false; }
+    
+    lon = -180.0 + (lonField - 'A') * 20.0 + (lonSquare - '0') * 2.0 + 1.0;
+    lat = -90.0 + (latField - 'A') * 10.0 + (latSquare - '0') * 1.0 + 0.5;
+    
+    return true;
+}
+
+// Great Circle Distance calculation (Haversine formula) in kilometers
+static double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    double rlat1 = lat1 * M_PI / 180.0;
+    double rlat2 = lat2 * M_PI / 180.0;
+    double dlat = (lat2 - lat1) * M_PI / 180.0;
+    double dlon = (lon2 - lon1) * M_PI / 180.0;
+    
+    double a = std::sin(dlat / 2.0) * std::sin(dlat / 2.0) +
+               std::cos(rlat1) * std::cos(rlat2) *
+               std::sin(dlon / 2.0) * std::sin(dlon / 2.0);
+    double c = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+    
+    return 6371.0 * c; // Earth radius in km
+}
+
+// Attempt to parse a 4-char Maidenhead locator from standard FT8/FT4 message
+static std::string extractFTxLocator(const std::string& msg) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(msg);
+    std::string token;
+    while (ss >> token) {
+        tokens.push_back(token);
+    }
+    
+    if (tokens.size() < 3) { return ""; }
+    
+    // FT8 standard traffic structure is typically: "DE_CALL SIGN_GRID" or "CQ DE_CALL SIGN_GRID"
+    // Usually, the last token is either a signal report (like "R-15", "-10", "RRR") or a grid locator.
+    // We check the last and second-to-last tokens for valid 4-character Maidenhead grids.
+    for (int i = (int)tokens.size() - 1; i >= std::max(0, (int)tokens.size() - 2); --i) {
+        std::string t = tokens[i];
+        if (t.size() == 4) {
+            double dummyLat, dummyLon;
+            if (locatorToLatLon(t, dummyLat, dummyLon)) {
+                return t;
+            }
+        }
+    }
+    return "";
+}
+
+// Attempt to parse a 4-char Maidenhead locator from a WSPR message (format: "CALL GRID POWER")
+static std::string extractWsprLocator(const std::string& msg) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(msg);
+    std::string token;
+    while (ss >> token) {
+        tokens.push_back(token);
+    }
+    
+    if (tokens.size() < 2) { return ""; }
+    
+    // WSPR standard format has locator grid as the second word
+    std::string t = tokens[1];
+    if (t.size() >= 4) {
+        std::string grid4 = t.substr(0, 4);
+        double dummyLat, dummyLon;
+        if (locatorToLatLon(grid4, dummyLat, dummyLon)) {
+            return grid4;
+        }
+    }
+    return "";
+}
+
 
 class FT8DecoderModule : public ModuleManager::Instance {
 public:
@@ -320,6 +412,18 @@ private:
                                 snprintf(b, sizeof(b), "%.6f MHz", r.freq); row.freq = b;
                                 snprintf(b, sizeof(b), "%.0f", r.drift); row.drift = b;
                                 row.msg = r.message;
+                                
+                                // Calculate distance
+                                std::string loc = extractWsprLocator(r.message);
+                                if (!loc.empty()) {
+                                    double myLat, myLon, stationLat, stationLon;
+                                    if (locatorToLatLon(myQth, myLat, myLon) && locatorToLatLon(loc, stationLat, stationLon)) {
+                                        double distKm = calculateDistanceKm(myLat, myLon, stationLat, stationLon);
+                                        char dBuf[32];
+                                        snprintf(dBuf, sizeof(dBuf), "%.0f km", distKm);
+                                        row.dist = dBuf;
+                                    }
+                                }
                                 addRow(row);
                             });
         }
@@ -339,17 +443,29 @@ private:
                                snprintf(b, sizeof(b), "%.0f Hz", r.freq); row.freq = b;
                                row.drift = "";
                                row.msg = r.text;
+                               
+                               // Calculate distance
+                               std::string loc = extractFTxLocator(r.text);
+                               if (!loc.empty()) {
+                                    double myLat, myLon, stationLat, stationLon;
+                                    if (locatorToLatLon(myQth, myLat, myLon) && locatorToLatLon(loc, stationLat, stationLon)) {
+                                        double distKm = calculateDistanceKm(myLat, myLon, stationLat, stationLon);
+                                        char dBuf[32];
+                                        snprintf(dBuf, sizeof(dBuf), "%.0f km", distKm);
+                                        row.dist = dBuf;
+                                    }
+                               }
                                addRow(row);
                            });
         }
     }
 
     void addRow(const DecodeRow& row) {
-        DecodeRow nonConstRow = row;
-        nonConstRow.receivedEpoch = nowEpoch();
+        DecodeRow adjustedRow = row;
+        adjustedRow.receivedEpoch = nowEpoch();
         {
             std::lock_guard<std::mutex> lck(rowsMtx);
-            rows.push_back(nonConstRow);
+            rows.push_back(adjustedRow);
             while (rows.size() > MAX_ROWS) { rows.pop_front(); }
             scrollToBottom = true;
         }
@@ -360,9 +476,9 @@ private:
         if (logPath.empty()) { return; }
         FILE* f = fopen(logPath.c_str(), "a");
         if (!f) { return; }
-        fprintf(f, "%s\t%s\t%s\t%s\t%s\t%s\n",
+        fprintf(f, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
                 row.time.c_str(), row.snr.c_str(), row.dt.c_str(),
-                row.freq.c_str(), row.drift.c_str(), row.msg.c_str());
+                row.freq.c_str(), row.drift.c_str(), row.msg.c_str(), row.dist.c_str());
         fclose(f);
     }
 
@@ -378,12 +494,14 @@ private:
         if (c.contains("showWindow")){ showWindow = c["showWindow"].get<bool>(); }
         if (c.contains("logToFile")) { logToFile = c["logToFile"].get<bool>(); }
         if (c.contains("logPath"))   { logPath = c["logPath"].get<std::string>(); }
+        if (c.contains("myQth"))     { myQth = c["myQth"].get<std::string>(); }
         config.release();
 
         if (snapId < 0 || snapId >= (int)(sizeof(snapIntervals)/sizeof(snapIntervals[0]))) {
             snapId = 0; // 1 Hz (fine: FT8/FT4/WSPR are tuned to the dial, no grid)
         }
         std::strncpy(logPathBuf, logPath.c_str(), sizeof(logPathBuf) - 1);
+        std::strncpy(myQthBuf, myQth.c_str(), sizeof(myQthBuf) - 1);
     }
 
     void saveSettings() {
@@ -393,6 +511,7 @@ private:
         config.conf[name]["showWindow"] = showWindow;
         config.conf[name]["logToFile"]  = logToFile;
         config.conf[name]["logPath"]    = logPath;
+        config.conf[name]["myQth"]      = myQth;
         config.release(true);
     }
 
@@ -433,6 +552,14 @@ private:
         const char* snapTxt = "1 Hz\0" "10 Hz\0" "100 Hz\0" "1 kHz\0" "2.5 kHz\0";
         if (ImGui::Combo(CONCAT("##ft8dec_snap_", _this->name), &_this->snapId, snapTxt)) {
             if (_this->vfo) { _this->vfo->setSnapInterval(_this->snapIntervals[_this->snapId]); }
+            _this->saveSettings();
+        }
+
+        // Receiver QTH Locator
+        ImGui::LeftLabel("My QTH");
+        ImGui::FillWidth();
+        if (ImGui::InputText(CONCAT("##ft8dec_myqth_", _this->name), _this->myQthBuf, sizeof(_this->myQthBuf))) {
+            _this->myQth = _this->myQthBuf;
             _this->saveSettings();
         }
 
@@ -489,7 +616,7 @@ private:
     // only have to assert it; we never have to clear it ourselves.
     void drawDecodesWindow() {
         std::string title = "FT8/FT4/WSPR Decodes (" + name + ")###ft8dec_win_" + name;
-        ImGui::SetNextWindowSize(ImVec2(640, 360), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(740, 360), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin(title.c_str(), &showWindow)) {
             ImGui::End();
             return;
@@ -522,7 +649,7 @@ private:
         const bool isWspr = (mode == MODE_WSPR);
         ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                 ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable;
-        int nCols = isWspr ? 6 : 5;
+        int nCols = isWspr ? 7 : 6;
         if (ImGui::BeginTable(CONCAT("##ft8dec_table_", name), nCols, flags)) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("UTC", ImGuiTableColumnFlags_WidthFixed, 85.0f);
@@ -534,20 +661,20 @@ private:
                 ImGui::TableSetupColumn("Drift", ImGuiTableColumnFlags_WidthFixed, 45.0f);
             }
             ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Dist", ImGuiTableColumnFlags_WidthFixed, 80.0f);
             ImGui::TableHeadersRow();
 
             {
-                double now = nowEpoch(); // Zjistíme aktuální čas
+                double now = nowEpoch();
                 std::lock_guard<std::mutex> lck(rowsMtx);
                 for (const auto& r : rows) {
                     ImGui::TableNextRow();
                     
-                    // If a row is less than 5.0 seconds old, we'll use a light red color (R=1.0, G=0.35, B=0.35, A=1.0)
                     bool isNew = (now - r.receivedEpoch) < 5.0;
                     if (isNew) {
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
                     }
-
+                    
                     ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(r.time.c_str());
                     ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(r.snr.c_str());
                     ImGui::TableSetColumnIndex(2); ImGui::TextUnformatted(r.dt.c_str());
@@ -558,14 +685,13 @@ private:
                         col = 5;
                     }
                     ImGui::TableSetColumnIndex(col); ImGui::TextUnformatted(r.msg.c_str());
-
-                    // If we've applied a style, we need to clear (reset) it again
+                    ImGui::TableSetColumnIndex(col + 1); ImGui::TextUnformatted(r.dist.c_str());
+                    
                     if (isNew) {
                         ImGui::PopStyleColor();
                     }
                 }
             }
-
 
             if (autoScroll && scrollToBottom) {
                 ImGui::SetScrollHereY(1.0f);
@@ -581,12 +707,12 @@ private:
         std::string path = workdir + "/decodes_snapshot.tsv";
         FILE* f = fopen(path.c_str(), "w");
         if (!f) { return; }
-        fprintf(f, "UTC\tdB\tDT\tFreq\tDrift\tMessage\n");
+        fprintf(f, "UTC\tdB\tDT\tFreq\tDrift\tMessage\tDistance\n");
         std::lock_guard<std::mutex> lck(rowsMtx);
         for (const auto& r : rows) {
-            fprintf(f, "%s\t%s\t%s\t%s\t%s\t%s\n",
+            fprintf(f, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
                     r.time.c_str(), r.snr.c_str(), r.dt.c_str(),
-                    r.freq.c_str(), r.drift.c_str(), r.msg.c_str());
+                    r.freq.c_str(), r.drift.c_str(), r.msg.c_str(), r.dist.c_str());
         }
         fclose(f);
         flog::info("FT8 decoder: saved snapshot to {0}", path);
@@ -604,6 +730,8 @@ private:
     bool logToFile = false;
     std::string logPath;
     char logPathBuf[1024] = { 0 };
+    std::string myQth;
+    char myQthBuf[32] = { 0 };
 
     // DSP.
     VFOManager::VFO* vfo = NULL;
