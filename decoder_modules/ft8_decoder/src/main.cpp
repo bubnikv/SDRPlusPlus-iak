@@ -420,7 +420,7 @@ private:
                                     if (locatorToLatLon(myQth, myLat, myLon) && locatorToLatLon(loc, stationLat, stationLon)) {
                                         double distKm = calculateDistanceKm(myLat, myLon, stationLat, stationLon);
                                         char dBuf[32];
-                                        snprintf(dBuf, sizeof(dBuf), "%.0f km", distKm);
+                                        snprintf(dBuf, sizeof(dBuf), "%.0f", distKm);
                                         row.dist = dBuf;
                                     }
                                 }
@@ -440,7 +440,7 @@ private:
                                char b[32];
                                snprintf(b, sizeof(b), "%.0f", r.snr); row.snr = b;
                                snprintf(b, sizeof(b), "%+.1f", r.dt); row.dt = b;
-                               snprintf(b, sizeof(b), "%.0f Hz", r.freq); row.freq = b;
+                               snprintf(b, sizeof(b), "%.0f", r.freq); row.freq = b;
                                row.drift = "";
                                row.msg = r.text;
                                
@@ -451,7 +451,7 @@ private:
                                     if (locatorToLatLon(myQth, myLat, myLon) && locatorToLatLon(loc, stationLat, stationLon)) {
                                         double distKm = calculateDistanceKm(myLat, myLon, stationLat, stationLon);
                                         char dBuf[32];
-                                        snprintf(dBuf, sizeof(dBuf), "%.0f km", distKm);
+                                        snprintf(dBuf, sizeof(dBuf), "%.0f", distKm);
                                         row.dist = dBuf;
                                     }
                                }
