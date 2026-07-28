@@ -169,6 +169,10 @@ namespace spyservervfo {
             }
             _this->deviceInfoCnd.notify_all();
         }
+        else if (mtype == SPYSERVER_MSG_TYPE_CLIENT_SYNC) {
+            SpyServerClientSync* sync = (SpyServerClientSync*)_this->readBuf;
+            _this->canControl = sync->CanControl;
+        }
         else if (mtype == SPYSERVER_MSG_TYPE_UINT8_IQ) {
             int sampCount = _this->receivedHeader.BodySize / (sizeof(uint8_t) * 2);
             float gain = pow(10, (double)mflags / 20.0);

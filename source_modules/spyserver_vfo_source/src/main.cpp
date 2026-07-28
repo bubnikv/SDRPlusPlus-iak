@@ -261,8 +261,12 @@ private:
                 std::string vfoName = gui::waterfall.selectedVFO;
                 double vfoOffset = (vfoName != "") ? sigpath::vfoManager.getOffset(vfoName) : 0.0;
 
-                // Absolute frequency the IQ window *wants* to sit on.
-                double wantedIq = gui::waterfall.getCenterFrequency() + vfoOffset;
+                // Hardware center frequency from pendingFftFreq, which has the frequency offset (up/down converter)
+                // already subtracted/adjusted in tune() since tune() receives the hardware-domain frequency.
+                double hwCtr = _this->pendingFftFreq;
+
+                // Absolute frequency the IQ window *wants* to sit on in the hardware domain.
+                double wantedIq = hwCtr + vfoOffset;
 
                 // How far the server can slide the IQ window off the device
                 // center. The DDC can place the IQ window anywhere inside the
@@ -291,7 +295,7 @@ private:
                 // "Device center" is simply the waterfall/FFT center that tune()
                 // drives (the server re-centres both IQ and FFT on it);
                 // SpyServerDeviceInfo carries no center field of its own.
-                double devCtr    = gui::waterfall.getCenterFrequency();
+                double devCtr    = hwCtr;
                 double fullSpan  = (double)_this->client->devInfo.MaximumSampleRate;
                 double halfSlack = (fullSpan - _this->iqSampleRate) / 2.0;
                 if (halfSlack < 0.0) { halfSlack = 0.0; } // guard against rounding
@@ -300,7 +304,7 @@ private:
                 if (vfoName != "") {
                     // Local DSP mixer offset = distance from the IQ stream's
                     // actual center (sentIq) to the passband center we want.
-                    // Passband center = waterfall center + getCenterOffset (the
+                    // Passband center = hardware center + getCenterOffset (the
                     // clicked freq for symmetric modes, +-bandwidth/2 off it for
                     // USB/LSB). When the server reaches the wanted freq exactly
                     // this reduces to the old "getCenterOffset - getOffset"
@@ -308,7 +312,7 @@ private:
                     // can't (near/at max IQ width) the extra distance is exactly
                     // the shortfall, finished locally from the full IQ band that
                     // is present in the stream. One formula, no sign juggling.
-                    double residual = gui::waterfall.getCenterFrequency()
+                    double residual = hwCtr
                                       + sigpath::vfoManager.getCenterOffset(vfoName)
                                       - sentIq;
                     sigpath::vfoManager.setDspOffset(vfoName, residual);
@@ -502,7 +506,15 @@ private:
 
             SmGui::Text("Status:");
             SmGui::SameLine();
-            SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+            float connectedPosX = ImGui::GetCursorPosX();
+            if (_this->client->canControl) {
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+            }
+            else {
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (%s)", svfoDeviceTypesStr[_this->client->devInfo.DeviceType]);
+                ImGui::SetCursorPosX(connectedPosX);
+                SmGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "[shared mode]");
+            }
         }
         else {
             SmGui::Text("Status:");
