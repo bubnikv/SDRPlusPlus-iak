@@ -223,10 +223,21 @@ bool VFOManager::vfoExists(std::string name) {
 }
 
 void VFOManager::updateFromWaterfall(ImGui::WaterFall* wtf) {
+    // When a source is feeding the waterfall an external (server-side) FFT,
+    // it also delivers a narrowband IQ stream retuned to follow the VFO and
+    // manages the DSP mixer offset itself (small in-stream residual). Pushing
+    // the full visual centerOffset here - potentially MHz, far outside that
+    // narrow IQ - would fight the source's offset every frame and break
+    // tuning within the displayed span. So skip it in that mode; the same
+    // _externalFFTMode flag the source already sets doubles as "source owns
+    // the DSP offset". (No external-FFT source: unchanged behaviour.)
+    bool srcOwnsDspOffset = sigpath::iqFrontEnd.getExternalFFTMode();
     for (auto const& [name, vfo] : vfos) {
         if (vfo->wtfVFO->centerOffsetChanged) {
             vfo->wtfVFO->centerOffsetChanged = false;
-            vfo->dspVFO->setOffset(vfo->wtfVFO->centerOffset);
+            if (!srcOwnsDspOffset) {
+                vfo->dspVFO->setOffset(vfo->wtfVFO->centerOffset);
+            }
         }
     }
 }
