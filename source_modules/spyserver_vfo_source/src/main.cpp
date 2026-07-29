@@ -13,6 +13,9 @@
 #include <atomic>
 #include <chrono>
 
+namespace sourcemenu {
+    extern bool invertIQ;
+}
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
@@ -154,7 +157,16 @@ private:
     // Called by the client (on its network thread) whenever a full FFT
     // frame has been decoded. Forwards it straight to the waterfall.
     static void fftFrameHandler(const float* data, int count, void* ctx) {
-        sigpath::iqFrontEnd.pushExternalFFT(data, count);
+        if (sourcemenu::invertIQ) {
+            std::vector<float> reversed(count);
+            for (int i = 0; i < count; i++) {
+                reversed[i] = data[count - 1 - i];
+            }
+            sigpath::iqFrontEnd.pushExternalFFT(reversed.data(), count);
+        }
+        else {
+            sigpath::iqFrontEnd.pushExternalFFT(data, count);
+        }
     }
 
     void applyFFTSettings() {
@@ -266,7 +278,13 @@ private:
                 double hwCtr = _this->pendingFftFreq;
 
                 // Absolute frequency the IQ window *wants* to sit on in the hardware domain.
-                double wantedIq = hwCtr + vfoOffset;
+                double wantedIq;
+                if (sourcemenu::invertIQ) {
+                    wantedIq = hwCtr - vfoOffset;
+                }
+                else {
+                    wantedIq = hwCtr + vfoOffset;
+                }
 
                 // How far the server can slide the IQ window off the device
                 // center. The DDC can place the IQ window anywhere inside the
@@ -315,6 +333,9 @@ private:
                     double residual = hwCtr
                                       + sigpath::vfoManager.getCenterOffset(vfoName)
                                       - sentIq;
+                    if (sourcemenu::invertIQ) {
+                        residual = -residual;
+                    }
                     sigpath::vfoManager.setDspOffset(vfoName, residual);
                 }
 
