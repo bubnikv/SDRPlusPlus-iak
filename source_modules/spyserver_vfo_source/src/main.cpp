@@ -330,12 +330,11 @@ private:
                     // can't (near/at max IQ width) the extra distance is exactly
                     // the shortfall, finished locally from the full IQ band that
                     // is present in the stream. One formula, no sign juggling.
-                    double residual = hwCtr
-                                      + sigpath::vfoManager.getCenterOffset(vfoName)
-                                      - sentIq;
+                    double delta = hwCtr - sentIq;
                     if (sourcemenu::invertIQ) {
-                        residual = -residual;
+                        delta = -delta;
                     }
+                    double residual = sigpath::vfoManager.getCenterOffset(vfoName) + delta;
                     sigpath::vfoManager.setDspOffset(vfoName, residual);
                 }
 
