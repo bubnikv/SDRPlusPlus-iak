@@ -46,8 +46,8 @@ jobs:
 
     # Also built here because the .deb cannot be installed alongside an
     # existing upstream SDR++ package: both install /usr/bin/sdrpp, so dpkg
-    # refuses. Everything else is already namespaced (package sdrpp-iak,
-    # /usr/share/sdrpp-iak, /usr/lib/sdrpp-iak/plugins, sdrpp-iak.desktop),
+    # refuses. Everything else is already namespaced (package sdrpp-jp,
+    # /usr/share/sdrpp-jp, /usr/lib/sdrpp-jp/plugins, sdrpp-jp.desktop),
     # and AppImage builds even get their own config dir on purpose - so the
     # AppImage is the side-by-side option.
     build_appimage:
