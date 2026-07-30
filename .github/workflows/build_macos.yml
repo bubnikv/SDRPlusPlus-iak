@@ -48,7 +48,7 @@ jobs:
           run: |
               cmake --build build --target stage_macos_bundle
               cd build/stage/macos-bundle/Release
-              zip -r "${{ runner.workspace }}/${{ inputs.artifact }}.zip" SDR++-iak.app
+              zip -r "${{ runner.workspace }}/${{ inputs.artifact }}.zip" SDR++-jp.app
 
         - name: Save Archive
           uses: actions/upload-artifact@v6
