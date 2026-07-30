@@ -37,7 +37,7 @@ endif ()
 
 target_compile_definitions(sdrpp_core PRIVATE
     SDRPP_IS_CORE
-    "FLOG_ANDROID_TAG=\"SDR++ iak\"")
+    "FLOG_ANDROID_TAG=\"SDR++ jp\"")
 if (USE_BUNDLE_DEFAULTS)
     target_compile_definitions(sdrpp_core PRIVATE IS_MACOS_BUNDLE)
 endif ()
@@ -190,6 +190,6 @@ endif ()
 
 # Install directives
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux|FreeBSD")
-    set_target_properties(sdrpp_core PROPERTIES OUTPUT_NAME "sdrpp_iak_core")
+    set_target_properties(sdrpp_core PROPERTIES OUTPUT_NAME "sdrpp_jp_core")
 endif ()
 install(TARGETS sdrpp_core DESTINATION lib)
