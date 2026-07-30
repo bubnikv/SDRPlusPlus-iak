@@ -19,7 +19,7 @@ FIRST: Before reporting any bug, make sure that the bug you are reporting has no
 
 **Software**
 - Operating System: Name + Exact version (eg. Windows 10 x64, Ubuntu 22.04, MacOS 10.15)
-- SDR++ iak: Version + Build date (available either in the window title or in the credits menu which you can access by clicking on the SDR++ icon in the top right corner of the software).
+- SDR++ jp: Version + Build date (available either in the window title or in the credits menu which you can access by clicking on the SDR++ icon in the top right corner of the software).
 
 **Bug Description**
 A clear description of the bug.
@@ -31,9 +31,9 @@ A clear description of the bug.
 
 **Only If SDR++ fails to lauch or the SDR fails to start:**
 Run SDR++ from a command line window with special parameters:
-* On Windows, open a terminal and `cd` to SDR++'s directory and run `.\sdrpp-iak.exe -c` (if running SDR++ version 1.0.4 or older, use `-s` instead, though you should probably update SDR++ instead...)
-* On Linux: Open a terminal and run `sdrpp-iak -c`
-* On MacOS: Open a terminal and run `/path/to/the/SDR++.app/Contents/MacOS/sdrpp-iak -c`
+* On Windows, open a terminal and `cd` to SDR++'s directory and run `.\sdrpp-jp.exe -c` (if running SDR++ version 1.0.4 or older, use `-s` instead, though you should probably update SDR++ instead...)
+* On Linux: Open a terminal and run `sdrpp-jp -c`
+* On MacOS: Open a terminal and run `/path/to/the/SDR++.app/Contents/MacOS/sdrpp-jp -c`
 Then, post the **entire** logs from start to after the issue. **DOT NOT truncate to where you *think* the error is...**
 
 **Screenshots**
