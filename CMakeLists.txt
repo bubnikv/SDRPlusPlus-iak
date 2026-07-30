@@ -328,7 +328,7 @@ else ()
     add_executable(sdrpp "src/main.cpp")
 endif ()
 
-set_target_properties(sdrpp PROPERTIES OUTPUT_NAME "sdrpp-iak")
+set_target_properties(sdrpp PROPERTIES OUTPUT_NAME "sdrpp-jp")
 
 target_link_libraries(sdrpp PRIVATE sdrpp_core Threads::Threads)
 
@@ -404,12 +404,12 @@ configure_file(${CMAKE_SOURCE_DIR}/sdrpp_module.cmake ${CMAKE_CURRENT_BINARY_DIR
 
 # Install directives
 install(TARGETS sdrpp DESTINATION bin)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-iak)
-configure_file(${CMAKE_SOURCE_DIR}/sdrpp-iak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-iak.desktop @ONLY)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-jp)
+configure_file(${CMAKE_SOURCE_DIR}/sdrpp-jp.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-jp.desktop @ONLY)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-iak.desktop DESTINATION share/applications)
-    install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdrpp-iak RENAME copyright)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-jp.desktop DESTINATION share/applications)
+    install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdrpp-jp RENAME copyright)
 
     # Bundled-shared deps (sdrplay's closed-source blob, librfnm, any other dep
     # the policy resolved to distro:bundled distro:shared) live under
@@ -454,7 +454,7 @@ endif ()
 
 if (APPLE)
     set(SDRPP_MACOS_BUNDLE_STAGE_ROOT "${CMAKE_BINARY_DIR}/stage/macos-bundle" CACHE INTERNAL "Root directory for macOS bundle staging" FORCE)
-    set(_sdrpp_macos_bundle_dir "${SDRPP_MACOS_BUNDLE_STAGE_ROOT}/$<CONFIG>/SDR++-iak.app")
+    set(_sdrpp_macos_bundle_dir "${SDRPP_MACOS_BUNDLE_STAGE_ROOT}/$<CONFIG>/SDR++-jp.app")
     get_property(_sdrpp_plugin_targets GLOBAL PROPERTY SDRPP_PLUGIN_TARGETS)
 
     set(_sdrpp_stage_macos_commands
@@ -522,7 +522,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         set(CPACK_PACKAGE_VERSION "${_sdrpp_deb_base}")
     endif ()
 
-    set(CPACK_PACKAGE_NAME "sdrpp-iak")
+    set(CPACK_PACKAGE_NAME "sdrpp-jp")
     set(CPACK_PACKAGE_FILE_NAME "sdrpp_debian_pkg")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Bloat-free SDR receiver software")
     set(CPACK_PACKAGING_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
@@ -542,7 +542,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     string(REGEX REPLACE "^/" "" _sdrpp_deb_install_prefix_rel "${CMAKE_INSTALL_PREFIX}")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS
         "${_sdrpp_deb_install_prefix_rel}/lib"
-        "${_sdrpp_deb_install_prefix_rel}/lib/sdrpp-iak/plugins")
+        "${_sdrpp_deb_install_prefix_rel}/lib/sdrpp-jp/plugins")
 
     include(CPack)
 endif ()
