@@ -28,5 +28,5 @@ endif ()
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 # Install directives
-install(TARGETS ${PROJECT_NAME} DESTINATION lib/sdrpp-iak/plugins)
+install(TARGETS ${PROJECT_NAME} DESTINATION lib/sdrpp-jp/plugins)
 set_property(GLOBAL APPEND PROPERTY SDRPP_PLUGIN_TARGETS ${PROJECT_NAME})
