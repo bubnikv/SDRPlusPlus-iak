@@ -1,4 +1,5 @@
 #pragma once
+#include <gui/widgets/freq_input/band_mapping.h>
 #include <json.hpp>
 #include <imgui/imgui.h>
 #include <stdint.h>
@@ -11,6 +12,13 @@ namespace bandplan {
         std::string type;
         double start;
         double end;
+        // Stable identity and normalized radio service derived while loading
+        // legacy plans. Different services may define overlapping bands.
+        std::string bandId;
+        freq_input::BandService service = freq_input::BandService::Other;
+        freq_input::BandFamily family = freq_input::BandFamily::Unknown;
+        freq_input::LegacyEntityKind entityKind =
+            freq_input::LegacyEntityKind::Band;
         // Optional tuning defaults (0 / empty = absent), sparse KiwiSDR-derived
         // enrichment; see scripts/enrich_bandplans.py.
         double defFreq = 0;

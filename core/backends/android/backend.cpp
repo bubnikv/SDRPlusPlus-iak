@@ -151,11 +151,23 @@ namespace backend {
         switch (appCmd) {
         case APP_CMD_SAVE_STATE:
             flog::warn("APP_CMD_SAVE_STATE");
+            gui::bandStack.commitCurrent();
+            core::configManager.save();
             break;
         case APP_CMD_PAUSE:
             flog::warn("APP_CMD_PAUSE");
             wasPlayingBeforeSuspend = gui::mainWindow.sdrIsRunning();
+            // Android may kill the process while it is backgrounded. Commit
+            // while the radio interface is still alive, then force the config
+            // to disk instead of waiting for the auto-save interval.
+            gui::bandStack.commitCurrent();
+            core::configManager.save();
             gui::mainWindow.setPlayState(false);
+            break;
+        case APP_CMD_STOP:
+            flog::warn("APP_CMD_STOP");
+            gui::bandStack.commitCurrent();
+            core::configManager.save();
             break;
         case APP_CMD_RESUME:
             flog::warn("APP_CMD_RESUME");
@@ -761,6 +773,9 @@ namespace backend {
                 if (app->destroyRequested != 0) {
                     flog::warn("ASKED TO EXIT");
                     exited = true;
+
+                    gui::bandStack.commitCurrent();
+                    core::configManager.save();
 
                     // Stop SDR
                     gui::mainWindow.setPlayState(false);

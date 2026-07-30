@@ -17,12 +17,14 @@
 
 namespace freq_input {
 
-    // Coarse filter bucket for the band picker's category row.
-    static const char* bandCategory(const std::string& type) {
-        if (type == "amateur" || type == "amateur1") { return "Ham"; }
-        if (type == "broadcast") { return "Bcast"; }
-        if (type == "aviation" || type == "aircraft") { return "Air"; }
-        if (type == "marine" || type == "marine1") { return "Marine"; }
+    // Coarse filter for the band picker's category row. This is intentionally a
+    // presentation grouping, not the radio service identity used for overlap
+    // resolution and stable IDs.
+    static const char* bandCategory(freq_input::BandService service) {
+        if (service == BandService::Amateur) { return "Ham"; }
+        if (service == BandService::Broadcast) { return "Bcast"; }
+        if (service == BandService::Aviation) { return "Air"; }
+        if (service == BandService::Maritime) { return "Marine"; }
         return "Util";
     }
 
@@ -86,7 +88,12 @@ namespace freq_input {
         longPressDone = false;
         regPopupBand = nullptr;
         core::configManager.acquire();
-        category = core::configManager.conf.value("freqEntryCategory", "Ham");
+        const freq_input::BandService activeService =
+            freq_input::bandServiceFromKey(
+                core::configManager.conf.value("lastActiveBandService", "other"));
+        category = activeService == BandService::Other
+            ? core::configManager.conf.value("freqEntryCategory", "Ham")
+            : bandCategory(activeService);
         core::configManager.release();
     }
 
@@ -114,8 +121,13 @@ namespace freq_input {
         };
         std::vector<BandEntry> avail;
         for (const auto& b : plan->bands) {
+            if (b.entityKind != freq_input::LegacyEntityKind::Band &&
+                b.entityKind != freq_input::LegacyEntityKind::Segment)
+            {
+                continue;
+            }
             if (ctx.limited && (b.end < (double)ctx.minFreq || b.start > (double)ctx.maxFreq)) { continue; }
-            avail.push_back({ &b, bandCategory(b.type) });
+            avail.push_back({ &b, bandCategory(b.service) });
         }
 
         // Category row: only non-empty buckets, plus All. A persisted category that
@@ -151,6 +163,8 @@ namespace freq_input {
         for (const auto& e : avail) {
             if (effective == "All" || effective == e.cat) { shown.push_back(e.band); }
         }
+        const std::string activeBandId =
+            gui::bandStack.activeBandId((double)ctx.frequency);
 
         // OpenPopup must run at this (modal) scope, not inside the grid child, or
         // its popup ID won't match the BeginPopup below. The long-press detector
@@ -179,11 +193,19 @@ namespace freq_input {
                 const bandplan::Band_t& b = *shown[i];
                 ImGui::SetCursorPos(ImVec2((i % 4) * (keyW + sp.x), (i / 4) * (keyH + sp.y)));
                 snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
+                const bool active =
+                    !activeBandId.empty() && b.bandId == activeBandId;
+                if (active) {
+                    ImGui::PushStyleColor(
+                        ImGuiCol_Button,
+                        ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+                }
                 bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
+                if (active) { ImGui::PopStyleColor(); }
                 // A quick tap recalls the newest register; a motionless hold opens
                 // the band's register list. Stepping waits for release so the two
                 // can't both fire (same idiom as the digit long-press).
-                if (ImGui::IsItemActivated()) {
+                if (!b.bandId.empty() && ImGui::IsItemActivated()) {
                     pressBand = i;
                     longPressDone = false;
                 }
@@ -202,6 +224,10 @@ namespace freq_input {
                 }
                 if (clicked && !longPressDone) {
                     gui::bandStack.selectBand(b);
+                    category = bandCategory(b.service);
+                    core::configManager.acquire();
+                    core::configManager.conf["freqEntryCategory"] = category;
+                    core::configManager.release(true);
                     out.close = true;
 #ifdef __ANDROID__
                     backend::hapticTick();
@@ -213,7 +239,7 @@ namespace freq_input {
                 float maxW = keyW - style::dp(8.0f);
                 std::string main = mhzLabel(b.start);
                 std::string sub = wavelengthToken(b.name);
-                if (sub.empty() && strcmp(bandCategory(b.type), "Ham")) { sub = b.name; }
+                if (sub.empty() && strcmp(bandCategory(b.service), "Ham")) { sub = b.name; }
                 dl->PushClipRect(bmin, bmax, true);
                 if (sub.empty()) {
                     centeredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, mainCol, main.c_str());

@@ -148,6 +148,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["bandColors"]["marine"] = "#00FFFFFF";
     defConfig["bandColors"]["military"] = "#FFFF00FF";
     defConfig["bandMemory"] = json::object();
+    defConfig["lastActiveBandService"] = "other";
+    defConfig["lastActiveBandId"] = "";
     defConfig["bandPlan"] = "General";
     defConfig["bandPlanEnabled"] = true;
     defConfig["bandPlanPos"] = 0;
@@ -165,6 +167,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["fftWindow"] = "Nuttall";
     defConfig["freqEntryCategory"] = "Ham";
     defConfig["freqEntryPage"] = "keypad";
+    defConfig["spectrumRangeMemory"] = json::object();
+    defConfig["spectrumLastRangeId"] = "";
     defConfig["frequency"] = 100000000.0;
     defConfig["fullWaterfallUpdate"] = false;
     defConfig["max"] = 0.0;
@@ -498,6 +502,10 @@ int sdrpp_main(int argc, char* argv[]) {
 
     // On android, none of this shutdown should happen due to the way the UI works
 #ifndef __ANDROID__
+    // The render loop has ended but modules are still alive, so the selected
+    // radio mode can still be sampled for the active band's stack.
+    gui::bandStack.commitCurrent();
+
     // Shut down all modules
     for (auto& [name, mod] : core::moduleManager.modules) {
         mod.end();

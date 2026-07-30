@@ -24,9 +24,14 @@ namespace freq_input {
             requestOpen = false;
             keypad.onOpen();
             bands.onOpen();
+            spectrum.onOpen();
             // Last-used page.
             core::configManager.acquire();
-            page = (core::configManager.conf.value("freqEntryPage", "keypad") == "band") ? 0 : 1;
+            const std::string storedPage =
+                core::configManager.conf.value("freqEntryPage", "keypad");
+            if (storedPage == "band") { page = 0; }
+            else if (storedPage == "spectrum") { page = 1; }
+            else { page = 2; }
             core::configManager.release();
             ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
         }
@@ -38,21 +43,28 @@ namespace freq_input {
 
         // Page toggle, sized to the keypad grid width so the popup width matches
         // on both pages.
-        float halfWidth = (m.totalWidth - ImGui::GetStyle().ItemSpacing.x) / 2.0f;
-        ImVec2 toggleSz(halfWidth, style::dp(34.0f));
+        float thirdWidth =
+            (m.totalWidth - 2.0f * ImGui::GetStyle().ItemSpacing.x) / 3.0f;
+        ImVec2 toggleSz(thirdWidth, style::dp(34.0f));
         int newPage = page;
         if (segButton("BAND##sdrpp_finp_page", page == 0, toggleSz)) { newPage = 0; }
         ImGui::SameLine();
-        if (segButton("F-INP##sdrpp_finp_page", page == 1, toggleSz)) { newPage = 1; }
+        if (segButton("SPECTRUM##sdrpp_finp_page", page == 1, toggleSz)) { newPage = 1; }
+        ImGui::SameLine();
+        if (segButton("F-INP##sdrpp_finp_page", page == 2, toggleSz)) { newPage = 2; }
         if (newPage != page) {
             page = newPage;
             core::configManager.acquire();
-            core::configManager.conf["freqEntryPage"] = (page == 0) ? "band" : "keypad";
+            core::configManager.conf["freqEntryPage"] =
+                (page == 0) ? "band" :
+                (page == 1) ? "spectrum" : "keypad";
             core::configManager.release(true);
         }
         ImGui::Spacing();
 
-        out = (page == 0) ? bands.draw(ctx, m) : keypad.draw(ctx, m);
+        if (page == 0) { out = bands.draw(ctx, m); }
+        else if (page == 1) { out = spectrum.draw(ctx, m); }
+        else { out = keypad.draw(ctx, m); }
 
         // Escape closes from either page, so it is handled here rather than
         // twice.

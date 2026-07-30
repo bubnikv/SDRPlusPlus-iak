@@ -26,6 +26,17 @@ namespace bandplan {
             { "start", b.start },
             { "end", b.end },
         };
+        if (!b.bandId.empty()) { j["band_id"] = b.bandId; }
+        if (b.service != freq_input::BandService::Other) {
+            j["service"] = freq_input::bandServiceKey(b.service);
+        }
+        if (b.family != freq_input::BandFamily::Unknown) {
+            j["family"] = freq_input::bandFamilyKey(b.family);
+        }
+        if (b.entityKind != freq_input::LegacyEntityKind::Band) {
+            j["entity_kind"] =
+                freq_input::legacyEntityKindKey(b.entityKind);
+        }
         // Optional fields round-trip only when set, keeping untouched plans sparse.
         if (b.defFreq > 0.0) { j["def_freq"] = b.defFreq; }
         if (!b.defMode.empty()) { j["def_mode"] = b.defMode; }
@@ -37,6 +48,28 @@ namespace bandplan {
         j.at("type").get_to(b.type);
         j.at("start").get_to(b.start);
         j.at("end").get_to(b.end);
+        b.bandId = j.value("band_id", "");
+        const freq_input::LegacyBandClassification classification =
+            freq_input::classifyLegacyBand(
+                b.type,
+                b.name,
+                b.start,
+                b.end);
+        if (j.contains("service")) {
+            b.service = freq_input::bandServiceFromKey(
+                j.at("service").get<std::string>());
+        }
+        else {
+            b.service = classification.service;
+        }
+        b.family = j.contains("family")
+            ? freq_input::bandFamilyFromKey(
+                j.at("family").get<std::string>())
+            : classification.family;
+        b.entityKind = j.contains("entity_kind")
+            ? freq_input::legacyEntityKindFromKey(
+                j.at("entity_kind").get<std::string>())
+            : classification.entityKind;
         b.defFreq = j.value("def_freq", 0.0);
         b.defMode = j.value("def_mode", "");
         b.chan = j.value("chan", 0.0);
@@ -87,6 +120,20 @@ namespace bandplan {
         file.close();
 
         BandPlan_t plan = data.get<BandPlan_t>();
+        for (Band_t& band : plan.bands) {
+            if (!band.bandId.empty()) { continue; }
+            const freq_input::LegacyBandClassification classification{
+                band.service,
+                band.family,
+                band.entityKind
+            };
+            const freq_input::BandMapping* mapping =
+                freq_input::findLegacyBandMapping(
+                    classification,
+                    band.start,
+                    band.end);
+            if (mapping) { band.bandId = mapping->bandId; }
+        }
         if (bandplans.find(plan.name) != bandplans.end()) {
             flog::error("Duplicate band plan name ({0}), not loading.", plan.name);
             return;

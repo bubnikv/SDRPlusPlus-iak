@@ -114,20 +114,40 @@ def pick_candidate(kbands, svc, region, lo, hi):
 ENRICH_KEYS = ('def_freq', 'def_mode', 'chan')
 
 
-def heuristic_mode(btype, start, end):
-    """The band-type/frequency mode convention the application applies at
+def heuristic_mode(btype, name, start, end):
+    """The normalized service/family/frequency mode convention the application applies at
     runtime when a band has no def_mode. Used here only as a redundancy
     filter: a KiwiSDR mode equal to this convention is not written out.
     Keep in sync with the C++ implementation."""
+    lname = (name or '').lower()
     if btype in ('amateur', 'amateur1'):
         if end <= 600000: return 'CW'                      # 2200 m / 630 m
         if 5200000 <= start <= 5500000: return 'USB'       # 60 m channels
         if start < 10000000: return 'LSB'
         if start < 100000000: return 'USB'                 # 30 m .. 6 m/4 m
         return 'NFM'                                       # 2 m and up: repeaters
+    if btype in ('satellite', 'satellite1'):
+        return None
+    if any(token in lname for token in (
+            'lte', 'gsm', 'dcs-1800', 'dcs 1800', 'umts',
+            'cellular', 'mobile network', 'dect phone',
+            'wifi', 'wi-fi', '802.11', 'rlan',
+            'flood warning', 'weather balloon', 'weathersonde',
+            'weather sonde', 'radiosonde')):
+        return None
+    if lname in ('l-band', 's-band', 'c-band', 'x-band'):
+        return None
     if btype == 'broadcast':
+        if any(token in lname for token in ('noaa weather radio', 'weatheradio', 'weather radio')):
+            return 'NFM'
+        if ('television' in lname or 'dvb' in lname or
+                lname.startswith('tv ') or ' tv ' in lname or
+                'digital tv' in lname or 'uhf tv' in lname):
+            return None
         return 'WFM' if start >= 30000000 else 'AM'        # FM broadcast vs LW/MW/SW
     if btype in ('aviation', 'aircraft'):
+        if any(token in lname for token in ('ads-b', 'dme', 'tacan')):
+            return None
         return 'USB' if start < 30000000 else 'AM'         # HF aero vs VHF airband
     if btype in ('marine', 'marine1'):
         return 'USB' if start < 30000000 else 'NFM'
@@ -206,7 +226,8 @@ def enrich_file(path, kbands):
         freq, mode = parse_sel(kb['sel'])
         if freq is not None and band['start'] <= freq <= band['end']:
             fields['def_freq'] = freq
-        if mode is not None and mode != heuristic_mode(band.get('type'), band['start'], band['end']):
+        if mode is not None and mode != heuristic_mode(
+                band.get('type'), band.get('name'), band['start'], band['end']):
             fields['def_mode'] = mode
         if kb.get('chan'):
             fields['chan'] = int(kb['chan'] * 1e3)

@@ -1,5 +1,6 @@
 #pragma once
 #include <radio_interface.h>
+#include <string>
 #include <vector>
 
 namespace bandplan {
@@ -35,8 +36,14 @@ struct BandRegister {
 class BandStack {
 public:
     // Registers stored for a band, newest first, dropping any entry no longer
-    // inside the band's (possibly edited) edges. Empty for a band never visited.
+    // inside the band's (possibly edited) edges. Empty for a band never visited
+    // or one without a stable band ID.
     std::vector<BandRegister> registersFor(const bandplan::Band_t& band) const;
+
+    // Resolve the active stable band in the last selected service. Empty means
+    // stacking is disabled, no stable band contains the frequency, or the
+    // match is ambiguous.
+    std::string activeBandId(double frequency) const;
 
     // A tap on a band key: store the frequency and mode of the band being left,
     // then tune to this band's newest register -- or, on a first visit, to its
@@ -47,7 +54,10 @@ public:
     // register the user chose. `index` indexes registersFor(band).
     void recallRegister(const bandplan::Band_t& band, int index);
 
-    // Mode implied by a band's type and frequency, for bands whose plan entry
+    // Persist the current frequency and mode into the active stable band.
+    void commitCurrent();
+
+    // Mode implied by a band's service and frequency, for bands whose plan entry
     // carries no def_mode. Keep in sync with heuristic_mode() in
     // scripts/enrich_bandplans.py.
     static int heuristicMode(const bandplan::Band_t& band);

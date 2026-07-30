@@ -7,7 +7,7 @@ namespace bandplan {
     struct Band_t;
 }
 
-// The F-INP direct-entry dialog: a modal with two pages, BAND and F-INP, opened
+// The F-INP direct-entry dialog: a modal with BAND, SPECTRUM and F-INP pages, opened
 // by the top bar's keypad button or by a long press on a frequency digit.
 //
 // The digit widget in frequency_select.h owns one Dialog and hands it a Context
@@ -86,6 +86,18 @@ namespace freq_input {
         const bandplan::Band_t* regPopupBand = nullptr; // band whose registers the popup lists
     };
 
+    // SPECTRUM page: a service-independent, non-overlapping ITU/IEEE range
+    // selector. It tunes through Outcome and keeps its memory separate from the
+    // service-band stacking registers. See spectrum.cpp.
+    class Spectrum {
+    public:
+        void onOpen();
+        Outcome draw(const Context& ctx, const Metrics& m);
+
+    private:
+        std::string lastRangeId;
+    };
+
     // The modal shell: the page toggle, the last-used page, and the keys that
     // apply to both pages. See dialog.cpp.
     class Dialog {
@@ -99,8 +111,9 @@ namespace freq_input {
 
     private:
         bool requestOpen = false;
-        int page = 1; // 0 = BAND, 1 = F-INP
+        int page = 2; // 0 = BAND, 1 = SPECTRUM, 2 = F-INP
         Keypad keypad;
         Bands bands;
+        Spectrum spectrum;
     };
 }
