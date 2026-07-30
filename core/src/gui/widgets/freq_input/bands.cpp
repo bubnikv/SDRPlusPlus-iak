@@ -1,6 +1,8 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/bandplan.h>
+#include <gui/widgets/segmented_control.h>
 #include <gui/widgets/simple_widgets.h>
+#include <gui/widgets/toggle_style.h>
 #include <gui/band_stack.h>
 #include <gui/gui.h>
 #include <gui/style.h>
@@ -8,6 +10,7 @@
 #include <config.h>
 #include <core.h>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -72,17 +75,6 @@ namespace freq_input {
         return buf;
     }
 
-    // Centered AddText that shrinks the font size to fit maxWidth. bigFont only
-    // covers '.'-'9', so callers pass baseFont for any label containing letters.
-    static void centeredLabel(ImDrawList* dl, ImFont* font, float size, ImVec2 center, float maxWidth, ImU32 col, const char* text) {
-        ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
-        if (ts.x > maxWidth && ts.x > 0.0f) {
-            size *= maxWidth / ts.x;
-            ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
-        }
-        dl->AddText(font, size, ImVec2(center.x - ts.x / 2.0f, center.y - ts.y / 2.0f), col, text);
-    }
-
     void Bands::onOpen() {
         pressBand = -1;
         longPressDone = false;
@@ -133,30 +125,24 @@ namespace freq_input {
         // Category row: only non-empty buckets, plus All. A persisted category that
         // vanished (plan or tuning range changed) falls back to All for display.
         static const char* buckets[] = { "Ham", "Bcast", "Air", "Marine", "Util" };
-        bool present[5] = {};
-        for (const auto& e : avail) {
-            for (int i = 0; i < 5; i++) {
-                if (!strcmp(e.cat, buckets[i])) { present[i] = true; break; }
+        std::vector<const char*> cats;
+        for (int i = 0; i < 5; i++) {
+            for (const auto& e : avail) {
+                if (!strcmp(e.cat, buckets[i])) { cats.push_back(buckets[i]); break; }
             }
         }
-        std::string effective = "All";
-        for (int i = 0; i < 5; i++) {
-            if (present[i] && category == buckets[i]) { effective = category; }
+        cats.push_back("All");
+        int catIdx = (int)cats.size() - 1;
+        for (int i = 0; i < (int)cats.size() - 1; i++) {
+            if (category == cats[i]) { catIdx = i; }
         }
-        std::string newCategory;
-        for (int i = 0; i < 5; i++) {
-            if (!present[i]) { continue; }
-            if (segButton(buckets[i], effective == buckets[i], ImVec2(0, 0))) { newCategory = buckets[i]; }
-            ImGui::SameLine();
-        }
-        if (segButton("All", effective == "All", ImVec2(0, 0))) { newCategory = "All"; }
-        if (!newCategory.empty() && newCategory != category) {
-            category = newCategory;
-            effective = newCategory;
+        if (doSegmentedControl("##sdrpp_band_category", catIdx, cats.data(), (int)cats.size(), ImVec2(m.totalWidth, 0.0f))) {
+            category = cats[catIdx];
             core::configManager.acquire();
             core::configManager.conf["freqEntryCategory"] = category;
             core::configManager.release(true);
         }
+        const std::string effective = cats[catIdx];
         ImGui::Spacing();
 
         std::vector<const bandplan::Band_t*> shown;
@@ -170,13 +156,15 @@ namespace freq_input {
         // its popup ID won't match the BeginPopup below. The long-press detector
         // fires inside the child, so it only sets this flag.
         bool openRegPopup = false;
+        // One band key of the 4-column grid. Declared out here because the
+        // register popup sizes its rows off it too.
+        const float keyW = (m.totalWidth - 3.0f * sp.x) / 4.0f;
         if (shown.empty()) {
             ImGui::TextDisabled("No bands in the tuning range");
         }
         else {
             // 4-column grid of band keys in a child capped at ~4.5 rows; the half
             // row hints that the grid scrolls.
-            float keyW = (m.totalWidth - 3.0f * sp.x) / 4.0f;
             float keyH = style::dp(52.0f);
             int rows = ((int)shown.size() + 3) / 4;
             bool scrolls = rows > 4;
@@ -188,6 +176,9 @@ namespace freq_input {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImU32 mainCol = ImGui::GetColorU32(ImGuiCol_Text);
             ImU32 subCol = ImGui::GetColorU32(ImGuiCol_Text, 0.75f);
+            const style::SelectedToggleColors selCols = style::selectedToggleColors();
+            ImVec4 selSub = selCols.content;
+            selSub.w *= 0.75f;
             char id[32];
             for (int i = 0; i < (int)shown.size(); i++) {
                 const bandplan::Band_t& b = *shown[i];
@@ -195,13 +186,16 @@ namespace freq_input {
                 snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
                 const bool active =
                     !activeBandId.empty() && b.bandId == activeBandId;
-                if (active) {
-                    ImGui::PushStyleColor(
-                        ImGuiCol_Button,
-                        ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-                }
+                // The band holding the current frequency takes the shared
+                // latched look, not ImGuiCol_ButtonActive: that colour is what a
+                // button flashes while pressed, and several themes barely
+                // separate it from ImGuiCol_Button.
+                if (active) { style::pushSelectedToggle(selCols); }
                 bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
-                if (active) { ImGui::PopStyleColor(); }
+                if (active) {
+                    style::drawSelectedToggleStroke(selCols);
+                    style::popSelectedToggle();
+                }
                 // A quick tap recalls the newest register; a motionless hold opens
                 // the band's register list. Stepping waits for release so the two
                 // can't both fire (same idiom as the digit long-press).
@@ -240,13 +234,15 @@ namespace freq_input {
                 std::string main = mhzLabel(b.start);
                 std::string sub = wavelengthToken(b.name);
                 if (sub.empty() && strcmp(bandCategory(b.service), "Ham")) { sub = b.name; }
+                const ImU32 keyMain = active ? ImGui::GetColorU32(selCols.content) : mainCol;
+                const ImU32 keySub = active ? ImGui::GetColorU32(selSub) : subCol;
                 dl->PushClipRect(bmin, bmax, true);
                 if (sub.empty()) {
-                    centeredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, mainCol, main.c_str());
+                    drawCenteredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, keyMain, main.c_str());
                 }
                 else {
-                    centeredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, mainCol, main.c_str());
-                    centeredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(cx, bmin.y + keyH * 0.76f), maxW, subCol, sub.c_str());
+                    drawCenteredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, keyMain, main.c_str());
+                    drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(cx, bmin.y + keyH * 0.76f), maxW, keySub, sub.c_str());
                 }
                 dl->PopClipRect();
             }
@@ -264,11 +260,46 @@ namespace freq_input {
                 if (regs.empty()) {
                     ImGui::TextDisabled("No stored registers");
                 }
-                char lbl[64];
+                // Rows sized off the band grid rather than a bare dp() constant:
+                // three keys wide, so the list reads as belonging to the key it
+                // was opened from, and tall enough to be the same touch target.
+                const ImVec2 rowSz(3.0f * keyW + 2.0f * sp.x, style::dp(40.0f));
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                const style::SelectedToggleColors regCols = style::selectedToggleColors();
+                char id[24];
+                char num[8];
                 for (int k = 0; k < (int)regs.size(); k++) {
-                    snprintf(lbl, sizeof(lbl), "%d:  %s MHz  %s##sdrpp_reg_%d",
-                             k + 1, mhzExact(regs[k].freq).c_str(), radioModeName(regs[k].mode), k);
-                    if (ImGui::Button(lbl, ImVec2(style::dp(150.0f), 0))) {
+                    // The register the radio is sitting on right now, marked the
+                    // way the band key that owns it is.
+                    const bool current =
+                        std::llround(regs[k].freq) == (long long)ctx.frequency;
+                    snprintf(id, sizeof(id), "##sdrpp_reg_%d", k);
+                    if (current) { style::pushSelectedToggle(regCols); }
+                    const bool pick = ImGui::Button(id, rowSz);
+                    if (current) {
+                        style::drawSelectedToggleStroke(regCols);
+                        style::popSelectedToggle();
+                    }
+
+                    const ImVec2 rmin = ImGui::GetItemRectMin();
+                    const ImVec2 rmax = ImGui::GetItemRectMax();
+                    const float cy = (rmin.y + rmax.y) / 2.0f;
+                    ImVec4 dimVec = current ? regCols.content : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                    const ImU32 col = ImGui::GetColorU32(dimVec);
+                    dimVec.w *= 0.70f;
+                    const ImU32 dim = ImGui::GetColorU32(dimVec);
+                    snprintf(num, sizeof(num), "%d", k + 1);
+                    // Fixed column anchors: the slot, the frequency, its unit and
+                    // the mode line up down the list instead of each row running
+                    // together as one left-aligned string of its own length.
+                    dl->PushClipRect(rmin, rmax, true);
+                    drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(rmin.x + rowSz.x * 0.08f, cy), rowSz.x * 0.12f, dim, num);
+                    drawCenteredLabel(dl, style::bigFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, mhzExact(regs[k].freq).c_str());
+                    drawCenteredLabel(dl, style::baseFont, style::dp(11.0f), ImVec2(rmin.x + rowSz.x * 0.71f, cy), rowSz.x * 0.14f, dim, "MHz");
+                    drawCenteredLabel(dl, style::baseFont, style::dp(13.0f), ImVec2(rmin.x + rowSz.x * 0.89f, cy), rowSz.x * 0.18f, col, radioModeName(regs[k].mode));
+                    dl->PopClipRect();
+
+                    if (pick) {
                         gui::bandStack.recallRegister(b, k);
                         out.close = true;
                         ImGui::CloseCurrentPopup();

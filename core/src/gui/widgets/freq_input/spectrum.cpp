@@ -1,6 +1,6 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/freq_input/spectrum_ranges.h>
-#include <gui/widgets/simple_widgets.h>
+#include <gui/widgets/toggle_style.h>
 #include <gui/style.h>
 #include <config.h>
 #include <core.h>
@@ -177,6 +177,8 @@ namespace freq_input {
                 "##sdrpp_spectrum_grid",
                 ImVec2(childWidth, gridHeight),
                 false);
+            const style::SelectedToggleColors selectedColors =
+                style::selectedToggleColors();
             for (int i = 0; i < static_cast<int>(ranges.size()); i++) {
                 const AvailableSpectrumRange& available = ranges[i];
                 const SpectrumRange& range = *available.range;
@@ -193,17 +195,19 @@ namespace freq_input {
                 label += "##sdrpp_spectrum_";
                 label += range.rangeId;
 
-                if (active == &range) {
-                    ImGui::PushStyleColor(
-                        ImGuiCol_Button,
-                        ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-                }
+                // The range holding the current frequency takes the shared
+                // latched look, not ImGuiCol_ButtonActive: that colour is what a
+                // button flashes while pressed, and several themes barely
+                // separate it from ImGuiCol_Button.
+                const bool isActive = (active == &range);
+                if (isActive) { style::pushSelectedToggle(selectedColors); }
                 const bool selected =
                     ImGui::Button(
                         label.c_str(),
                         ImVec2(keyWidth, keyHeight));
-                if (active == &range) {
-                    ImGui::PopStyleColor();
+                if (isActive) {
+                    style::drawSelectedToggleStroke(selectedColors);
+                    style::popSelectedToggle();
                 }
 
                 if (ImGui::IsItemHovered()) {

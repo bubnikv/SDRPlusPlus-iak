@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cfloat>
 #include <cstdarg>
 #include <cstdio>
 #include <imgui.h>
@@ -36,12 +37,20 @@ inline void doOverlayText(const char* fmt, ...) {
     ImGui::TextUnformatted(buf);
 }
 
-// Segmented-control button: the selected segment is drawn pressed.
-inline bool segButton(const char* label, bool selected, ImVec2 size) {
-    if (selected) { ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)); }
-    bool clicked = ImGui::Button(label, size);
-    if (selected) { ImGui::PopStyleColor(); }
-    return clicked;
+// Centered AddText that shrinks the font size to fit maxWidth, for labels drawn
+// onto a key or a segment whose width is fixed by the grid rather than by the
+// text. `size` is a starting point, not a floor: a label too wide for its key
+// comes out smaller rather than clipped or truncated.
+//
+// The font is explicit because style::bigFont only covers '.'-'9' -- callers
+// pass style::baseFont for any label containing letters.
+inline void drawCenteredLabel(ImDrawList* dl, ImFont* font, float size, ImVec2 center, float maxWidth, ImU32 col, const char* text) {
+    ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+    if (ts.x > maxWidth && ts.x > 0.0f) {
+        size *= maxWidth / ts.x;
+        ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+    }
+    dl->AddText(font, size, ImVec2(center.x - ts.x / 2.0f, center.y - ts.y / 2.0f), col, text);
 }
 
 // Bump the button color alpha so labels stay legible when buttons sit on

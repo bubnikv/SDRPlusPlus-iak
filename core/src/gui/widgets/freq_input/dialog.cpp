@@ -1,6 +1,6 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/popup_dialog.h>
-#include <gui/widgets/simple_widgets.h>
+#include <gui/widgets/segmented_control.h>
 #include <gui/style.h>
 #include <config.h>
 #include <core.h>
@@ -42,18 +42,9 @@ namespace freq_input {
         Metrics m = Metrics::compute();
 
         // Page toggle, sized to the keypad grid width so the popup width matches
-        // on both pages.
-        float thirdWidth =
-            (m.totalWidth - 2.0f * ImGui::GetStyle().ItemSpacing.x) / 3.0f;
-        ImVec2 toggleSz(thirdWidth, style::dp(34.0f));
-        int newPage = page;
-        if (segButton("BAND##sdrpp_finp_page", page == 0, toggleSz)) { newPage = 0; }
-        ImGui::SameLine();
-        if (segButton("SPECTRUM##sdrpp_finp_page", page == 1, toggleSz)) { newPage = 1; }
-        ImGui::SameLine();
-        if (segButton("F-INP##sdrpp_finp_page", page == 2, toggleSz)) { newPage = 2; }
-        if (newPage != page) {
-            page = newPage;
+        // on every page. `page` is the segment index by construction.
+        static const char* pageLabels[] = { "BAND", "SPECTRUM", "F-INP" };
+        if (doSegmentedControl("##sdrpp_finp_page", page, pageLabels, 3, ImVec2(m.totalWidth, style::dp(34.0f)))) {
             core::configManager.acquire();
             core::configManager.conf["freqEntryPage"] =
                 (page == 0) ? "band" :
