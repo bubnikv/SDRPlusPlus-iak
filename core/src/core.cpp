@@ -83,7 +83,7 @@ namespace core {
     std::string getModulesDirectory() {
 #if defined(__linux__) && defined(BUILD_APPIMAGE)
         if (const char* appdir = getenv("APPDIR")) {
-            return std::string(appdir) + "/usr/lib/sdrpp-iak/plugins";
+            return std::string(appdir) + "/usr/lib/sdrpp-jp/plugins";
         }
 #endif
         return resolveConfigPath(core::configManager.conf["modulesDirectory"]);
@@ -92,7 +92,7 @@ namespace core {
     std::string getResourcesDirectory() {
 #if defined(__linux__) && defined(BUILD_APPIMAGE)
         if (const char* appdir = getenv("APPDIR")) {
-            return std::string(appdir) + "/usr/share/sdrpp-iak";
+            return std::string(appdir) + "/usr/share/sdrpp-jp";
         }
 #endif
         return resolveConfigPath(core::configManager.conf["resourcesDirectory"]);
@@ -107,7 +107,7 @@ int sdrpp_main(int argc, char* argv[]) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
-    flog::info("SDR++ iak v" VERSION_STR);
+    flog::info("SDR++ jp v" VERSION_STR);
 
     // Define command line options and parse arguments
     core::args.defineAll();
@@ -339,8 +339,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["resourcesDirectory"] = root + "/res";
 #else
     // Linux, BSD, etc.
-    defConfig["modulesDirectory"] = INSTALL_PREFIX "/lib/sdrpp-iak/plugins";
-    defConfig["resourcesDirectory"] = INSTALL_PREFIX "/share/sdrpp-iak";
+    defConfig["modulesDirectory"] = INSTALL_PREFIX "/lib/sdrpp-jp/plugins";
+    defConfig["resourcesDirectory"] = INSTALL_PREFIX "/share/sdrpp-jp";
 #endif
 
     // Load config
