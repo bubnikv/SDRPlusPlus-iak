@@ -97,7 +97,7 @@ namespace backend {
 
         // Create window with graphics context
         monitor = glfwGetPrimaryMonitor();
-        window = glfwCreateWindow(winWidth, winHeight, "SDR++ iak v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
+        window = glfwCreateWindow(winWidth, winHeight, "SDR++ jp v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
         if (window == NULL)
             return 1;
         glfwMakeContextCurrent(window);
@@ -110,12 +110,12 @@ namespace backend {
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, OPENGL_VERSIONS_MAJOR[i]);
             glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, OPENGL_VERSIONS_MINOR[i]);
     #if GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 4)
-            glfwWindowHintString(GLFW_WAYLAND_APP_ID, "sdrpp-iak");
+            glfwWindowHintString(GLFW_WAYLAND_APP_ID, "sdrpp-jp");
     #endif
             
             // Create window with graphics context
             monitor = glfwGetPrimaryMonitor();
-            window = glfwCreateWindow(winWidth, winHeight, "SDR++ iak v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
+            window = glfwCreateWindow(winWidth, winHeight, "SDR++ jp v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
             if (window == NULL) {
                 flog::info("OpenGL {0}.{1} {2}was not supported", OPENGL_VERSIONS_MAJOR[i], OPENGL_VERSIONS_MINOR[i], OPENGL_VERSIONS_IS_ES[i] ? "ES " : "");
                 continue;
