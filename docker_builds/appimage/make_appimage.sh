@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build a portable SDR++ iak AppImage.
+# Build a portable SDR++ jp AppImage.
 # Run inside the docker_builds/appimage Dockerfile. Source tree must be
 # bind-mounted at /root/SDRPlusPlus.
-# Output: /root/sdrpp-iak-<arch>.AppImage
+# Output: /root/sdrpp-jp-<arch>.AppImage
 set -euo pipefail
 
 SRC_DIR="${SRC_DIR:-/root/SDRPlusPlus}"
 ARCH="$(uname -m)"
-APP_NAME="sdrpp-iak"
+APP_NAME="sdrpp-jp"
 APPDIR="/AppDir"
 # The ci-appimage preset is authoritative for the deps setup: it pins
 # SDRPP_DEPS_PRESET=appimage and SDRPP_DEPS_BUILD_DIR=deps/build-appimage
@@ -60,7 +60,7 @@ make install DESTDIR="${APPDIR}"
 # to the standard usr/share/... locations.
 cp "${APPDIR}/usr/share/${APP_NAME}/icons/sdrpp.png" "${APPDIR}/${APP_NAME}.png"
 
-# CMake-generated desktop file points at /usr/bin/sdrpp-iak. AppImages need
+# CMake-generated desktop file points at /usr/bin/sdrpp-jp. AppImages need
 # Exec= to be a bare binary name and Icon= to be a basename (no extension).
 DESKTOP_SRC="${APPDIR}/usr/share/applications/${APP_NAME}.desktop"
 DESKTOP_DST="${APPDIR}/${APP_NAME}.desktop"
@@ -107,7 +107,7 @@ linuxdeploy \
 # diagnostic when host-provided libglfw3 is missing — otherwise the user
 # just sees the dynamic loader's "libglfw.so.3: cannot open shared object".
 # ---------------------------------------------------------------------------
-# linuxdeploy may create AppRun as a symlink to usr/bin/sdrpp-iak. Remove it
+# linuxdeploy may create AppRun as a symlink to usr/bin/sdrpp-jp. Remove it
 # first so the here-doc below creates a new launcher instead of overwriting
 # the real app binary through that symlink.
 rm -f "${APPDIR}/AppRun"
@@ -131,7 +131,7 @@ if ! have_glfw; then
     cat >&2 <<'MSG'
 ERROR: libglfw3 is not installed on this system.
 
-SDR++ iak relies on the host's libglfw3 because GLFW links against your
+SDR++ jp relies on the host's libglfw3 because GLFW links against your
 system's OpenGL and X11 stack — bundling it inside the AppImage would
 break GPU drivers. Install it with:
 
@@ -147,7 +147,7 @@ fi
 
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 export PATH="${HERE}/usr/bin:${PATH}"
-exec "${HERE}/usr/bin/sdrpp-iak" "$@"
+exec "${HERE}/usr/bin/sdrpp-jp" "$@"
 APPRUN_EOF
 chmod +x "${APPDIR}/AppRun"
 

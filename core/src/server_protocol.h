@@ -8,17 +8,17 @@
 
 namespace server {
     // inline (not static): the helpers below odr-use these from a header.
-    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x494B5053; // "SPKI": SDR++ iak
+    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x494B5053; // "SPKI": SDR++ jp
     inline constexpr uint16_t SERVER_PROTOCOL_MAJOR = 1;
     inline constexpr uint16_t SERVER_PROTOCOL_MINOR = 0;
     inline constexpr uint32_t SERVER_PROTOCOL_CAP_HEARTBEAT = 1u << 0;
     inline constexpr uint32_t SERVER_PROTOCOL_CAP_AUTH = 1u << 1;
     inline constexpr int SERVER_PROTOCOL_FORK_ID_SIZE = 32;
-    inline constexpr char SERVER_PROTOCOL_FORK_ID[] = "sdrpp-iak";
+    inline constexpr char SERVER_PROTOCOL_FORK_ID[] = "sdrpp-jp";
     inline constexpr int SERVER_AUTH_CHALLENGE_SIZE = 32;
     inline constexpr int SERVER_AUTH_RESPONSE_SIZE = 32;
     inline constexpr uint32_t SERVER_AUTH_PBKDF2_ITERATIONS = 20000;
-    inline constexpr char SERVER_AUTH_SALT[] = "sdrpp-iak-server-auth-v1";
+    inline constexpr char SERVER_AUTH_SALT[] = "sdrpp-jp-server-auth-v1";
 
     enum PacketType {
         // Client to Server

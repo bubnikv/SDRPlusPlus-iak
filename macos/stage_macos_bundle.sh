@@ -20,7 +20,7 @@ bundle_create_icns "$REPO_ROOT/root/res/icons/sdrpp.macos.png" "$BUNDLE/Contents
 eval "$("$REPO_ROOT/scripts/get_version.sh" "$REPO_ROOT")"
 APP_VERSION="$VERSION"
 
-bundle_create_plist sdrpp-iak "SDR++ iak" org.ok1iak.sdrpp "$APP_VERSION" sdri sdrpp-iak sdrpp "$BUNDLE/Contents/Info.plist"
+bundle_create_plist sdrpp-jp "SDR++ jp" org.jp.sdrpp "$APP_VERSION" sdri sdrpp-jp sdrpp "$BUNDLE/Contents/Info.plist"
 
 bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/MacOS" "$MAIN_EXEC"
 bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/Frameworks" "$CORE_DYLIB"

@@ -65,7 +65,7 @@ jobs:
             #   - core curl/HTTP wrappers and curl-using modules
             #   - the icon resource (referenced by the desktop file)
             if git diff --name-only "$BASE...HEAD" | \
-              grep -qE '^(docker_builds/appimage/|deps/|\.github/workflows/build_appimage\.yml|\.github/workflows/build_all\.yml|sdrpp-iak\.desktop|CMakeLists\.txt|CMakePresets\.json|core/CMakeLists\.txt|sdrpp_module\.cmake|cmake/sdrpp_collect_required_deps\.cmake|cmake/sdrpp_dep_list_helpers\.cmake|cmake/sdrpp_find_dep\.cmake|core/src/core\.cpp|core/src/command_args\.cpp|core/src/utils/curl_init\.(cpp|h)|core/src/utils/proto/curl_http\.(cpp|h)|misc_modules/spots/|root/res/icons/)'; then
+              grep -qE '^(docker_builds/appimage/|deps/|\.github/workflows/build_appimage\.yml|\.github/workflows/build_all\.yml|sdrpp-jp\.desktop|CMakeLists\.txt|CMakePresets\.json|core/CMakeLists\.txt|sdrpp_module\.cmake|cmake/sdrpp_collect_required_deps\.cmake|cmake/sdrpp_dep_list_helpers\.cmake|cmake/sdrpp_find_dep\.cmake|core/src/core\.cpp|core/src/command_args\.cpp|core/src/utils/curl_init\.(cpp|h)|core/src/utils/proto/curl_http\.(cpp|h)|misc_modules/spots/|root/res/icons/)'; then
               echo "appimage=true" >> $GITHUB_OUTPUT
             else
               echo "appimage=false" >> $GITHUB_OUTPUT
@@ -144,13 +144,13 @@ jobs:
         # so the file inside the artifact already has its final published name.
         - name: Rename Archive
           working-directory: ${{runner.workspace}}
-          run: Move-Item sdrpp_windows_${{ matrix.arch }}.zip sdrpp-iak-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}.zip
+          run: Move-Item sdrpp_windows_${{ matrix.arch }}.zip sdrpp-jp-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}.zip
 
         - name: Save Archive
           uses: actions/upload-artifact@v6
           with:
-              name: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}
-              path: ${{runner.workspace}}/sdrpp-iak-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}.zip
+              name: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}
+              path: ${{runner.workspace}}/sdrpp-jp-${{ needs.prepare.outputs.version_full }}-windows-${{ matrix.arch }}.zip
 
     build_macos:
         strategy:
@@ -167,7 +167,7 @@ jobs:
         uses: ./.github/workflows/build_macos.yml
         with:
             runner: ${{ matrix.runner }}
-            artifact: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact_suffix }}
+            artifact: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact_suffix }}
             preset: ${{ matrix.preset }}
 
     build_linux:
@@ -278,7 +278,7 @@ jobs:
         with:
             base_image: ${{ matrix.base_image }}
             runner: ${{ matrix.runner }}
-            artifact: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact }}
+            artifact: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact }}
             volk_package: ${{ matrix.volk_package }}
             extra_apt: ${{ matrix.extra_apt }}
             curl_source: ${{ matrix.curl_source }}
@@ -301,7 +301,7 @@ jobs:
         with:
             runner: ${{ matrix.runner }}
             arch: ${{ matrix.arch }}
-            artifact: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact_suffix }}
+            artifact: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-${{ matrix.artifact_suffix }}
             version_full: ${{ needs.prepare.outputs.version_full }}
 
     build_android:
@@ -341,7 +341,7 @@ jobs:
         - uses: actions/checkout@v5
 
         # Every build job names its output file after its own artifact name
-        # (sdrpp-iak-${VER}-<suffix>.<ext>), so merging them by pattern needs
+        # (sdrpp-jp-${VER}-<suffix>.<ext>), so merging them by pattern needs
         # no per-artifact rename table here — new matrix entries just flow
         # through. Optional artifacts (AppImages, signed release APKs) simply
         # aren't present when skipped; nothing to guard.
@@ -355,11 +355,11 @@ jobs:
         - name: Add source archive
           env:
             VER: ${{ needs.prepare.outputs.version_full }}
-          run: git archive --format=tar.gz --prefix=sdrpp-iak-${VER}/ HEAD -o sdrpp_all/sdrpp-iak-${VER}-source.tar.gz
+          run: git archive --format=tar.gz --prefix=sdrpp-jp-${VER}/ HEAD -o sdrpp_all/sdrpp-jp-${VER}-source.tar.gz
 
         - uses: actions/upload-artifact@v6
           with:
-            name: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-all
+            name: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-all
             path: sdrpp_all/
 
     update_nightly_release:
@@ -376,8 +376,8 @@ jobs:
         - name: Download All Builds
           uses: actions/download-artifact@v7
           with:
-            name: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-all
-            path: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-all
+            name: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-all
+            path: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-all
 
         - name: Create or Update Nightly Release
           env:
@@ -395,13 +395,13 @@ jobs:
 
             # Remove assets from the previous build that are no longer produced
             gh release view nightly -R ${{github.repository}} --json assets --jq '.assets[].name' | while read -r asset; do
-              if [ -n "$asset" ] && [ ! -f "sdrpp-iak-${VER}-all/$asset" ]; then
+              if [ -n "$asset" ] && [ ! -f "sdrpp-jp-${VER}-all/$asset" ]; then
                 gh release delete-asset nightly "$asset" -R ${{github.repository}} --yes
               fi
             done
 
             # Upload artifacts (--clobber overwrites existing files with the same name)
-            gh release upload nightly sdrpp-iak-${VER}-all/* -R ${{github.repository}} --clobber
+            gh release upload nightly sdrpp-jp-${VER}-all/* -R ${{github.repository}} --clobber
 
     create_release:
         needs: [prepare, create_full_archive]
@@ -417,8 +417,8 @@ jobs:
         - name: Download All Builds
           uses: actions/download-artifact@v7
           with:
-            name: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-all
-            path: sdrpp-iak-${{ needs.prepare.outputs.version_full }}-all
+            name: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-all
+            path: sdrpp-jp-${{ needs.prepare.outputs.version_full }}-all
 
         - name: Publish GitHub Release
           env:
@@ -431,8 +431,8 @@ jobs:
               PRERELEASE_FLAG="--prerelease"
             fi
             gh release create "${{ github.ref_name }}" \
-              sdrpp-iak-${VER}-all/* \
-              --title "SDR++ iak ${{ github.ref_name }}" \
+              sdrpp-jp-${VER}-all/* \
+              --title "SDR++ jp ${{ github.ref_name }}" \
               --generate-notes \
               $PRERELEASE_FLAG \
               --repo ${{ github.repository }}

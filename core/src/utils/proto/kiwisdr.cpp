@@ -52,7 +52,7 @@ void KiwiSDRClient::init(const std::string& hostport) {
         wsClient.sendString("SET auth t=kiwi p=#");
         wsClient.sendString("SET AR OK in=" + std::to_string(IQDATA_FREQUENCY) + " out=48000");
         //            x.sendString("SET mod=am low_cut=-4900 high_cut=4900 freq=119604.33");
-        wsClient.sendString("SERVER DE CLIENT sdr++iak SND");
+        wsClient.sendString("SERVER DE CLIENT sdr++jp SND");
         wsClient.sendString("SET compression=0");
         sendAgcLine();
         connected = true;
