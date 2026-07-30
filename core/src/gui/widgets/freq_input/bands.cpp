@@ -9,10 +9,13 @@
 #include <backend.h>
 #include <config.h>
 #include <core.h>
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 #ifdef __ANDROID__
 #include <android_backend.h>
@@ -29,6 +32,193 @@ namespace freq_input {
         if (service == BandService::Aviation) { return "Air"; }
         if (service == BandService::Maritime) { return "Marine"; }
         return "Util";
+    }
+
+    struct CanonicalBandEntry {
+        bandplan::Band_t band;
+        std::vector<const bandplan::Band_t*> segments;
+        bool available = false;
+    };
+
+    static bool overlapsTuningRange(
+        const bandplan::Band_t& band,
+        const Context& ctx)
+    {
+        if (band.start > band.end) { return false; }
+        if (!ctx.limited) { return true; }
+        return band.end >= (double)ctx.rangeLo() &&
+            band.start <= (double)ctx.rangeHi();
+    }
+
+    static bool frequencyIsTunable(double frequency, const Context& ctx) {
+        return !ctx.limited ||
+            (frequency >= (double)ctx.rangeLo() &&
+             frequency <= (double)ctx.rangeHi());
+    }
+
+    static const freq_input::BandMapping* canonicalMappingFor(
+        const bandplan::Band_t& band)
+    {
+        if (band.bandId.empty()) { return nullptr; }
+        std::size_t count = 0;
+        const freq_input::BandMapping* mappings =
+            freq_input::bandMappings(band.service, count);
+        for (std::size_t i = 0; i < count; i++) {
+            if (mappings[i].bandId == band.bandId) { return &mappings[i]; }
+        }
+        return nullptr;
+    }
+
+    static const bandplan::Band_t* segmentContaining(
+        const CanonicalBandEntry& entry,
+        double frequency,
+        const Context& ctx)
+    {
+        if (!frequencyIsTunable(frequency, ctx)) { return nullptr; }
+        for (const bandplan::Band_t* segment : entry.segments) {
+            if (segment && segment->start <= frequency &&
+                frequency <= segment->end)
+            {
+                return segment;
+            }
+        }
+        return nullptr;
+    }
+
+    // A canonical Band can be represented by many adjacent or disjoint legacy
+    // rows. Pick a deterministic first-visit frequency inside their union.
+    // Identity probes are deliberately not tuning defaults.
+    static void chooseCanonicalDefaults(
+        CanonicalBandEntry& entry,
+        const Context& ctx)
+    {
+        entry.band.defFreq = 0.0;
+        entry.band.defMode.clear();
+        entry.band.chan = 0.0;
+
+        const bandplan::Band_t* targetSegment = nullptr;
+        double targetFrequency = 0.0;
+
+        for (const bandplan::Band_t* segment : entry.segments) {
+            if (!segment || segment->defFreq <= 0.0) { continue; }
+            if (segment->defFreq < segment->start ||
+                segment->defFreq > segment->end ||
+                !frequencyIsTunable(segment->defFreq, ctx))
+            {
+                continue;
+            }
+            targetSegment = segment;
+            targetFrequency = segment->defFreq;
+            break;
+        }
+
+        if (!targetSegment) {
+            const double center = (entry.band.start + entry.band.end) / 2.0;
+            targetSegment = segmentContaining(entry, center, ctx);
+            if (targetSegment) { targetFrequency = center; }
+        }
+
+        if (!targetSegment) {
+            double bestWidth = -1.0;
+            for (const bandplan::Band_t* segment : entry.segments) {
+                if (!segment || segment->start > segment->end) { continue; }
+                double lo = segment->start;
+                double hi = segment->end;
+                if (ctx.limited) {
+                    lo = std::max(lo, (double)ctx.rangeLo());
+                    hi = std::min(hi, (double)ctx.rangeHi());
+                }
+                if (lo > hi || (hi - lo) <= bestWidth) { continue; }
+                bestWidth = hi - lo;
+                targetSegment = segment;
+                targetFrequency = (lo + hi) / 2.0;
+            }
+        }
+
+        if (!targetSegment || targetFrequency <= 0.0) { return; }
+        double rounded = std::round(targetFrequency / 1000.0) * 1000.0;
+        if (rounded >= targetSegment->start &&
+            rounded <= targetSegment->end &&
+            frequencyIsTunable(rounded, ctx))
+        {
+            targetFrequency = rounded;
+        }
+        entry.band.defFreq = targetFrequency;
+        entry.band.defMode = targetSegment->defMode;
+        entry.band.chan = targetSegment->chan;
+    }
+
+    static std::vector<CanonicalBandEntry> canonicalBandEntries(
+        const bandplan::BandPlan_t& plan,
+        const Context& ctx)
+    {
+        std::vector<CanonicalBandEntry> entries;
+        std::unordered_map<std::string, std::size_t> byBandId;
+
+        for (const auto& source : plan.bands) {
+            if (source.entityKind != freq_input::LegacyEntityKind::Band &&
+                source.entityKind != freq_input::LegacyEntityKind::Segment)
+            {
+                continue;
+            }
+
+            // Keep the current behavior for rows which have no stable identity.
+            // A later step will make their non-stacking state explicit.
+            if (source.bandId.empty()) {
+                if (!overlapsTuningRange(source, ctx)) { continue; }
+                CanonicalBandEntry entry;
+                entry.band = source;
+                entry.segments.push_back(&source);
+                entry.available = true;
+                entries.push_back(std::move(entry));
+                continue;
+            }
+
+            auto found = byBandId.find(source.bandId);
+            if (found == byBandId.end()) {
+                CanonicalBandEntry entry;
+                entry.band = source;
+                entry.band.entityKind = freq_input::LegacyEntityKind::Band;
+                entry.band.defFreq = 0.0;
+                entry.band.defMode.clear();
+                entry.band.chan = 0.0;
+                if (const freq_input::BandMapping* mapping =
+                        canonicalMappingFor(source))
+                {
+                    entry.band.name = std::string(mapping->name);
+                    entry.band.service = mapping->service;
+                    entry.band.family = mapping->family;
+                }
+                entries.push_back(std::move(entry));
+                const std::size_t index = entries.size() - 1;
+                byBandId.emplace(source.bandId, index);
+                found = byBandId.find(source.bandId);
+            }
+
+            CanonicalBandEntry& entry = entries[found->second];
+            if (entry.segments.empty()) {
+                entry.band.start = source.start;
+                entry.band.end = source.end;
+            }
+            else {
+                entry.band.start = std::min(entry.band.start, source.start);
+                entry.band.end = std::max(entry.band.end, source.end);
+            }
+            entry.segments.push_back(&source);
+            entry.available =
+                entry.available || overlapsTuningRange(source, ctx);
+        }
+
+        std::vector<CanonicalBandEntry> available;
+        available.reserve(entries.size());
+        for (CanonicalBandEntry& entry : entries) {
+            if (!entry.available) { continue; }
+            if (!entry.band.bandId.empty()) {
+                chooseCanonicalDefaults(entry, ctx);
+            }
+            available.push_back(std::move(entry));
+        }
+        return available;
     }
 
     // Frequency in MHz, trailing zeros trimmed: 14025000 -> "14.025".
@@ -78,7 +268,7 @@ namespace freq_input {
     void Bands::onOpen() {
         pressBand = -1;
         longPressDone = false;
-        regPopupBand = nullptr;
+        regPopupBandId.clear();
         core::configManager.acquire();
         const freq_input::BandService activeService =
             freq_input::bandServiceFromKey(
@@ -105,22 +295,10 @@ namespace freq_input {
             return out;
         }
 
-        // Bands within the source tuning range (minFreq/maxFreq are display-domain,
-        // same as the band plan), tagged with their category bucket.
-        struct BandEntry {
-            const bandplan::Band_t* band;
-            const char* cat;
-        };
-        std::vector<BandEntry> avail;
-        for (const auto& b : plan->bands) {
-            if (b.entityKind != freq_input::LegacyEntityKind::Band &&
-                b.entityKind != freq_input::LegacyEntityKind::Segment)
-            {
-                continue;
-            }
-            if (ctx.limited && (b.end < (double)ctx.minFreq || b.start > (double)ctx.maxFreq)) { continue; }
-            avail.push_back({ &b, bandCategory(b.service) });
-        }
+        // One picker key per stable band ID. The source plan rows remain intact
+        // and continue to provide the range union used by BandStack.
+        std::vector<CanonicalBandEntry> avail =
+            canonicalBandEntries(*plan, ctx);
 
         // Category row: only non-empty buckets, plus All. A persisted category that
         // vanished (plan or tuning range changed) falls back to All for display.
@@ -128,7 +306,10 @@ namespace freq_input {
         std::vector<const char*> cats;
         for (int i = 0; i < 5; i++) {
             for (const auto& e : avail) {
-                if (!strcmp(e.cat, buckets[i])) { cats.push_back(buckets[i]); break; }
+                if (!strcmp(bandCategory(e.band.service), buckets[i])) {
+                    cats.push_back(buckets[i]);
+                    break;
+                }
             }
         }
         cats.push_back("All");
@@ -147,7 +328,11 @@ namespace freq_input {
 
         std::vector<const bandplan::Band_t*> shown;
         for (const auto& e : avail) {
-            if (effective == "All" || effective == e.cat) { shown.push_back(e.band); }
+            if (effective == "All" ||
+                effective == bandCategory(e.band.service))
+            {
+                shown.push_back(&e.band);
+            }
         }
         const std::string activeBandId =
             gui::bandStack.activeBandId((double)ctx.frequency);
@@ -209,7 +394,7 @@ namespace freq_input {
                     float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
                     if ((dx * dx) + (dy * dy) <= (slop * slop) && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
                         longPressDone = true;
-                        regPopupBand = &b;
+                        regPopupBandId = b.bandId;
                         openRegPopup = true;
 #ifdef __ANDROID__
                         backend::hapticTick();
@@ -253,6 +438,15 @@ namespace freq_input {
         // 1 second to display the Band Stacking Register contents).
         if (openRegPopup) { ImGui::OpenPopup("##sdrpp_band_registers"); }
         if (ImGui::BeginPopup("##sdrpp_band_registers")) {
+            const bandplan::Band_t* regPopupBand = nullptr;
+            for (const CanonicalBandEntry& entry : avail) {
+                if (!regPopupBandId.empty() &&
+                    entry.band.bandId == regPopupBandId)
+                {
+                    regPopupBand = &entry.band;
+                    break;
+                }
+            }
             if (regPopupBand) {
                 const bandplan::Band_t& b = *regPopupBand;
                 ImGui::TextDisabled("%s", b.name.c_str());

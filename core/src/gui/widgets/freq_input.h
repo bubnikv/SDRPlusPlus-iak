@@ -83,7 +83,9 @@ namespace freq_input {
         // "touch the band key for 1 second").
         int pressBand = -1;  // index into the shown[] grid, -1 = none
         bool longPressDone = false;
-        const bandplan::Band_t* regPopupBand = nullptr; // band whose registers the popup lists
+        // Stable ID rather than a pointer into the selected plan or the
+        // per-frame canonical projection.
+        std::string regPopupBandId;
     };
 
     // SPECTRUM page: a service-independent, non-overlapping ITU/IEEE range
