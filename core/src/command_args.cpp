@@ -9,15 +9,15 @@ void CommandArgsParser::defineAll() {
         std::string root = core::getExecutableDirectory().string();
         define('c', "con", "Show console on Windows");
 #elif defined(IS_MACOS_BUNDLE)
-        std::string root = (std::string)getenv("HOME") + "/Library/Application Support/sdrpp-iak";
+        std::string root = (std::string)getenv("HOME") + "/Library/Application Support/sdrpp-jp";
 #elif defined(__ANDROID__)
-        std::string root = "/storage/self/primary/sdrpp-iak";
+        std::string root = "/storage/self/primary/sdrpp-jp";
 #elif defined(__linux__) && defined(BUILD_APPIMAGE)
         // AppImage builds use an isolated config dir so settings, module
         // selection, etc. do not collide with a side-by-side .deb install.
-        std::string root = (std::string)getenv("HOME") + "/.config/sdrpp-iak-appimage";
+        std::string root = (std::string)getenv("HOME") + "/.config/sdrpp-jp-appimage";
 #else
-        std::string root = (std::string)getenv("HOME") + "/.config/sdrpp-iak";
+        std::string root = (std::string)getenv("HOME") + "/.config/sdrpp-jp";
 #endif
 
         define('a', "addr", "Server mode address", "0.0.0.0");
