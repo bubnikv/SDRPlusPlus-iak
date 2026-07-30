@@ -61,16 +61,16 @@ jobs:
             sudo chown -R $(id -u):$(id -g) deps/.pkg_cache 2>/dev/null || true
             sudo chown -R $(id -u):$(id -g) deps/build-appimage/destdir 2>/dev/null || true
 
-        # Named sdrpp-iak-${VER}-linux-${arch}.AppImage (not ${{ inputs.artifact
+        # Named sdrpp-jp-${VER}-linux-${arch}.AppImage (not ${{ inputs.artifact
         # }}.AppImage, which would read "...-linux-appimage-${arch}") so the
         # published filename matches the original convention; still computed
         # purely from this job's own inputs, no aggregator-side table needed.
         - name: Recover AppImage
           working-directory: ${{ runner.workspace }}
-          run: docker cp build:/root/sdrpp-iak-${{ inputs.version_full }}-${{ inputs.arch }}.AppImage ./sdrpp-iak-${{ inputs.version_full }}-linux-${{ inputs.arch }}.AppImage
+          run: docker cp build:/root/sdrpp-jp-${{ inputs.version_full }}-${{ inputs.arch }}.AppImage ./sdrpp-jp-${{ inputs.version_full }}-linux-${{ inputs.arch }}.AppImage
 
         - name: Save AppImage
           uses: actions/upload-artifact@v6
           with:
               name: ${{ inputs.artifact }}
-              path: ${{ runner.workspace }}/sdrpp-iak-${{ inputs.version_full }}-linux-${{ inputs.arch }}.AppImage
+              path: ${{ runner.workspace }}/sdrpp-jp-${{ inputs.version_full }}-linux-${{ inputs.arch }}.AppImage
