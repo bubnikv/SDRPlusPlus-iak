@@ -6,6 +6,25 @@
 #include <string>
 #include <string_view>
 
+// Legacy band identity bridge.
+//
+// This file does not define legal allocations or the frequency spans displayed
+// by a band plan. It defines stable semantic band IDs and the service/family
+// vocabulary used while SDR++ still loads the country JSON files under
+// root/res/bandplans. band_mapping.cpp identifies an eligible legacy Band or
+// Segment when exactly one same-service/same-family canonical mapping has a
+// probe inside that row.
+//
+// A probe is therefore an identity sample, not a center frequency, tuning
+// default, channel, allocation edge, or claim that the entire surrounding
+// range belongs to a service. Several probes are needed for fragmented and
+// region-dependent legacy rows. The per-band source map and probe rationale
+// live beside each mapping in band_mapping.cpp; the exhaustive legacy rows
+// produced by those decisions are in doc/research/legacy-band-id-audit.md.
+//
+// This bridge protects band-stack memories during the temporary legacy-data
+// release. The layered frequency catalog may later consume the same stable IDs,
+// but its scoped Segments remain the source of frequency bounds.
 namespace freq_input {
 
     // The radio service whose band convention owns a stable band ID. Services

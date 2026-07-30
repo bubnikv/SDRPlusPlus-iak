@@ -191,6 +191,7 @@ int main(int argc, char** argv) {
         std::sort(files.begin(), files.end());
 
         std::vector<AuditRow> unassigned;
+        std::map<std::string, std::vector<AuditRow>> assignedByBand;
         std::map<std::string, ServiceCount> counts;
         std::map<std::string, ServiceCount> familyCounts;
         std::map<std::string, std::size_t> reasonCounts;
@@ -255,6 +256,7 @@ int main(int argc, char** argv) {
                 if (!row.bandId.empty()) {
                     counts[service].assigned++;
                     familyCounts[family].assigned++;
+                    assignedByBand[row.bandId].push_back(row);
                 }
                 else {
                     counts[service].unassigned++;
@@ -293,9 +295,10 @@ int main(int argc, char** argv) {
         *output << "- Split `band:aviation:hf:3mhz` into the distinct "
                    "`band:aviation:hf:3.4mhz` and "
                    "`band:aviation:hf:3.8mhz` bands.\n";
-        *output << "- Split `band:ism:5ghz` into lower, middle, and upper "
-                   "5 GHz bands. Composite legacy rows crossing more than one "
-                   "are intentionally left without an ID.\n";
+        *output << "- Removed generic 5 GHz ISM IDs: neither the compared "
+                   "KiwiSDR / OpenWebRX+ band tables nor the legacy rows define "
+                   "those broad ranges as ISM bands. Legacy Wi-Fi ranges remain "
+                   "classified under their narrower RLAN IDs.\n";
         *output << "- Classified television/DVB separately from sound "
                    "broadcasting and added VHF-low, VHF-high, and UHF "
                    "television band IDs.\n";
@@ -331,6 +334,28 @@ int main(int argc, char** argv) {
         *output << "|---|---:|\n";
         for (const auto& [reason, count] : reasonCounts) {
             *output << "| " << reason << " | " << count << " |\n";
+        }
+
+        *output << "\n## Legacy rows assigned by stable band ID\n\n";
+        *output << "This is the exhaustive legacy-side provenance for the "
+                   "canonical decisions in `band_mapping.cpp`. Re-run this "
+                   "audit whenever a probe or classifier changes.\n";
+        for (const auto& [bandId, rows] : assignedByBand) {
+            *output << "\n### `" << markdown(bandId) << "`\n\n";
+            *output << "| Plan file | Legacy name | Type | Frequency span | "
+                       "Kind | Service | Family |\n";
+            *output << "|---|---|---|---|---|---|---|\n";
+            for (const AuditRow& row : rows) {
+                *output << "| `" << markdown(row.file)
+                        << "` | " << markdown(row.name)
+                        << " | `" << markdown(row.type)
+                        << "` | " << formatFrequency(row.start)
+                        << " - " << formatFrequency(row.end)
+                        << " | `" << freq_input::legacyEntityKindKey(row.entityKind)
+                        << "` | `" << freq_input::bandServiceKey(row.service)
+                        << "` | `" << freq_input::bandFamilyKey(row.family)
+                        << "` |\n";
+            }
         }
 
         *output << "\n## Legacy rows without a stable band ID\n\n";
