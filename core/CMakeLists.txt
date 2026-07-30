@@ -6,7 +6,7 @@ if (USE_INTERNAL_LIBCORRECT)
 endif ()
 
 # Main code
-file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
 
 if (MSVC)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)

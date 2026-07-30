@@ -1,0 +1,59 @@
+{
+  "catalog_schema_version": 1,
+  "catalogs": {
+    "android": {
+      "encoding": "cbor",
+      "path": "system-v1.cbor",
+      "sha256": "0a29129b9e47321d69e85fe47f0b8fb9a11fd9497d5ac2b4e377bd448fa36638",
+      "size": 314010,
+      "wire_schema_version": 1
+    },
+    "desktop": {
+      "encoding": "json",
+      "path": "system-v1.json",
+      "sha256": "d4e9a5a4bbcd29cf81adafa0bd03be5e771303130923cd9f22bc37cd5d2303bd",
+      "size": 779080
+    }
+  },
+  "counts": {
+    "bands": 60,
+    "bookmarks": 1705,
+    "plans": 4,
+    "segments": 206
+  },
+  "license_path": "OPENWEBRX-LICENSE.txt",
+  "notice_path": "NOTICE.txt",
+  "schema_version": 1,
+  "source": {
+    "attribution": "OpenWebRX+ contributors",
+    "license": "AGPL-3.0-only",
+    "name": "OpenWebRX+",
+    "revision": "624c9ac1341a97a6cf4901b5098bf3498eac7b62"
+  },
+  "supplemental_sources": [
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 1",
+      "provider": "iaru-r1",
+      "revision": "VHF Handbook 10.02",
+      "title": "IARU-R1 VHF Handbook",
+      "url": "https://www.iaru-r1.org/wp-content/uploads/2024/11/VHF_Handbook_V10_02.pdf"
+    },
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 2",
+      "provider": "iaru-r2",
+      "revision": "September 2020",
+      "title": "IARU Region 2 Band Plan",
+      "url": "https://www.iaru-r2.org/wp-content/uploads/2020/02/IARU-Region-2-Band-plan.pdf"
+    },
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 3",
+      "provider": "iaru-r3",
+      "revision": "R3-004 Rev. 2, November 2024",
+      "title": "Band Plans IARU Region 3",
+      "url": "https://www.iaru-r3.org/wp-content/uploads/2025/01/R3-004-Band-Plans-IARU-Region-3.pdf"
+    }
+  ]
+}

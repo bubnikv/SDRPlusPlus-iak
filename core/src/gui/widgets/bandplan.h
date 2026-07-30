@@ -7,6 +7,12 @@ using nlohmann::json;
 
 namespace bandplan {
     struct Band_t {
+        // Stable identities assigned by the legacy JSON adapter. bandId is
+        // semantic and may be shared by overlapping/nested Segments; segmentId
+        // identifies this exact plan statement.
+        std::string bandId;
+        std::string segmentId;
+        std::string planId;
         std::string name;
         std::string type;
         double start;
@@ -22,6 +28,8 @@ namespace bandplan {
     void from_json(const json& j, Band_t& b);
 
     struct BandPlan_t {
+        std::string planId;
+        int ituRegion = 0;
         std::string name;
         std::string countryName;
         std::string countryCode;

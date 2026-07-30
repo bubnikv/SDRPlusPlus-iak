@@ -1,0 +1,52 @@
+kHz:75;Time(UTC):93;Days:59;ITU:49;Station:201;Lng:49;Target:62;Remarks:135;P:35;Start:60;Stop:60;
+16.3;0000-2400;;IND;VTX1 Indian Navy;;SAs;v;1;;
+16.4;0000-2400;;NOR;JXN Noviken Sub comms;;NAO;no;1;;[0923]
+17;0000-2400;;IND;VTX2 Indian Navy;;SAs;v;1;;
+18.1;0000-2400;;RUS;RDL Russian Navy;-CW;RUS;xx;1;;[1219]
+18.2;0000-2400;;IND;VTX3 Indian Navy;;SAs;v;1;;
+19.2;0000-2400;;IND;VTX4 Indian Navy;;SAs;v;1;;
+19.58;0000-2400;;G;GBZ Anthorn;;NAO;an;1;;[0923]
+20.5;0741-0747;;BLR;RJH69 Molodechno;-TS;EEu;mo;1;;[0120]
+20.5;0441-0447;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+20.5;1041-1047;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+20.5;1131-1141;;RUS;RJH63 Krasnodar;-TS;EEu;kd;1;;[0120]
+20.5;0941-0947;;RUS;RJH77 Arkhangelsk;-TS;EEu;ak;1;;[0120]
+20.5;0841-0847;;RUS;RJH99 Nizhni Novgorod;-TS;EEu;nn;1;;[0120]
+23;0735-0741;;BLR;RJH69 Molodechno;-TS;EEu;mo;1;;[0120]
+23;0435-0441;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+23;1035-1041;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+23;1126-1131;;RUS;RJH63 Krasnodar;-TS;EEu;kd;1;;[0120]
+23;0935-0941;;RUS;RJH77 Arkhangelsk;-TS;EEu;ak;1;;[0120]
+23;0835-0841;;RUS;RJH99 Nizhni Novgorod;-TS;EEu;nn;1;;[0120]
+25;0700-0725;;BLR;RJH69 Molodechno;-TS;EEu;mo;1;;[0120]
+25;0400-0425;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+25;1000-1025;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+25;1100-1120;;RUS;RJH63 Krasnodar;-TS;EEu;kd;1;;[0120]
+25;0900-0925;;RUS;RJH77 Arkhangelsk;-TS;EEu;ak;1;;[0120]
+25;0800-0825;;RUS;RJH99 Nizhni Novgorod;-TS;EEu;nn;1;;[0120]
+25.1;0725-0730;;BLR;RJH69 Molodechno;-TS;EEu;mo;1;;[0120]
+25.1;0425-0430;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+25.1;1025-1030;;KGZ;RJH66 Bishkek;-TS;CAs;bk;1;;[0120]
+25.1;1120-1123;;RUS;RJH63 Krasnodar;-TS;EEu;kd;1;;[0120]
+25.1;0925-0930;;RUS;RJH77 Arkhangelsk;-TS;EEu;ak;1;;[0120]
+25.1;0825-0830;;RUS;RJH99 Nizhni Novgorod;-TS;EEu;nn;1;;[0120]
+27.3;0000-2400;;RUS;RDL Russian Navy;-CW;EEu;/BLR-mo;1;;[1019]
+37.5;0000-2400;;ISL;TFK US Navy Grindavik;;NEu;g;1;;[1218]
+40;0000-2400;;J;JJY (ID x15,x45);-TS;FE;o;1;;[0126]
+60;0000-2400;;G;MSF Time from NPL;-TS;Eu;an;1;;[1123]
+60;0000-2400;;J;JJY (ID x15,x45);-TS;FE;h;1;;[0122]
+60;0000-2400;;USA;WWVB Colorado;-TS;USA;ff;1;;[0519]
+66.66;0000-2400;;RUS;RBU Time Signal;-TS;EEu;t;1;;[0524]
+68.5;0000-2100;;CHN;BPC Time Signal;-TS;FE;sq;1;;[0122]
+77.5;0000-2400;;D;DCF77 Mainflingen;-TS;Eu;mf;1;;[1123]
+100;0000-2400;;CHN;BPL Time Signal;-TS;FE;p;1;;[0519]
+639;1400-1430;Mo-Fr;G;BBC;A;ME;/CYP;1;;
+1134;0600-0850;We-Mo;CHN;China National Radio 1;M;CHN;q;1;;
+1602;0000-1800;1.Sa;FIN;Scandinavian Weekend R.;FI;FIN;v;5;;
+3330;0000-2400;;CAN;CHU Ottawa;-TS;NAm;o;6;2903;2106[0626]
+3458;0800-2345;USB;CHN;Guangzhou Volmet x00,30;E;FE;;1;;[0122]
+3458;0000-2400;LSB;CHN;Beijing Volmet x15,x45;E;FE;;1;;[0122]
+4930;1200-1400;Tu,Fr;USA;Voice of America;E;Af;/BOT;6;2205;2510
+5006;0000-2400;;J;JG2XA Propag.Studies;-CW;FE;f;6;2903;0207[0923]
+7370;0730-1000;5Apr;I;Marconi Radio Int.;I;Eu;xx;6;0504;0504
+963;2000-0100;;TUN;Radio Tunis Chaine Int.;F;TUN;;1;;[1223]

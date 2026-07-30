@@ -26,6 +26,9 @@ namespace net::http {
         long status = 0;
         std::string body;
         std::string effectiveUrl;
+        // Lower-case response header names. Providers use etag and
+        // last-modified to avoid downloading an unchanged database.
+        std::map<std::string, std::string> headers;
     };
 
     // HTTPS-capable GET implemented by core through libcurl. Modules should

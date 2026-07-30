@@ -1,0 +1,63 @@
+{
+  "artifact_role": "generator-input",
+  "profile": "r1",
+  "schema_version": 1,
+  "source": {
+    "checked_on": "2026-07-28",
+    "organization": "International Amateur Radio Union Region 1",
+    "provider": "iaru-r1",
+    "revision": "VHF Handbook 10.02",
+    "title": "IARU-R1 VHF Handbook",
+    "url": "https://www.iaru-r1.org/wp-content/uploads/2024/11/VHF_Handbook_V10_02.pdf"
+  },
+  "segments": [
+    {
+      "band_id": "band:amateur:12mm",
+      "band_name": "1.2cm",
+      "key": "12mm",
+      "max_hz": 24250000000,
+      "min_hz": 24000000000,
+      "source_locator": "pages 52-53"
+    },
+    {
+      "band_id": "band:amateur:6mm",
+      "band_name": "6mm",
+      "key": "6mm",
+      "max_hz": 47200000000,
+      "min_hz": 47000000000,
+      "source_locator": "pages 53-54"
+    },
+    {
+      "band_id": "band:amateur:4mm",
+      "band_name": "4mm",
+      "key": "4mm",
+      "max_hz": 81500000000,
+      "min_hz": 75500000000,
+      "source_locator": "pages 54-55"
+    },
+    {
+      "band_id": "band:amateur:25mm",
+      "band_name": "2.5mm",
+      "key": "25mm",
+      "max_hz": 123000000000,
+      "min_hz": 122250000000,
+      "source_locator": "pages 55-56"
+    },
+    {
+      "band_id": "band:amateur:2mm",
+      "band_name": "2mm",
+      "key": "2mm",
+      "max_hz": 141000000000,
+      "min_hz": 134000000000,
+      "source_locator": "pages 56-57"
+    },
+    {
+      "band_id": "band:amateur:1mm",
+      "band_name": "1mm",
+      "key": "1mm",
+      "max_hz": 250000000000,
+      "min_hz": 241000000000,
+      "source_locator": "pages 57-58"
+    }
+  ]
+}

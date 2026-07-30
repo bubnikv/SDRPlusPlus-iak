@@ -1,0 +1,942 @@
+# Legacy SDR++ / system catalog band coverage audit
+
+Generated deterministically from the committed legacy band plans and the normalized OpenWebRX+ catalog with reviewed supplemental overlays.
+Bookmark counts are channel evidence only; they never establish Segment coverage.
+
+## Summary
+
+- System catalog Segments: 206
+- IARU overlay Segments: 21
+- Legacy plans: 21
+- Legacy Segments: 1,654
+- Discrepancies: 1,416
+- Range discrepancies: 1,248
+- Semantic discrepancies: 1,153
+- Tuning-metadata discrepancies: 38
+- New unreviewed discrepancies: 0
+
+| Legacy plan | Profiles | Exact | Covered | Broader | Partial | Missing | Conflict | Invalid |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Australia (`australia.json`) | r3 | 30 | 10 | 3 | 2 | 7 | 9 | 0 |
+| Austria (`austria.json`) | r1 | 14 | 5 | 1 | 0 | 1 | 1 | 0 |
+| Belgium (`belgium.json`) | r1 | 26 | 11 | 0 | 0 | 5 | 3 | 0 |
+| Brazilian Ham Bands (`brazil.json`) | r2 | 14 | 92 | 0 | 0 | 0 | 0 | 0 |
+| Canada (`canada.json`) | r2 | 22 | 8 | 3 | 1 | 5 | 4 | 0 |
+| China (Mainland) (`china.json`) | r3 | 31 | 4 | 2 | 0 | 3 | 6 | 0 |
+| France (`france.json`) | r1 | 36 | 3 | 4 | 2 | 31 | 9 | 0 |
+| General (`general.json`) | default | 22 | 11 | 1 | 1 | 3 | 6 | 0 |
+| German LTE bands (`germany-mobile-lte-bands.json`) | r1 | 0 | 0 | 0 | 0 | 13 | 0 | 0 |
+| German Mobile Networks (`germany-mobile-networks.json`) | r1 | 0 | 0 | 0 | 0 | 51 | 1 | 0 |
+| Germany (`germany.json`) | r1 | 31 | 6 | 1 | 1 | 29 | 8 | 0 |
+| Ireland (`ireland.json`) | r1 | 27 | 3 | 1 | 1 | 0 | 5 | 0 |
+| Italy (`italy.json`) | r1 | 29 | 15 | 2 | 1 | 122 | 21 | 7 |
+| Netherlands (`netherlands.json`) | r1 | 25 | 69 | 1 | 1 | 195 | 33 | 2 |
+| QO-100 (`qo-100.json`) | default, r1, r2, r3 | 0 | 7 | 0 | 0 | 0 | 3 | 0 |
+| Republic of Korea (`republic-of-korea.json`) | r3 | 10 | 22 | 1 | 2 | 39 | 16 | 0 |
+| Russia (`russia.json`) | r1, r3 | 7 | 116 | 2 | 1 | 31 | 18 | 1 |
+| Slovakia (`slovakia.json`) | r1 | 15 | 2 | 0 | 0 | 0 | 1 | 0 |
+| Turkey (`turkey.json`) | r1 | 15 | 12 | 1 | 0 | 9 | 8 | 1 |
+| UK (`united-kingdom.json`) | r1 | 26 | 4 | 3 | 1 | 53 | 15 | 2 |
+| USA (`usa.json`) | r2 | 26 | 8 | 1 | 3 | 11 | 8 | 0 |
+
+## Missing and partial coverage
+
+### Australia
+
+- `partial_overlap`: Medium Wave Broadcast (AM Broadcast) (0.52–1.71 MHz, broadcast), uncovered 10 kHz, `legacy-band:2cc6dd292bb80e6476d3abbd`
+- `missing`: Shortwave Broadcast (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:dc218c193786b4e0c146aa47`
+- `legacy_contains_openwebrx`: 40m Ham Band (7–7.3 MHz, amateur), uncovered 100 kHz, `legacy-band:09633b8c2e302d45e9f5e757`
+- `legacy_contains_openwebrx`: 30m Ham Band (10.1–10.15 MHz, amateur), uncovered 10 kHz, `legacy-band:bde620b37a3e4a1d70046278`
+- `service_conflict`: 27MHz CB (26.965–27.405 MHz, amateur), uncovered 440 kHz, `legacy-band:04379507eb7fca4c14ce865d`
+- `service_conflict`: 27MHz Marine Band (27.68–27.98 MHz, marine), uncovered 300 kHz, `legacy-band:167b4303f522751ec7c0fbf5`
+- `service_conflict`: Air Band VOR/ILS (108–117.975 MHz, aviation), uncovered 9.975 MHz, `legacy-band:79934817fca59193d67793c2`
+- `service_conflict`: Air Band Voice (117.975–137 MHz, aviation), uncovered 19.025 MHz, `legacy-band:b84223ed0502915c280d18ab`
+- `service_conflict`: Polar Orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:b00cd1188fd9a50767fab911`
+- `service_conflict`: VHF Marine Band (156–162.05 MHz, marine), uncovered 6.05 MHz, `legacy-band:9eb0d0a6640c3d75258f9b52`
+- `missing`: Digital TV Broadcast (DVB-T) (174–195 MHz, broadcast), uncovered 21 MHz, `legacy-band:de0ee179b9ac786235d9d78c`
+- `missing`: Digital Radio Broadcast (DAB+) (195–209 MHz, broadcast), uncovered 14 MHz, `legacy-band:4f5d9c9ea0e41177e281896b`
+- `missing`: Digital TV Broadcast (DVB-T) (209–230 MHz, broadcast), uncovered 21 MHz, `legacy-band:c7d5493106af9c8bebd551da`
+- `legacy_contains_openwebrx`: 70cm Ham Band (430–450 MHz, amateur), uncovered 10 MHz, `legacy-band:a5696d5607092c8172825076`
+- `missing`: UHF CB (476.425–477.4125 MHz, amateur), uncovered 987.5 kHz, `legacy-band:119f0fe055f71a4ff3ff1641`
+- `missing`: Digital TV Broadcast (DVB-T) (526–694 MHz, broadcast), uncovered 168 MHz, `legacy-band:97eb1c819130e6ff09e0513a`
+- `service_conflict`: ISM Band (915–928 MHz, other), uncovered 13 MHz, `legacy-band:a495061bbaf085e35d51371e`
+- `service_conflict`: 2.4GHz WiFi (ISM Band) (2.4–2.4835 GHz, other), uncovered 83.5 MHz, `legacy-band:cca1615b58623e332c28bcaf`
+- `partial_overlap`: 9cm Ham Band (Restricted) (3.4–3.6 GHz, amateur), uncovered 100 MHz, `legacy-band:4f8603d211a7452685bddfd3`
+- `missing`: 5GHz WiFi (ISM Band) (5.15–5.59 GHz, other), uncovered 440 MHz, `legacy-band:a0eaa8d6cf2b5c414dc0ad69`
+- `service_conflict`: 5GHz WiFi (ISM Band) (5.65–5.835 GHz, other), uncovered 185 MHz, `legacy-band:a45dae1ba2d0a04954fc032b`
+
+### Austria
+
+- `legacy_contains_openwebrx`: 60m (5.3513–5.3665 MHz, amateur), uncovered 200 Hz, `legacy-band:e05ebf705544d7e5ffdaf04a`
+- `service_conflict`: CB (26.965–27.405 MHz, other), uncovered 440 kHz, `legacy-band:70774f4cbf035b5862a12f70`
+- `missing`: Freenet (149.025–149.115625 MHz, other), uncovered 90.625 kHz, `legacy-band:316fd4a7d9e98a996d3708f7`
+
+### Belgium
+
+- `service_conflict`: 600m - Amateur (501–504 kHz, amateur), uncovered 3 kHz, `legacy-band:082971cb50e13d537f504bbd`
+- `service_conflict`: 11m - Citizen Band (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:e6bd58f54add3c114375e850`
+- `missing`: 8m - Amateur (40.66–40.69 MHz, amateur), uncovered 30 kHz, `legacy-band:ab37aa808c1ce0efe82dc209`
+- `missing`: 4m - Amateur (69.945–69.955 MHz, amateur), uncovered 10 kHz, `legacy-band:135a50921f7e52367eaef7c8`
+- `service_conflict`: Space Exploration / Meteorology Sat. / S-PCS (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:825bcdc0b9aa13841be270e9`
+- `missing`: T-DAB Broadcast (174–223 MHz, broadcast), uncovered 49 MHz, `legacy-band:763fc6432e520b096dd7f622`
+- `missing`: DVB-T - Broadcast (470–790 MHz, broadcast), uncovered 320 MHz, `legacy-band:a6416749d0e0e53a6a52ca2f`
+- `missing`: 2mm - Amateur (142–149 GHz, amateur), uncovered 7 GHz, `legacy-band:b5708d45146a7560c874d236`
+
+### Canada
+
+- `legacy_contains_openwebrx`: Shortwave Broadcast (4.75–5.06 MHz, broadcast), uncovered 65 kHz, `legacy-band:86f41ecd3a20ff0c3506d371`
+- `partial_overlap`: 60m Ham Band (5.351–5.366 MHz, amateur), uncovered 500 Hz, `legacy-band:bc9659213072f807af81d9da`
+- `service_conflict`: CB (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:59f351fd2398b41c0fea0300`
+- `legacy_contains_openwebrx`: 10m Ham Band (28–29.75 MHz, amateur), uncovered 50 kHz, `legacy-band:0bb24ce95b1bb86df0758a72`
+- `missing`: TV Channels 2-4 (54–72 MHz, broadcast), uncovered 18 MHz, `legacy-band:0a55de020ce4af74e08800d5`
+- `legacy_contains_openwebrx`: FM Broadcast (76–108 MHz, broadcast), uncovered 11.5 MHz, `legacy-band:8c41ff5b7bc60e8a92e0078b`
+- `service_conflict`: Air Band VOR/ILS (108–117 MHz, aviation), uncovered 9 MHz, `legacy-band:1ace59096b9cea2e1ff5d6d0`
+- `service_conflict`: Air Band Voice (117–137 MHz, aviation), uncovered 20 MHz, `legacy-band:769583b0b10fb4dbdf0c7b70`
+- `service_conflict`: Weatheradio (162.4–162.7 MHz, broadcast), uncovered 300 kHz, `legacy-band:c395c6d8809a28bb8d4a1667`
+- `missing`: TV Channels 7-13 (174–216 MHz, broadcast), uncovered 42 MHz, `legacy-band:f925dcb23f63650dc52fd91e`
+- `missing`: TV Channels 14-36 (470–608 MHz, broadcast), uncovered 138 MHz, `legacy-band:ada7a4396e75844e7cc462ff`
+- `missing`: TV Channels 38-51 (614–806 MHz, broadcast), uncovered 192 MHz, `legacy-band:16e6698f2f613040359ebf9a`
+- `missing`: Trunked Mobile (806–890 MHz, broadcast), uncovered 84 MHz, `legacy-band:8d9c020e069928831b72d7af`
+
+### China (Mainland)
+
+- `missing`: Shortwave Broadcast (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:f7e8e10cc8de14b5eee96761`
+- `legacy_contains_openwebrx`: 30m Ham Band (10.1–10.15 MHz, amateur), uncovered 10 kHz, `legacy-band:09a2e79376cbc9103d5f4926`
+- `missing`: Frequency and Time Standards (24.99–25.01 MHz, broadcast), uncovered 20 kHz, `legacy-band:8fffa4dadeef1a49eccedf64`
+- `missing`: FM Broadcast (76–84 MHz, broadcast), uncovered 8 MHz, `legacy-band:1d8a38ce7ba0feff49b568eb`
+- `legacy_contains_openwebrx`: FM Broadcast (87–108 MHz, broadcast), uncovered 500 kHz, `legacy-band:3a6f24179a0a2a3dd0b18e73`
+- `service_conflict`: Air Band Radionavigation (108–117.975 MHz, aviation), uncovered 9.975 MHz, `legacy-band:3c78736ec8fff32b3466be7c`
+- `service_conflict`: Air Band Voice (117.975–137 MHz, aviation), uncovered 19.025 MHz, `legacy-band:25698acaedee0d7da5a5c7eb`
+- `service_conflict`: LEO Satellite Downlinks (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:0db9af7af96b54354d6ad010`
+- `service_conflict`: Marine (156.4875–156.5625 MHz, marine), uncovered 75 kHz, `legacy-band:88be919eaa3e275e6ea7e014`
+- `service_conflict`: Marine (156.6725–160.975 MHz, marine), uncovered 4.3025 MHz, `legacy-band:882f0c9eedcf96892c3185f3`
+- `service_conflict`: Marine (161.475–162.05 MHz, marine), uncovered 575 kHz, `legacy-band:d2e4818fe7b61fc498247e24`
+
+### France
+
+- `legacy_contains_openwebrx`: 137KHz - Radioamateur (135.5–137.8 kHz, amateur), uncovered 200 Hz, `legacy-band:bad5031bc41b8e0607055d2e`
+- `partial_overlap`: Grande ondes (148.5–519 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:db4caec0981e1b57810555b3`
+- `partial_overlap`: Ondes moyennes (AM Broadcast) (0.52–1.705 MHz, broadcast), uncovered 5 kHz, `legacy-band:d0ce2ce8a4c06c63bd467cc2`
+- `service_conflict`: Marine - HF (1.607–1.81 MHz, marine), uncovered 203 kHz, `legacy-band:693fce4a841213a06a7ca868`
+- `legacy_contains_openwebrx`: 120m - radiodiffusion (2.3–2.5 MHz, broadcast), uncovered 5 kHz, `legacy-band:8e2e10ea2573b8acabf2b4e6`
+- `missing`: Marine - HF (2.5–2.85 MHz, marine), uncovered 350 kHz, `legacy-band:7ec4bed111cafee43053e328`
+- `missing`: Aviation - HF (2.85–3.155 MHz, aviation), uncovered 305 kHz, `legacy-band:00b891e82f65aab26a977a84`
+- `service_conflict`: Marine - HF (3.155–3.4 MHz, marine), uncovered 245 kHz, `legacy-band:bf03c004d5f1fd725101f0e4`
+- `missing`: Aviation - HF (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:f439c68273b3afe08ccd0787`
+- `service_conflict`: Marine - HF (3.5–3.6 MHz, marine), uncovered 100 kHz, `legacy-band:9c492cb030ae683496352723`
+- `missing`: Marine - HF (4.065–4.44 MHz, marine), uncovered 375 kHz, `legacy-band:aba5b152d101623ab2aa18cd`
+- `missing`: Aviation - HF (4.65–4.75 MHz, aviation), uncovered 100 kHz, `legacy-band:aa77b7997e6e2ed77b1d8aea`
+- `missing`: 60m - radiodiffusion (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:23005971af17e6d14449ee46`
+- `missing`: Aviation - HF (5.45–5.73 MHz, aviation), uncovered 280 kHz, `legacy-band:6703f8dbff6b091f58bda903`
+- `missing`: Marine - HF (6.2–6.525 MHz, marine), uncovered 325 kHz, `legacy-band:570aa1c36f6a374f31c8123d`
+- `missing`: Aviation - HF (6.525–6.765 MHz, aviation), uncovered 240 kHz, `legacy-band:b08f5e7e16d07d2ce43f7048`
+- `missing`: Marine - HF (8.195–8.815 MHz, marine), uncovered 620 kHz, `legacy-band:2ee6a31cab3f412ee7eed2a8`
+- `missing`: Aviation - HF (8.815–9.04 MHz, aviation), uncovered 225 kHz, `legacy-band:e0f82761a1d93a443dc7467f`
+- `missing`: Aviation - HF (10.005–10.1 MHz, aviation), uncovered 95 kHz, `legacy-band:98e922a1462fc10b72cc6499`
+- `missing`: Aviation - HF (11.175–11.4 MHz, aviation), uncovered 225 kHz, `legacy-band:64a6f0d07839ec869aae6d00`
+- `missing`: Marine - HF (12.23–13.2 MHz, marine), uncovered 970 kHz, `legacy-band:4d225e3464aadb2867d57fc6`
+- `missing`: Aviation - HF (13.2–13.36 MHz, aviation), uncovered 160 kHz, `legacy-band:8645df1dca3f4bd29228c910`
+- `missing`: Aviation - HF (15.01–15.1 MHz, aviation), uncovered 90 kHz, `legacy-band:4a8edcf95b9b5534ddd9b754`
+- `missing`: Marine - HF (16.36–17.41 MHz, marine), uncovered 1.05 MHz, `legacy-band:b18214bbb6ae7c9e71bb2905`
+- `missing`: Aviation - HF (17.9–18.03 MHz, aviation), uncovered 130 kHz, `legacy-band:cdbf6d60b8dbcd8accf16e94`
+- `missing`: Marine - HF (18.78–18.9 MHz, marine), uncovered 120 kHz, `legacy-band:cc101288df2fdd370bde1f83`
+- `missing`: Marine - HF (19.68–19.8 MHz, marine), uncovered 120 kHz, `legacy-band:7a6ff44857f3cebdff386d95`
+- `missing`: Aviation - HF (21.925–22 MHz, aviation), uncovered 75 kHz, `legacy-band:6d822bb491322bf74954506e`
+- `missing`: Marine - HF (22–22.855 MHz, marine), uncovered 855 kHz, `legacy-band:42eee4c40bff5efc6cb39a2b`
+- `missing`: Aviation - HF (23.2–23.35 MHz, aviation), uncovered 150 kHz, `legacy-band:e757198962410e037d104459`
+- `missing`: Marine - HF (25.07–25.21 MHz, marine), uncovered 140 kHz, `legacy-band:5a3edf37547a31b818b19403`
+- `missing`: Marine - HF (26.1–26.175 MHz, marine), uncovered 75 kHz, `legacy-band:e9c00dbd77fa32f12ef1521d`
+- `service_conflict`: 11m - CB (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:061cb3c466ab32b573093734`
+- `legacy_contains_openwebrx`: Radiodiffusion - Bande FM (80–108 MHz, broadcast), uncovered 7.5 MHz, `legacy-band:cfa0fc60f7154ede2872a7e2`
+- `service_conflict`: Aviation - VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:55b6f3b0ae0e0cd05bb447ef`
+- `service_conflict`: Aviation - Voix (118–137 MHz, aviation), uncovered 19 MHz, `legacy-band:cb877f1aac916e9818b9bc18`
+- `service_conflict`: Polar Orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:bf537816f3f165423d46de30`
+- `service_conflict`: Marine (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:d1cef00e87ab72c02e381698`
+- `service_conflict`: NOAA Weather Radio (162.3625–162.5875 MHz, broadcast), uncovered 225 kHz, `legacy-band:f50f89926b57ba71af041f46`
+- `missing`: Radiodiffusion - Bande DAB (174–223 MHz, broadcast), uncovered 49 MHz, `legacy-band:ff900c942a5ff7a57c523583`
+- `missing`: Military Aviation (225–380 MHz, military), uncovered 155 MHz, `legacy-band:ab3e4770517628ce7a524aad`
+- `missing`: Satellite militaire (240–270 MHz, military), uncovered 30 MHz, `legacy-band:db065daf5d8ee99f84af2dab`
+- `missing`: Police (TETRAPOL) (380–400 MHz, military), uncovered 20 MHz, `legacy-band:b367345d87254add8e91b54e`
+- `legacy_contains_openwebrx`: 70cm - Radioamateur (420–450 MHz, amateur), uncovered 20 MHz, `legacy-band:a84e05d72337447e10167928`
+- `missing`: TNT (DVB-T) (470–694 MHz, broadcast), uncovered 224 MHz, `legacy-band:4017014c8e2e5d31938d06b5`
+- `missing`: Radiodiffusion - Bande DAB (1.452–1.492 GHz, broadcast), uncovered 40 MHz, `legacy-band:119a144284d8fb2011cbeffa`
+
+### General
+
+- `partial_overlap`: Long Wave (148.5–283.5 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:557d9376b2936928a9c83ed1`
+- `missing`: Shortwave Broadcast (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:d1b7ce0fdc857c99b123a4c9`
+- `service_conflict`: CB (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:a395f7b0bd238328b95fc8eb`
+- `legacy_contains_openwebrx`: 10m Ham Band (28–29.75 MHz, amateur), uncovered 50 kHz, `legacy-band:40129f151cc997470a70d5c6`
+- `service_conflict`: Air Band VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:a716c775deaa2e720a19cbcb`
+- `service_conflict`: Air Band Voice (118–137 MHz, aviation), uncovered 19 MHz, `legacy-band:c7da73fbcaf16b4452381589`
+- `service_conflict`: Polar Orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:4d0e86cb36163375225694c6`
+- `service_conflict`: Marine (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:0001a0f379716ba3ce3fd2f8`
+- `missing`: Military Air (225–380 MHz, military), uncovered 155 MHz, `legacy-band:9ce7a0c30dcb2e2bf81f06b3`
+- `missing`: Military Sat (240–270 MHz, military), uncovered 30 MHz, `legacy-band:a6a765dbd0ebe095392081aa`
+- `service_conflict`: 33cm Ham Band (902–928 MHz, amateur), uncovered 26 MHz, `legacy-band:58fa1285b00999a63780c233`
+
+### German LTE bands
+
+- `missing`: LTE band 28 (APT) FDD uplink (703–748 MHz, lte-fdd-uplink), uncovered 45 MHz, `legacy-band:c1739504a51efa84be7afe34`
+- `missing`: LTE band 20 (Digital Dividend) FDD uplink (832–862 MHz, lte-fdd-uplink), uncovered 30 MHz, `legacy-band:fc644aef199a9cb42c2a3f7e`
+- `missing`: LTE band 8 (Extended GSM) FDD uplink (880–915 MHz, lte-fdd-uplink), uncovered 35 MHz, `legacy-band:107f293b08171d897114108b`
+- `missing`: LTE band 3 (DCS) FDD uplink (1.71–1.785 GHz, lte-fdd-uplink), uncovered 75 MHz, `legacy-band:4b86ff1a03b2b9f1aaa584fa`
+- `missing`: LTE band 3 (DCS) FDD downlink (1.805–1.88 GHz, lte-fdd-downlink), uncovered 75 MHz, `legacy-band:faf07666c23a13a5a48b1b49`
+- `missing`: LTE band 1 (IMT) FDD uplink (1.92–1.98 GHz, lte-fdd-uplink), uncovered 60 MHz, `legacy-band:3601c9cb4d19352073340279`
+- `missing`: LTE band 1 (IMT) FDD downlink (2.11–2.17 GHz, lte-fdd-downlink), uncovered 60 MHz, `legacy-band:918c4e4f25335475a53025a1`
+- `missing`: LTE band 7 (IMT-E) FDD uplink (2.5–2.57 GHz, lte-fdd-uplink), uncovered 70 MHz, `legacy-band:ce696325fd0bf22b47c1d31d`
+- `missing`: LTE band 7 (IMT-E) FDD downlink (2.62–2.69 GHz, lte-fdd-downlink), uncovered 70 MHz, `legacy-band:f9fdc49fe19ef55377164130`
+- `missing`: LTE band 28 (APT) FDD downlink (7.58–8.03 GHz, lte-fdd-downlink), uncovered 450 MHz, `legacy-band:02e561af7b7400eca123dbb0`
+- `missing`: LTE band 20 (Digital Dividend) FDD downlink (7.91–8.21 GHz, lte-fdd-downlink), uncovered 300 MHz, `legacy-band:f93f743c816ed310ffd18b0f`
+- `missing`: LTE band 8 (Extended GSM) FDD downlink (9.25–9.6 GHz, lte-fdd-downlink), uncovered 350 MHz, `legacy-band:1d33a6f734ac6f9b2c2cc5a9`
+- `missing`: LTE band 32 (L-Band (EU)) SDL downlink (14.52–14.96 GHz, lte-sdl), uncovered 440 MHz, `legacy-band:744e885004c23f2dfe31ddb6`
+
+### German Mobile Networks
+
+- `missing`: DVB-T2 (470–694 MHz, broadcast), uncovered 224 MHz, `legacy-band:ede6cead6ae075769ce6e6ca`
+- `missing`: 703 Telefonica FDD uplink (703–713 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:84199fc37e472595c016f00b`
+- `missing`: 713 Telekom FDD uplink (713–723 MHz, mobile-mno-telekom), uncovered 10 MHz, `legacy-band:6e423ed3218b22cdd2c7db63`
+- `missing`: 723 Vodafone FDD uplink (723–733 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:2fb7f2f9ce08dc41db1199be`
+- `missing`: 758 Telefonica FDD downlink (758–768 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:144fe9283e3673f27b5e42d2`
+- `missing`: 768 Telekom FDD downlink (768–778 MHz, mobile-mno-telekom), uncovered 10 MHz, `legacy-band:9f786377b3065ee69a899eb8`
+- `missing`: 778 Vodafone FDD downlink (778–788 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:015130e86dbbb043e9783b69`
+- `missing`: 791 Telefonica FDD downlink (791–801 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:b52abf4ac19fa0121a1cf844`
+- `missing`: 801 Vodafone FDD downlink (801–811 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:a6260d534c3d90581a74cdb1`
+- `missing`: 811 Telekom FDD downlink (811–821 MHz, mobile-mno-telekom), uncovered 10 MHz, `legacy-band:9bcf48c7f82a85852ebb4eab`
+- `missing`: 832 Telefonica FDD uplink (832–842 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:2cbcc5e7cea0f68247327519`
+- `missing`: 842 Vodafone FDD uplink (842–852 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:c40e7fadf2bf3021a17437de`
+- `missing`: 852 Telekom FDD uplink (852–862 MHz, mobile-mno-telekom), uncovered 10 MHz, `legacy-band:daa64f1bd37baa0cb5cb8609`
+- `missing`: GSM-R FDD uplink (873.1–880 MHz, mobile-gsm-r), uncovered 6.9 MHz, `legacy-band:9aa62ba7b196154a68b8471b`
+- `missing`: 880 Telefonica FDD uplink (880–890 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:3f04311a9d8c0a605755c512`
+- `missing`: 890 Vodafone FDD uplink (890–900 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:6696bddf3955e93977259752`
+- `missing`: 900 Telekom FDD uplink (900–915 MHz, mobile-mno-telekom), uncovered 15 MHz, `legacy-band:1e5d73d08ef09ebc35465633`
+- `missing`: GSM-R FDD downlink (918.1–925 MHz, mobile-gsm-r), uncovered 6.9 MHz, `legacy-band:d122c2ad84f67116a5cea8f2`
+- `missing`: 925 Telefonica FDD downlink (925–935 MHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:c942ed94e1442e42a6c045f9`
+- `missing`: 935 Vodafone FDD downlink (935–945 MHz, mobile-mno-vodafone), uncovered 10 MHz, `legacy-band:8e0a46efe3b28d60098efcb4`
+- `missing`: 945 Telekom FDD downlink (945–960 MHz, mobile-mno-telekom), uncovered 15 MHz, `legacy-band:3246f1dbbd9af89baafa2585`
+- `missing`: 1452 Telekom SDL downlink (1.452–1.472 GHz, mobile-mno-telekom), uncovered 20 MHz, `legacy-band:025ce3165fd3471a66d295ed`
+- `missing`: 1472 Vodafone SDL downlink (1.472–1.492 GHz, mobile-mno-vodafone), uncovered 20 MHz, `legacy-band:d90044ad16a9895311e7040c`
+- `missing`: 1710 Telekom FDD uplink (1.71–1.74 GHz, mobile-mno-telekom), uncovered 30 MHz, `legacy-band:72f02d588c7f238018c883f2`
+- `missing`: 1740 Telefonica FDD uplink (1.74–1.76 GHz, mobile-mno-telefonica), uncovered 20 MHz, `legacy-band:df291aad1c79ef7e91668ca6`
+- `missing`: 1760 Vodafone FDD uplink (1.76–1.785 GHz, mobile-mno-vodafone), uncovered 25 MHz, `legacy-band:ce3e1d8f592608427e2f1583`
+- `missing`: 1805 Telekom FDD downlink (1.805–1.835 GHz, mobile-mno-telekom), uncovered 30 MHz, `legacy-band:12d1a937355a52f2cd0cdd06`
+- `missing`: 1835 Telefonica FDD downlink (1.835–1.855 GHz, mobile-mno-telefonica), uncovered 20 MHz, `legacy-band:c9f66f7da40dbfcf83ccb79a`
+- `missing`: 1855 Vodafone FDD downlink (1.855–1.88 GHz, mobile-mno-vodafone), uncovered 25 MHz, `legacy-band:a5b3c34e9329db724ae9cb5f`
+- `missing`: DECT (1.88–1.9 GHz, broadcast), uncovered 20 MHz, `legacy-band:2cb06a9d404c26b909590f4c`
+- `missing`: 1900.1 Telefonica (1.9001–1.9051 GHz, mobile-mno-telefonica), uncovered 5 MHz, `legacy-band:168d6cb6364cae45a83af9d7`
+- `missing`: 1920 Vodafone FDD uplink (1.92–1.94 GHz, mobile-mno-vodafone), uncovered 20 MHz, `legacy-band:03a4a1508457843d762d8966`
+- `missing`: 1940 Telefonica FDD uplink (1.94–1.96 GHz, mobile-mno-telefonica), uncovered 20 MHz, `legacy-band:d41166ce23e3159e12d50025`
+- `missing`: 1960 Telekom FDD uplink (1.96–1.98 GHz, mobile-mno-telekom), uncovered 20 MHz, `legacy-band:57af909b910a0381739cb5d7`
+- `missing`: 2010.5 Telefonica (2.0105–2.0247 GHz, mobile-mno-telefonica), uncovered 14.2 MHz, `legacy-band:e246a36ba81b21de5b9e6c17`
+- `missing`: 2110 Vodafone FDD downlink (2.11–2.13 GHz, mobile-mno-vodafone), uncovered 20 MHz, `legacy-band:dbeb742f603e782083b74000`
+- `missing`: 2130 Telefonica FDD downlink (2.13–2.15 GHz, mobile-mno-telefonica), uncovered 20 MHz, `legacy-band:1c3b0b5a960bf372be9fc948`
+- `missing`: 2150 Telekom FDD downlink (2.15–2.17 GHz, mobile-mno-telekom), uncovered 20 MHz, `legacy-band:a1c9079faeda1dac0e4e3623`
+- `missing`: 2500 Vodafone FDD uplink (2.5–2.52 GHz, mobile-mno-vodafone), uncovered 20 MHz, `legacy-band:c3072fadd78f81a8dbf5bbf8`
+- `missing`: 2520 Telekom FDD uplink (2.52–2.54 GHz, mobile-mno-telekom), uncovered 20 MHz, `legacy-band:119872b901356ba8a072cedd`
+- `missing`: 2540 Telefonica FDD uplink (2.54–2.57 GHz, mobile-mno-telefonica), uncovered 30 MHz, `legacy-band:c8cc7ccc9bafe869cf2c0f91`
+- `missing`: 2570 Telefonica TDD (2.57–2.58 GHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:2db1ac9837415e3a3f850c13`
+- `missing`: 2580 Vodafone TDD (2.58–2.605 GHz, mobile-mno-vodafone), uncovered 25 MHz, `legacy-band:4cba680efdbbe3b4b3e322b6`
+- `missing`: 2605 Telekom TDD (2.605–2.61 GHz, mobile-mno-telekom), uncovered 5 MHz, `legacy-band:c99a3e12aff6a4297c0179a0`
+- `missing`: 2610 Telefonica TDD (2.61–2.62 GHz, mobile-mno-telefonica), uncovered 10 MHz, `legacy-band:a078016f17397442e86a390b`
+- `missing`: 2620 Vodafone FDD downlink (2.62–2.64 GHz, mobile-mno-vodafone), uncovered 20 MHz, `legacy-band:56cd47d04d22c9d79a3640db`
+- `missing`: 2640 Telekom FDD downlink (2.64–2.66 GHz, mobile-mno-telekom), uncovered 20 MHz, `legacy-band:3c979f7f5ec609e9b6de0dc7`
+- `missing`: 2660 Telefonica FDD downlink (2.66–2.69 GHz, mobile-mno-telefonica), uncovered 30 MHz, `legacy-band:ce916ed3aea7e95addaef234`
+- `service_conflict`: 3400 Vodafone (3.4–3.49 GHz, mobile-mno-vodafone), uncovered 90 MHz, `legacy-band:056f5ac0af0fec0a8433420a`
+- `missing`: 3490 Drillisch (3.49–3.54 GHz, mobile-mno-drillisch), uncovered 50 MHz, `legacy-band:1cb90a803a6db0ec0d5f4b31`
+- `missing`: 3540 Telefonica (3.54–3.61 GHz, mobile-mno-telefonica), uncovered 70 MHz, `legacy-band:b5ab5c1b3a50d97fcb568114`
+- `missing`: 3610 Telekom (3.61–3.7 GHz, mobile-mno-telekom), uncovered 90 MHz, `legacy-band:dd32c20ec200e45023d1d136`
+
+### Germany
+
+- `partial_overlap`: LW-Broadcast (148.5–283.5 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:9ac6d73a71c2cf56ab3fddbf`
+- `missing`: Maritime (2.045–2.3 MHz, marine), uncovered 255 kHz, `legacy-band:34912c83e1dd60c190a74d2f`
+- `missing`: Aeronautical HF (2.85–3.155 MHz, aviation), uncovered 305 kHz, `legacy-band:032fe8b26dad2cbcb9dfe88d`
+- `missing`: Aeronautical HF (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:bb98f9649c63ba75a3dfbc10`
+- `missing`: Maritime (4.063–4.438 MHz, marine), uncovered 375 kHz, `legacy-band:21422cb903042e8416ac1756`
+- `missing`: Aeronautical HF (4.65–4.75 MHz, aviation), uncovered 100 kHz, `legacy-band:2287fca791cde40c509457c0`
+- `legacy_contains_openwebrx`: 60m-Broadcast (4.75–5.06 MHz, broadcast), uncovered 65 kHz, `legacy-band:0b0bd681cbb89b72899fffb1`
+- `missing`: Aeronautical HF (5.48–5.73 MHz, aviation), uncovered 250 kHz, `legacy-band:f4d390de904a2014ec78ad87`
+- `missing`: Maritime (6.2–6.525 MHz, marine), uncovered 325 kHz, `legacy-band:c0b1120d742734eca6fb6e8b`
+- `missing`: Aeronautical HF (6.525–6.765 MHz, aviation), uncovered 240 kHz, `legacy-band:e90b86617933e5b51b827785`
+- `missing`: Maritime (8.195–8.815 MHz, marine), uncovered 620 kHz, `legacy-band:7dc9fc96c3b32ea6d89e4c40`
+- `missing`: Aeronautical HF (8.815–9.04 MHz, aviation), uncovered 225 kHz, `legacy-band:23309e8e1c1a747b6ed610e9`
+- `missing`: Aeronautical HF (10.005–10.1 MHz, aviation), uncovered 95 kHz, `legacy-band:5c2dfd2e4d4ddb217e645c95`
+- `missing`: Aeronautical HF (11.175–11.4 MHz, aviation), uncovered 225 kHz, `legacy-band:6a7959a3d68cf3fe478054c6`
+- `missing`: Maritime (12.23–13.2 MHz, marine), uncovered 970 kHz, `legacy-band:aeaa10abce72cabf424016ec`
+- `missing`: Aeronautical HF (13.2–13.36 MHz, aviation), uncovered 160 kHz, `legacy-band:1651175e2e88c9c5cc95d07d`
+- `missing`: Aeronautical HF (15.01–15.1 MHz, aviation), uncovered 90 kHz, `legacy-band:3deeec5ef72eeb5bfba05334`
+- `missing`: Maritime (16.36–17.41 MHz, marine), uncovered 1.05 MHz, `legacy-band:9f263d33be5cca3c4f590c98`
+- `missing`: Maritime - ship tx (18.78–18.9 MHz, marine), uncovered 120 kHz, `legacy-band:9ff39e4bfadbeefb60097516`
+- `missing`: Maritime - coast tx (19.68–19.99 MHz, marine), uncovered 310 kHz, `legacy-band:6739f5060353299fe66bf6f8`
+- `missing`: Aeronautical HF (21.87–22 MHz, aviation), uncovered 130 kHz, `legacy-band:f486288c9ef1552da2c6cedb`
+- `missing`: Aeronautical HF (23.2–23.35 MHz, aviation), uncovered 150 kHz, `legacy-band:505a77459392f09a0cf02877`
+- `service_conflict`: CB (26.565–27.405 MHz, other), uncovered 840 kHz, `legacy-band:a9e15af7a9883bb55a547edb`
+- `service_conflict`: Air Band VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:aefa078ec659b440a899f677`
+- `service_conflict`: Air Band Voice (118–136.7 MHz, aviation), uncovered 18.7 MHz, `legacy-band:5005bf07c0ff35ae2ebd9543`
+- `service_conflict`: Air Band CPDLC/Datalink (136.7–137 MHz, aviation), uncovered 300 kHz, `legacy-band:0d95a583261ee1da5013c425`
+- `service_conflict`: Earth orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:af9ff2bbea70ab9f8979b4ce`
+- `missing`: Freenet (149.025–149.115625 MHz, other), uncovered 90.625 kHz, `legacy-band:ddeb917ae06cf3c18b55c13f`
+- `service_conflict`: Marine (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:dd2a26f6c009de1992906eb4`
+- `service_conflict`: Pager BOS (163–174 MHz, other), uncovered 11 MHz, `legacy-band:bbe72f1b6b8ff788f9c2a3b0`
+- `missing`: DAB+ (digital broadcast) (174–225 MHz, broadcast), uncovered 51 MHz, `legacy-band:25df03034dcdd59200fcc3f5`
+- `missing`: Air Band Military (225–380 MHz, military), uncovered 155 MHz, `legacy-band:292586a573da183da0472de0`
+- `missing`: TETRA BOS (388–397 MHz, other), uncovered 9 MHz, `legacy-band:c0e14dcede82a4952ef36d6d`
+- `missing`: Weathersondes (401–410 MHz, other), uncovered 9 MHz, `legacy-band:def106782f52b4153f5afda4`
+- `missing`: TETRA Civil (423–430 MHz, other), uncovered 7 MHz, `legacy-band:3b388e04985ab3e33ee58929`
+- `missing`: Pager Civil (446.5–470 MHz, other), uncovered 23.5 MHz, `legacy-band:0cd213660583601bf001ed78`
+- `missing`: DVB-T2 (TV) (470–690 MHz, broadcast), uncovered 220 MHz, `legacy-band:dc07c24eef2c91f83c34102b`
+- `service_conflict`: 868 MHz ISM-Devices (866.5–871 MHz, other), uncovered 4.5 MHz, `legacy-band:e2e218f60f7afa32da713bed`
+- `missing`: L-Band (1.3–2 GHz, other), uncovered 700 MHz, `legacy-band:e48eac506f436f3ad4bf5f5e`
+
+### Ireland
+
+- `partial_overlap`: Long wave (148.5–282.5 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:381c0fe2685bc01b155a1dbe`
+- `legacy_contains_openwebrx`: 60m SW Broadcast (4.75–5.06 MHz, broadcast), uncovered 65 kHz, `legacy-band:cb7438f2d782240188093f16`
+- `service_conflict`: CB (26.965–27.405 MHz, amateur), uncovered 440 kHz, `legacy-band:7ec737856debdba171146e13`
+- `service_conflict`: Airband VOR/ILS (108–117.9 MHz, aviation), uncovered 9.9 MHz, `legacy-band:f39b06636ad0f58cd20dd4f7`
+- `service_conflict`: Airband Voice (118–137 MHz, aviation), uncovered 19 MHz, `legacy-band:675eee7009315d497cc0f3f4`
+- `service_conflict`: Polar orbiting satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:8d125e5c3c913196526bee77`
+- `service_conflict`: ADS-B (1.089–1.091 GHz, aviation), uncovered 2 MHz, `legacy-band:72d167bf0e1835d3d47142b8`
+
+### Italy
+
+- `missing`: Ausili metereologici (8.3–11.3 kHz, utility), uncovered 3 kHz, `legacy-band:6bad0ba3d9526c10f389382c`
+- `service_conflict`: Radionavigazione (11.3–148.5 kHz, marine), uncovered 137.2 kHz, `legacy-band:100f23bad2e8f56e7055d44d`
+- `legacy_contains_openwebrx`: Radioamatori 137kHz (135.5–137.8 kHz, amateur), uncovered 200 Hz, `legacy-band:b9bbe62a3f48835fe2a96421`
+- `partial_overlap`: Radiodiffusione OL (148.5–283.5 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:0fd98841b0ea13df2c249b24`
+- `service_conflict`: Radiofari e NDB (283.5–405 kHz, aviation), uncovered 121.5 kHz, `legacy-band:aa3ffbfc39910d2bc594926b`
+- `service_conflict`: Radiogoniometria (405–415 kHz, marine), uncovered 10 kHz, `legacy-band:921aa38817d6043a79decb5b`
+- `service_conflict`: Mobile marittimo, NAVTEX (435–520 kHz, marine), uncovered 85 kHz, `legacy-band:cca4a55a62b4f0cffc5a40e1`
+- `service_conflict`: Mobile marittimo (1.6065–1.83 MHz, marine), uncovered 223.5 kHz, `legacy-band:d6a71125ff97d7f5ee82f1a4`
+- `service_conflict`: Mobile marittimo (1.85–2.3 MHz, marine), uncovered 450 kHz, `legacy-band:df9bc95427aed1e86926ab3c`
+- `legacy_contains_openwebrx`: Radiodiffusione OC 120m (2.3–2.5 MHz, broadcast), uncovered 5 kHz, `legacy-band:ccd588f90d4a9c633a4be5e1`
+- `missing`: Segnali orari (2.501–2.502 MHz, utility), uncovered 1 kHz, `legacy-band:5a11d8b3e8c262d6a25bec7f`
+- `missing`: Mobile marittimo (2.502–2.85 MHz, marine), uncovered 348 kHz, `legacy-band:8b9360baa7756e572f7ede1a`
+- `missing`: Mobile aeronautico (2.85–3.155 MHz, aviation), uncovered 305 kHz, `legacy-band:cc6286119ba805446d1c891f`
+- `missing`: Mobile marittimo (3.155–3.2 MHz, marine), uncovered 45 kHz, `legacy-band:4a48c4c8ccb6ff15405abe78`
+- `missing`: Mobile aviazione (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:ec8811db9729064ca475c844`
+- `service_conflict`: Mobile marittimo (3.5–3.6 MHz, marine), uncovered 100 kHz, `legacy-band:b32eaa5c75899443c336589f`
+- `missing`: Mobile marittimo (4.065–4.44 MHz, marine), uncovered 375 kHz, `legacy-band:f66bbc5b229dc45bdcc4d323`
+- `missing`: Mobile aeronautico (4.65–4.75 MHz, aviation), uncovered 100 kHz, `legacy-band:5298ac379b81ba53a7ceadd0`
+- `missing`: Radiodiffusione OC 60m (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:c05f7c9b1e276438655868e1`
+- `missing`: Mobile aeronautico (5.45–5.73 MHz, aviation), uncovered 280 kHz, `legacy-band:040306fea96fca3a7f857d45`
+- `missing`: Mobile marittimo (6.2–6.525 MHz, marine), uncovered 325 kHz, `legacy-band:75fff86d1099653d43fc3401`
+- `missing`: ISM, reti fisse pubbliche (6.525–6.765 MHz, utility), uncovered 240 kHz, `legacy-band:d6cb3b689a08ffac10934eb8`
+- `missing`: Mobile marittimo (8.195–8.815 MHz, marine), uncovered 620 kHz, `legacy-band:13185ad5b151563f73d06d68`
+- `missing`: Mobile aeronautico (8.815–9.04 MHz, aviation), uncovered 225 kHz, `legacy-band:2fa2e89495e7e6f90243d3c6`
+- `missing`: Mobile aeronautico (10.005–10.1 MHz, aviation), uncovered 95 kHz, `legacy-band:e036fe0bde47e243bf418a74`
+- `missing`: Mobile aeronautico (11.175–11.4 MHz, aviation), uncovered 225 kHz, `legacy-band:875d3251aa4652d9e6422a15`
+- `missing`: Mobile marittimo (12.23–13.2 MHz, marine), uncovered 970 kHz, `legacy-band:f2ba1324e63323df5d27d4d3`
+- `missing`: Mobile aeronautico (13.2–13.36 MHz, aviation), uncovered 160 kHz, `legacy-band:4e054b5d7208176b10a3f312`
+- `missing`: Segnali orari (14.99–15.01 MHz, utility), uncovered 20 kHz, `legacy-band:aaf515f37aaadbed6e43c176`
+- `missing`: Mobile aeronautico (15.01–15.1 MHz, aviation), uncovered 90 kHz, `legacy-band:7b9583ef22ff793c7e5101a0`
+- `missing`: Mobile marittimo (16.36–17.41 MHz, marine), uncovered 1.05 MHz, `legacy-band:94d3d700d32e2dd9ca0d2af8`
+- `missing`: Mobile aeronautico (17.9–18.03 MHz, aviation), uncovered 130 kHz, `legacy-band:c328442078398b05dfc85281`
+- `missing`: Mobile marittimo (18.78–18.9 MHz, marine), uncovered 120 kHz, `legacy-band:d30babfa46c4274177959457`
+- `missing`: Mobile marittimo (19.68–19.8 MHz, marine), uncovered 120 kHz, `legacy-band:416a806e4b26af2b1fa7404f`
+- `missing`: Segnali orari (19.99–20.01 MHz, utility), uncovered 20 kHz, `legacy-band:d29db3b80bb8d8a525a513c0`
+- `missing`: Mobile aeronautico (21.925–22 MHz, aviation), uncovered 75 kHz, `legacy-band:b56dffa5d5919a21f3048011`
+- `missing`: Mobile marittimo (22–22.855 MHz, marine), uncovered 855 kHz, `legacy-band:c37e80d8a4d82254c8ff31c2`
+- `missing`: Mobile aeronautico (23.2–23.35 MHz, aviation), uncovered 150 kHz, `legacy-band:2b5f66b6b74bdc139a3eb590`
+- `missing`: Segnali orari (24.99–25.01 MHz, utility), uncovered 20 kHz, `legacy-band:283a46de0572b010efddb491`
+- `missing`: Mobile marittimo (25.07–25.21 MHz, marine), uncovered 140 kHz, `legacy-band:73efc5c39dc0425e5e9e28ce`
+- `missing`: Radioastronomia (25.55–25.67 MHz, utility), uncovered 120 kHz, `legacy-band:7eb5161850738bdf59cc5376`
+- `missing`: Mobile marittimo (26.1–26.175 MHz, military), uncovered 75 kHz, `legacy-band:7c6fad7664108602fe3961e3`
+- `service_conflict`: CB (26.175–27.23 MHz, amateur), uncovered 1.055 MHz, `legacy-band:4e604cd99f6bc6fc4b8e3caf`
+- `missing`: Wind profiler (45–47 MHz, military), uncovered 2 MHz, `legacy-band:11f93bf6252a844c959129b9`
+- `service_conflict`: Wind profiler (52.5–68 MHz, military), uncovered 15.5 MHz, `legacy-band:09bf972037c40d92c360a53f`
+- `service_conflict`: Soccorso alpino (68–74.8 MHz, military), uncovered 6.8 MHz, `legacy-band:78c10fd5d5aad1b5839eb29c`
+- `missing`: Radiofari 75MHz (74.8–75.2 MHz, aviation), uncovered 400 kHz, `legacy-band:ad3ae4447b04f5cae488ceb1`
+- `service_conflict`: VOR/ILS (108–117.975 MHz, aviation), uncovered 9.975 MHz, `legacy-band:cb3b900558f2246b3bf73549`
+- `service_conflict`: Mobile aeronautico (117.975–137 MHz, aviation), uncovered 19.025 MHz, `legacy-band:6456c2a0d2df6f01e0dca1ba`
+- `service_conflict`: Satelliti polari (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:a4d0a06283af9ac58b90cbbe`
+- `missing`: Telefonia satellitare (148–150.05 MHz, satellite), uncovered 2.05 MHz, `legacy-band:6c21021a22724ce709a0f035`
+- `service_conflict`: Marittimo VHF (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:cdd8c561008be90fc8ac85c3`
+- `missing`: TV banda III e DAB (174–223 MHz, broadcast), uncovered 49 MHz, `legacy-band:0b52866a56398f417c6c60d2`
+- `missing`: Mobile aeronautico militare (225–240 MHz, military), uncovered 15 MHz, `legacy-band:4046533af6939f7f7ea3892c`
+- `missing`: Satelliti militari (240–270 MHz, military), uncovered 30 MHz, `legacy-band:b41483fd2360b5ca08caf30e`
+- `missing`: Mobile aeronautico militare (270–399.9 MHz, military), uncovered 129.9 MHz, `legacy-band:2670eb09bffa8790cf342a55`
+- `missing`: Telefonia satellitare (399.9–400.05 MHz, satellite), uncovered 150 kHz, `legacy-band:2cbd33e2728df2d90a460eaa`
+- `missing`: Segnali orari via satellite (400.05–400.15 MHz, satellite), uncovered 100 kHz, `legacy-band:8721e9e93d261e60206cafc9`
+- `missing`: Radiosonde (400.15–406 MHz, satellite), uncovered 5.85 MHz, `legacy-band:09d8d9c5014782d9b2c58960`
+- `missing`: EPIRB e PLB (406–406.1 MHz, satellite), uncovered 100 kHz, `legacy-band:7fef22dfac562d268eba0233`
+- `missing`: Satelliti militari (406.1–410 MHz, military), uncovered 3.9 MHz, `legacy-band:beb2a9f3ca9ec42540bd0e9d`
+- `missing`: Fisso militare (410–420 MHz, military), uncovered 10 MHz, `legacy-band:3b829e38a8445b12f423d29a`
+- `missing`: Mobile militare (420–430 MHz, military), uncovered 10 MHz, `legacy-band:b7eb5a7ff7d82f60555c0e0d`
+- `service_conflict`: Fisso militare (434–435 MHz, military), uncovered 1 MHz, `legacy-band:cb5e6bbf6f64d33725ab0e75`
+- `service_conflict`: Mobile o fisso privato (438–446 MHz, comms), uncovered 8 MHz, `legacy-band:e8b240f74b281a3abcde5b81`
+- `missing`: Mobile o fisso privato (446.2–470 MHz, utility), uncovered 23.8 MHz, `legacy-band:9e8b094aa05c5641f65fa90f`
+- `missing`: TV UHF (470–791 MHz, broadcast), uncovered 321 MHz, `legacy-band:2e9738f892124e35854ea7ea`
+- `missing`: LTE (791–862 MHz, broadcast), uncovered 71 MHz, `legacy-band:7bb9f5a0ec305c07c7bdba81`
+- `service_conflict`: ISM e RFID (862–876 MHz, ism), uncovered 14 MHz, `legacy-band:9b2e67e99c3abceeb675cbb5`
+- `missing`: GSM-R (876–880 MHz, cellular), uncovered 4 MHz, `legacy-band:b0ddf68ac933754fbc2a73ff`
+- `missing`: GSM (880–915 MHz, cellular), uncovered 35 MHz, `legacy-band:1b5995deb671fcc620e8a777`
+- `invalid`: GSM-R (9.21–0.925 GHz, cellular), uncovered 0 Hz, `legacy-band:7ef17b1a082af5e24bdde816`
+- `missing`: GSM (925–960 MHz, cellular), uncovered 35 MHz, `legacy-band:8e65d442730ebf646e4e5b9f`
+- `service_conflict`: ADS-B, DME, TACAN (0.96–1.164 GHz, aviation), uncovered 204 MHz, `legacy-band:9235169349e1c0a71de62908`
+- `invalid`: Radiolocalizzazione GNSS (1.164–0.124 GHz, utility), uncovered 0 Hz, `legacy-band:0530d54dabf625b976f87c1b`
+- `invalid`: Wind profiler (1.27–0.1298 GHz, military), uncovered 0 Hz, `legacy-band:d177e3a01ee8dcc4f6955710`
+- `invalid`: Radiolocalizzazione (1.298–0.13 GHz, military), uncovered 0 Hz, `legacy-band:118121b0dc91519669d73987`
+- `missing`: Wind profiler (1.3–1.4 GHz, military), uncovered 100 MHz, `legacy-band:32de83b76dc6964ea03befe5`
+- `missing`: Radioastronomia (1.4–1.427 GHz, utility), uncovered 27 MHz, `legacy-band:95d988c34dd5d8af8fca4a3d`
+- `missing`: Reti per segnali audio (1.427–1.525 GHz, utility), uncovered 98 MHz, `legacy-band:1a908babfe5a791d25ae01b7`
+- `missing`: Telefonia satellitare (1.525–1.559 GHz, satellite), uncovered 34 MHz, `legacy-band:289dddead029952a257ae3c9`
+- `missing`: Radionavigazione GNSS (1.559–1.626 GHz, satellite), uncovered 67 MHz, `legacy-band:dccc2a7d1880c4c83daae97f`
+- `missing`: Telefonia satellitare (1.626–1.66 GHz, satellite), uncovered 34 MHz, `legacy-band:7a4bbf9cf08c1de27b0076ef`
+- `missing`: Satelliti militari (1.66–1.71 GHz, military), uncovered 50 MHz, `legacy-band:14324ba35afd9ff263832bef`
+- `missing`: MCA, MCV (1.71–1.715 GHz, utility), uncovered 5 MHz, `legacy-band:66fbe8c29fb5635c5189a470`
+- `missing`: GSM, IMT, MCA, MCV (1.715–1.785 GHz, cellular), uncovered 70 MHz, `legacy-band:6d773adb3b5c952babaa4696`
+- `missing`: Radiomicrofoni (1.785–1.805 GHz, utility), uncovered 20 MHz, `legacy-band:2e7c9f0fff8638558eb44a1e`
+- `missing`: GSM, IMT, MCA, MCV (1.805–1.88 GHz, cellular), uncovered 75 MHz, `legacy-band:e1d7efdee9134d89ec34eed6`
+- `missing`: DECT (1.88–1.9 GHz, utility), uncovered 20 MHz, `legacy-band:a997930d9d27a074353e2829`
+- `missing`: GSM, IMT, MCA, MCV (1.88–1.9 GHz, cellular), uncovered 20 MHz, `legacy-band:dab53cdbfb8304d64e211a1b`
+- `missing`: IMT, MCA, MCV (1.9–1.98 GHz, utility), uncovered 80 MHz, `legacy-band:ea6860fbc5f43cdf1a5bbd57`
+- `invalid`: MSS 2 GHz (1.98–0.201 GHz, satellite), uncovered 0 Hz, `legacy-band:9f00b5b1d5a0945e681d862d`
+- `missing`: SAP/SAB, IMT, PMSE (2.01–2.025 GHz, utility), uncovered 15 MHz, `legacy-band:0318d5df47c713c3f873dcc1`
+- `missing`: Satelliti (2.025–2.11 GHz, satellite), uncovered 85 MHz, `legacy-band:397b26d88f2e46ee4d9069d8`
+- `missing`: Radioastronomia (2.11–2.12 GHz, utility), uncovered 10 MHz, `legacy-band:a149df21984bce10c42fa7ae`
+- `missing`: IMT, MCA, MCV (2.12–2.17 GHz, utility), uncovered 50 MHz, `legacy-band:cf31d9183be0890d65599253`
+- `missing`: MSS 2 GHz (2.17–2.2 GHz, satellite), uncovered 30 MHz, `legacy-band:f1c81150f9addf3b10997f6d`
+- `missing`: Telemetria (2.2–2.29 GHz, utility), uncovered 90 MHz, `legacy-band:7ae4a564f76cf27969e67b09`
+- `missing`: SAP/SAB (2.29–2.3 GHz, utility), uncovered 10 MHz, `legacy-band:d5e97a4c26942df9ec443603`
+- `service_conflict`: ISM, SAP/SAB, 802.11 (2.4–2.5 GHz, ism), uncovered 100 MHz, `legacy-band:edc42c9f6d46d3859a2a6730`
+- `missing`: IMT (2.5–2.5445 GHz, cellular), uncovered 44.5 MHz, `legacy-band:45cf76cf8e10d39ef971dbfb`
+- `missing`: Radioastronomia (2.69–2.7 GHz, utility), uncovered 10 MHz, `legacy-band:5a280a8ed9ef8e05b7ae11d9`
+- `missing`: Radar meteo (2.7–2.9 GHz, military), uncovered 200 MHz, `legacy-band:4afa4e0dadeebb310cd0bde8`
+- `missing`: Radar marittimi (2.9–3.4 GHz, marine), uncovered 500 MHz, `legacy-band:6449dcea4f015273ae8615d4`
+- `missing`: Reti numeriche (3.475–4.2 GHz, comms), uncovered 725 MHz, `legacy-band:652322acdb9f9bb9cd96b250`
+- `missing`: Radioaltimetri (4.2–4.4 GHz, aviation), uncovered 200 MHz, `legacy-band:62aceb695ff9141dd2c04ff8`
+- `missing`: Feeder link (5.15–5.25 GHz, satellite), uncovered 100 MHz, `legacy-band:9bf4d7a7829a1e3130e038f3`
+- `missing`: Reti numeriche e 802.11 (5.25–5.65 GHz, comms), uncovered 400 MHz, `legacy-band:ab2b52ee1955711c60005059`
+- `missing`: Reti numeriche e LPR (5.925–7.75 GHz, comms), uncovered 1.825 GHz, `legacy-band:98ffaaecbf2256356ce6356f`
+- `missing`: LPR (7.75–7.975 GHz, comms), uncovered 225 MHz, `legacy-band:049f909765bac4a93d72e4a9`
+- `missing`: Telerilevamento (7.975–8.215 GHz, utility), uncovered 240 MHz, `legacy-band:842760cd0211225513e3fc41`
+- `missing`: TLPR e SRD (8.215–8.65 GHz, comms), uncovered 435 MHz, `legacy-band:17f380fa126797541dbcfa93`
+- `missing`: Radar Doppler (8.65–8.85 GHz, aviation), uncovered 200 MHz, `legacy-band:5effae1cbf4fe2ecdcfd76b6`
+- `missing`: Radar marittimi (8.85–9 GHz, marine), uncovered 150 MHz, `legacy-band:ab6786ec0ac1b0673aaa2b48`
+- `missing`: Radar e transponder SART (9–9.5 GHz, marine), uncovered 500 MHz, `legacy-band:85bfbeebf08ed5c88cd07896`
+- `missing`: TLPR e SRD (9.5–10 GHz, utility), uncovered 500 MHz, `legacy-band:0936037445610f4efe75d211`
+- `missing`: Reti punto-punto televisive (10.5–10.68 GHz, comms), uncovered 180 MHz, `legacy-band:2fb5c117d576eff2fbb7422d`
+- `missing`: Reti fisse numeriche (10.68–11.7 GHz, comms), uncovered 1.02 GHz, `legacy-band:b95f8b78581b5f4dbaef970a`
+- `missing`: Satelliti televisivi (11.7–12.5 GHz, satellite), uncovered 800 MHz, `legacy-band:257b3c1f395d14fd89f4ed0f`
+- `missing`: Reti fisse numeriche (12.5–13.25 GHz, comms), uncovered 750 MHz, `legacy-band:b33a89d08d5fba4ac54906f1`
+- `missing`: Uplink satellitari (14–14.5 GHz, satellite), uncovered 500 MHz, `legacy-band:1882d31924e7c7457632799c`
+- `missing`: Rete fisse numeriche (14.5–14.62 GHz, comms), uncovered 120 MHz, `legacy-band:3ba53f1ff62a6098e348e0f0`
+- `missing`: Rete fisse numeriche (15.23–15.35 GHz, comms), uncovered 120 MHz, `legacy-band:b80004db86363ff6055b4532`
+- `missing`: Reti numeriche punto-punto (17.1–19.3 GHz, comms), uncovered 2.2 GHz, `legacy-band:34223c81b571595f3aba149c`
+- `missing`: Feeder link (19.3–19.7 GHz, satellite), uncovered 400 MHz, `legacy-band:a3d971a8c7d168e2b2d78eb2`
+- `missing`: HEST, LEST, ESIM, ESOMP (19.7–20.2 GHz, satellite), uncovered 500 MHz, `legacy-band:4531598e3228530f670fb2b0`
+- `missing`: Reti fisse numeriche (22–22.33 GHz, comms), uncovered 330 MHz, `legacy-band:376aeff348168b520100f519`
+- `invalid`: Reti fisse numeriche (22.67475–2.28335 GHz, comms), uncovered 0 Hz, `legacy-band:50be5f58fe6f283721065f51`
+- `missing`: Reti fisse numeriche, SAP/SAB (22.92675–23.15 GHz, comms), uncovered 223.25 MHz, `legacy-band:e61933fbb4c91f66f8d293db`
+- `missing`: Reti fisse numeriche (23.15–23.338 GHz, comms), uncovered 188 MHz, `legacy-band:e24fc6aa9a546df39dd7cfd1`
+- `service_conflict`: ISM, SRD e LPR (24.05–24.45 GHz, ism), uncovered 400 MHz, `legacy-band:93a220bc1e9567538037befa`
+- `missing`: Reti punto-punto e punto-multipunto (24.45–25.109 GHz, comms), uncovered 659 MHz, `legacy-band:55c7825aea01adebe26e9ee7`
+- `invalid`: LPR, SRD e SRR (25.109–2.5445 GHz, utility), uncovered 0 Hz, `legacy-band:e8ba7cbd05532654fe05ada9`
+- `missing`: Reti punto-punto e punto-multipunto (2.5445–2.6117 GHz, comms), uncovered 67.2 MHz, `legacy-band:488c126dad186a84839e1c0f`
+- `missing`: LPR, SRD e SRR (2.6117–2.65 GHz, utility), uncovered 38.3 MHz, `legacy-band:99f3c694dec14bb62d66913d`
+- `missing`: Comunicazioni elettroniche terrestri (26.5–27.5 GHz, comms), uncovered 1 GHz, `legacy-band:c2b72c3ec23a60e8872e1610`
+- `missing`: Reti punto-punto e punto-multipunto (27.5–29.1 GHz, comms), uncovered 1.6 GHz, `legacy-band:e9343f6982e553fd59e189aa`
+- `missing`: Reti punto-punto e punto-multipunto (29.1–29.5 GHz, comms), uncovered 400 MHz, `legacy-band:605f2761f340b725053a0bf8`
+- `missing`: Reti punto-punto e punto-multipunto (31–31.3 GHz, comms), uncovered 300 MHz, `legacy-band:0e049248d1ce9373942e8db6`
+- `missing`: Reti fisse numeriche ad alta densità (31.983–32.599 GHz, comms), uncovered 616 MHz, `legacy-band:f67b6411307e3860b1cd1a44`
+- `missing`: Reti fisse numeriche ad alta densità (32.795–33.4 GHz, comms), uncovered 605 MHz, `legacy-band:1d8b6e3ae5c4483e030acc70`
+- `missing`: Reti fisse numeriche ad alta densità (37.338–38.3 GHz, comms), uncovered 962 MHz, `legacy-band:f03604ceed4a0a20e448c505`
+- `missing`: Reti fisse numeriche ad alta densità (38.59–39.5 GHz, comms), uncovered 910 MHz, `legacy-band:49c51c7b9ee66200bb0d5d5c`
+- `missing`: Sistemi fissi via radio FWS (40.5–43.5 GHz, utility), uncovered 3 GHz, `legacy-band:bf48f169e9ddea5dc7250d76`
+- `missing`: Reti fisse numeriche ad alta densità (51.4–52.6 GHz, comms), uncovered 1.2 GHz, `legacy-band:92d21d6d8df5d762501449e2`
+- `missing`: Reti fisse numeriche ad alta densità (55.78–61 GHz, comms), uncovered 5.22 GHz, `legacy-band:66dcbbd2f212eb62d10c851d`
+- `missing`: ISM (61–64 GHz, ism), uncovered 3 GHz, `legacy-band:3418336849d3565d98f1913b`
+- `missing`: Reti fisse numeriche ad alta densità (64–66 GHz, comms), uncovered 2 GHz, `legacy-band:a7fb3410970ee8da2d8a5b4f`
+- `missing`: Collegamenti fissi ad alta capacità (71–74 GHz, comms), uncovered 3 GHz, `legacy-band:f80b4b3efc2087fcbf9fd96b`
+- `service_conflict`: LPR, SRD, SRR, TLPR, radar veicoli (74–76.5 GHz, utility), uncovered 2.5 GHz, `legacy-band:36d6964935666f197a2b36b6`
+- `missing`: Collegamenti fissi ad alta capacità (84–86 GHz, comms), uncovered 2 GHz, `legacy-band:0cb2d433c089887a391e0482`
+- `missing`: ISM (120.2–122.25 GHz, ism), uncovered 2.05 GHz, `legacy-band:68cb0aab9a0df841b0f01a34`
+- `missing`: Radioamatori 2,1mm (142–144 GHz, amateur), uncovered 2 GHz, `legacy-band:92d6401f42c9f95e5ac3f733`
+
+### Netherlands
+
+- `missing`: Unallocated (0–8.3 kHz, utility), uncovered 8.3 kHz, `legacy-band:1e1172d0d80b7ab3d4fd8fb0`
+- `missing`: Weather (LDS) (8.3–9 kHz, utility), uncovered 700 Hz, `legacy-band:c85fc14ffc21f2d92665f9ea`
+- `missing`: Radionavigation / Weather (LDS) (9–11.3 kHz, utility), uncovered 2.3 kHz, `legacy-band:78a3592017f2928b467d5b9d`
+- `missing`: Radionavigation (11.3–14 kHz, marine), uncovered 2.7 kHz, `legacy-band:ee5431e007d1329567cadacd`
+- `missing`: Maritime Mobile Service (14–19.95 kHz, marine), uncovered 5.95 kHz, `legacy-band:9a4d97fb655c969b53fca787`
+- `missing`: 20KHz Time Signal (19.95–20.05 kHz, utility), uncovered 100 Hz, `legacy-band:979c26dc781d7012b2301f65`
+- `missing`: Maritime Mobile Service (20.05–76.85 kHz, marine), uncovered 56.8 kHz, `legacy-band:2fa3b41e034046d39d92a8a6`
+- `missing`: DCF77 (DE) (76.85–78.15 kHz, utility), uncovered 1.3 kHz, `legacy-band:739f956b8cb937f0448368b9`
+- `missing`: Maritime Mobile Service (78.15–123.6 kHz, marine), uncovered 45.45 kHz, `legacy-band:aae02bc8c6bda4e410505a3f`
+- `missing`: RFID (LF) (123.6–135.7 kHz, utility), uncovered 12.1 kHz, `legacy-band:7eaba9c33e57bb7bb11e9f94`
+- `missing`: Maritime Mobile Service (137.8–148.5 kHz, marine), uncovered 10.7 kHz, `legacy-band:dccc6f3232c84f28d852d113`
+- `partial_overlap`: Long Wave (148.5–255 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:5526f3f07972bc3380896469`
+- `service_conflict`: Aeronautical Radionavigation / Maritime (283.5–472 kHz, aviation), uncovered 188.5 kHz, `legacy-band:ea8c44142b3c803f66a7a621`
+- `service_conflict`: Aeronautical Radionavigation / Maritime (479–526.5 kHz, aviation), uncovered 47.5 kHz, `legacy-band:3a445e8eaa85645bd7e0e955`
+- `service_conflict`: Maritime Mobile Service (1.6065–1.625 MHz, marine), uncovered 18.5 kHz, `legacy-band:f0aebfbe7c7e7d634279184d`
+- `service_conflict`: Radiolocation Beacons (1.625–1.635 MHz, military), uncovered 10 kHz, `legacy-band:8316abaf8ad03f0bfaaf7bf5`
+- `service_conflict`: Maritime Mobile Service (1.635–1.8 MHz, marine), uncovered 165 kHz, `legacy-band:2d47fa08795361f5ec2542ae`
+- `missing`: Radiolocation Beacons (1.8–1.81 MHz, military), uncovered 10 kHz, `legacy-band:a199bfc13643156f2e14cf92`
+- `service_conflict`: Aeronautical Mobile Service (1.88–2.025 MHz, aviation), uncovered 145 kHz, `legacy-band:bc9eb223b111a33ec1825ecd`
+- `missing`: Aeronautical Mobile Service / Weather aux. (2.025–2.045 MHz, aviation), uncovered 20 kHz, `legacy-band:0119186e2b6d3e10a907c0d5`
+- `missing`: Maritime Mobile Service (2.045–2.16 MHz, marine), uncovered 115 kHz, `legacy-band:1c9867d968eba90fae68f4be`
+- `missing`: Radiolocation Beacons (2.16–2.17 MHz, aviation), uncovered 10 kHz, `legacy-band:bd4ef966cec05f122a6d48a3`
+- `missing`: Maritime Mobile Service (2.17–2.1735 MHz, marine), uncovered 3.5 kHz, `legacy-band:7e776c850be33a77ffb3c24a`
+- `missing`: Distress and Calling for Maritime and Aeronautical (2.1735–2.1905 MHz, aviation), uncovered 17 kHz, `legacy-band:d5a1804a5f52e6e82db6c55a`
+- `missing`: Maritime Mobile (2.1905–2.194 MHz, marine), uncovered 3.5 kHz, `legacy-band:126a418506954ca954617379`
+- `missing`: Aeronautical Mobile (2.194–2.3 MHz, aviation), uncovered 106 kHz, `legacy-band:0a0094135653e73a8682b62f`
+- `legacy_contains_openwebrx`: Shortwave (Tropical Band 120m) Broadcast (2.3–2.498 MHz, broadcast), uncovered 3 kHz, `legacy-band:3751b4e72a8b9ee74ec83985`
+- `missing`: Standard Frequency and Time Signal (2.498–2.501 MHz, utility), uncovered 3 kHz, `legacy-band:c7bc239485d138e5b83a4b22`
+- `missing`: Standard Frequency and Time Signal / Spatial research (2.501–2.502 MHz, utility), uncovered 1 kHz, `legacy-band:2cd3de1f22fb4d4ef4ec712a`
+- `missing`: Aeronautical Mobile Service (2.502–2.625 MHz, aviation), uncovered 123 kHz, `legacy-band:69ddf26595f6ea2394852847`
+- `missing`: Maritime Mobile Service (2.625–2.65 MHz, marine), uncovered 25 kHz, `legacy-band:2e466b664f88921599b88717`
+- `missing`: Aeronautical Mobile Service (2.65–2.85 MHz, aviation), uncovered 200 kHz, `legacy-band:845e0358a894a9fe008dad36`
+- `missing`: Transoceanic Flights (Aeronautical Mobile) (2.85–3.155 MHz, aviation), uncovered 305 kHz, `legacy-band:ef788c089b9e4d0510501a9d`
+- `missing`: Maritime Mobile (3.155–3.2 MHz, marine), uncovered 45 kHz, `legacy-band:b6d2e2657de7e4b15e3a2835`
+- `missing`: Aeronautical (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:3905c53b4f4b17b78a3ed68e`
+- `service_conflict`: Aeronautical Mobile Service (3.8–3.95 MHz, aviation), uncovered 150 kHz, `legacy-band:46ba89fd939f794294771b5c`
+- `missing`: Maritime (4–4.75 MHz, marine1), uncovered 750 kHz, `legacy-band:19040bdef6dd78423e51f72b`
+- `missing`: Standard Frequency and Time Signal (4.995–5.003 MHz, utility), uncovered 8 kHz, `legacy-band:1c5fde7f2a63c5106bb16909`
+- `missing`: Standard Frequency and Time Signal / Spatial research (5.003–5.005 MHz, utility), uncovered 2 kHz, `legacy-band:c0f8e77bacb441b4fb35af7d`
+- `missing`: Shortwave (Tropical Band 60m) Broadcast (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:20f27cd67a33ef1ffafd5808`
+- `missing`: Maritime Mobile/ Private Land Mobile (5.06–5.3305 MHz, aviation), uncovered 270.5 kHz, `legacy-band:79fc3c1c8794e63aa576ab62`
+- `missing`: 60m Ham Band Ch. 1 (Not NL) (5.3305–5.3334 MHz, amateur), uncovered 2.9 kHz, `legacy-band:16a219703e0ddc4720ba519d`
+- `missing`: 60m Ham Band (Not NL) (5.3334–5.3465 MHz, amateur), uncovered 13.1 kHz, `legacy-band:3f4749e7947c0532c47d83d2`
+- `missing`: Ch. 2 (60m) (Not NL) (5.3465–5.3494 MHz, amateur), uncovered 2.9 kHz, `legacy-band:d66f045b13ab8ce247c6fcd5`
+- `missing`: 60m Ham Band (Not NL) (5.3494–5.3515 MHz, amateur), uncovered 2.1 kHz, `legacy-band:651bf579164561fa255fab1f`
+- `missing`: 60m Ham Band (Not NL) (5.3665–5.3715 MHz, amateur), uncovered 5 kHz, `legacy-band:d4c9be603278c6e4918a0487`
+- `missing`: Ch. 4 (60m) (Not NL) (5.3715–5.3744 MHz, amateur), uncovered 2.9 kHz, `legacy-band:3ddd4be1755509c4f52b2694`
+- `missing`: 60m Ham Band (Not NL) (5.3744–5.4035 MHz, amateur), uncovered 29.1 kHz, `legacy-band:3dc132834bd0f3209ed94f24`
+- `missing`: Ch. 5 60m Ham Band (Not NL) (5.4035–5.4064 MHz, amateur), uncovered 2.9 kHz, `legacy-band:76cb7cdd927c5721dd199b51`
+- `missing`: Aeronautical/ Maritime (5.4064–5.9 MHz, aviation), uncovered 493.6 kHz, `legacy-band:7cb87c6ed7fc53a2b44410ff`
+- `missing`: (Ship TX) Maritime (6.2–6.21475 MHz, marine), uncovered 14.75 kHz, `legacy-band:28d48319490e44c7b998e5fa`
+- `missing`: Distress (6.21375–6.21625 MHz, aviation), uncovered 2.5 kHz, `legacy-band:1f678413ff74dd035bf4bfff`
+- `missing`: (Ship TX) Maritime (6.21625–6.3425 MHz, marine), uncovered 126.25 kHz, `legacy-band:3270b7454e11a525f15b1002`
+- `missing`: (Transoceanic Flights) Aeronautical and (Ship/Shore) Maritime (6.3425–6.765 MHz, aviation), uncovered 422.5 kHz, `legacy-band:2c0b1c2268e89c924e22542e`
+- `missing`: ISM Band (50m) (6.765–6.795 MHz, utility), uncovered 30 kHz, `legacy-band:a78658ef0ac818967fcec6d3`
+- `missing`: Long Distance Communications (6.795–7 MHz, aviation), uncovered 205 kHz, `legacy-band:2574dc328789dfa7dd531c09`
+- `missing`: Maritime (7.45–7.6335 MHz, marine), uncovered 183.5 kHz, `legacy-band:f01ea7281fbc20f7e0d00e92`
+- `missing`: MARS (7.6335–7.6365 MHz, marine), uncovered 3 kHz, `legacy-band:f9a50d6a79e3cf9bd2472da7`
+- `missing`: Maritime (7.6365–7.85 MHz, marine), uncovered 213.5 kHz, `legacy-band:6d07904ba3e146948cf7dd14`
+- `missing`: (Ship/Shore) Maritime (7.85–8.28975 MHz, marine), uncovered 439.75 kHz, `legacy-band:5788ebfc6045a98ec76d8632`
+- `missing`: Distress (8.28975–8.29225 MHz, marine1), uncovered 2.5 kHz, `legacy-band:0b0e10ee79d05bf1787d6eb9`
+- `missing`: (Ship/Shore) Maritime (8.29225–8.68 MHz, marine), uncovered 387.75 kHz, `legacy-band:95aff660faab0f123a1b8342`
+- `missing`: (Transoceanic Flights) Aeronautical and (Ship/Shore) Maritime (8.68–9.108 MHz, marine1), uncovered 428 kHz, `legacy-band:b597fe0da89efb21eb4714b4`
+- `missing`: Maritime Mobile/ Private Land Mobile (9.108–9.4 MHz, marine), uncovered 292 kHz, `legacy-band:e9e3bb15984a649de93b7357`
+- `missing`: Private Land Mobile (9.9–9.995 MHz, utility), uncovered 95 kHz, `legacy-band:cf0ba443d55ba552f982ed8a`
+- `missing`: Standard Frequency and Time Signal (9.995–10.003 MHz, utility), uncovered 8 kHz, `legacy-band:98b10fa20e71fce6c3f882b6`
+- `missing`: Standard Frequency and Time Signal / Spatial research (10.003–10.005 MHz, utility), uncovered 2 kHz, `legacy-band:a73630d36edbb2f75dbc8318`
+- `missing`: Aeronautical (10.005–10.1 MHz, aviation), uncovered 95 kHz, `legacy-band:e6d8e11cf5984438508eb9d6`
+- `missing`: Aeronautical (10.15–11.407 MHz, aviation), uncovered 1.257 MHz, `legacy-band:7f75fa0c991ad86d6eb02cb1`
+- `missing`: MARS (11.407–11.41 MHz, marine), uncovered 3 kHz, `legacy-band:0e58d9cfb6f8d60486de7c32`
+- `missing`: Aeronautical (11.41–11.6 MHz, aviation), uncovered 190 kHz, `legacy-band:89c68af0c4102d90859c51c6`
+- `missing`: (Ship/Shore) Maritime (12.1–12.28875 MHz, aviation), uncovered 188.75 kHz, `legacy-band:b7c4e20710607b2825db37a2`
+- `missing`: Distress (12.28875–12.29125 MHz, aviation), uncovered 2.5 kHz, `legacy-band:da7e805118573345c4645c9a`
+- `missing`: (Ship/Shore) Maritime (12.29125–12.7879 MHz, aviation), uncovered 496.65 kHz, `legacy-band:1017ce8baa59c44c24fb11fa`
+- `missing`: (Transoceanic Flights) Aeronautical and (Ship/Shore) Maritime (12.7919–13.36 MHz, aviation), uncovered 568.1 kHz, `legacy-band:1d4d19b33e9d1d7583c0fbbe`
+- `missing`: Radio Astronomy (13.36–13.41 MHz, utility), uncovered 50 kHz, `legacy-band:c36f11c4ab4ca6b87471fdc3`
+- `missing`: (Ship/Shore) Maritime (13.41–13.553 MHz, aviation), uncovered 143 kHz, `legacy-band:6502b895fc876dffb1207622`
+- `missing`: 22m (HiFER) Band and 22m ISM (13.553–13.567 MHz, amateur), uncovered 14 kHz, `legacy-band:7c2292a6cd8291fac03e0a27`
+- `missing`: 22m ISM Band (13.567–13.57 MHz, utility), uncovered 3 kHz, `legacy-band:acecc45c676e674c568aa63b`
+- `missing`: Fixed and Aero mobile (13.87–14 MHz, utility), uncovered 130 kHz, `legacy-band:92d0990d61404525429d661d`
+- `missing`: Private Land Mobile (14.35–14.995 MHz, utility), uncovered 645 kHz, `legacy-band:d98d6be34c01458f7c224089`
+- `missing`: Standard Frequency and Time Signal (14.995–15.005 MHz, utility), uncovered 10 kHz, `legacy-band:9ff7807c317bffa754ca59cd`
+- `missing`: (Transoceanic Flights) Aeronautical Mobile (15.005–15.1 MHz, aviation), uncovered 95 kHz, `legacy-band:ad0b45a5d81764f1445be636`
+- `service_conflict`: (Ship/Shore) Maritime (15.8–17.48 MHz, marine), uncovered 1.68 MHz, `legacy-band:e42ff4ac4726d2fb35a135c6`
+- `missing`: (Transoceanic Flights) Aeronautical (17.9–18.068 MHz, aviation), uncovered 168 kHz, `legacy-band:0dbdbc7d61cb4e5ca34e1382`
+- `missing`: (Ship/Shore) Maritime/ Fixed Service (18.168–18.9 MHz, marine), uncovered 732 kHz, `legacy-band:a9df624304db643fdf757c6e`
+- `missing`: (Ship/Shore) Maritime (19.02–19.995 MHz, marine), uncovered 975 kHz, `legacy-band:433f2d20d114d5f6d1ffa7bd`
+- `missing`: Standard Frequency and Time Signal (19.995–20.005 MHz, utility), uncovered 10 kHz, `legacy-band:731fb0090f3a0ae383e7dcf0`
+- `missing`: Private Land Mobile (20.005–21 MHz, utility), uncovered 995 kHz, `legacy-band:f818e0450851876d3aff5bd8`
+- `missing`: Aeronautical Mobile (21.85–22 MHz, aviation), uncovered 150 kHz, `legacy-band:aeac0987e24da0d822baf239`
+- `missing`: (Ship/Shore) Maritime (22–24.89 MHz, marine), uncovered 2.89 MHz, `legacy-band:5996caab9f4e46dba40492b7`
+- `missing`: Maritime (24.99–24.995 MHz, marine), uncovered 5 kHz, `legacy-band:a77d8cbd67f04fc3347d18d7`
+- `missing`: Standard Frequency and Time Signal (24.995–25.005 MHz, utility), uncovered 10 kHz, `legacy-band:031c83457490ef8346b4c00a`
+- `missing`: Maritime (25.005–25.55 MHz, marine), uncovered 545 kHz, `legacy-band:2f92bf3f7bfae3ef329b1315`
+- `missing`: Radio Astronomy (25.55–25.67 MHz, utility), uncovered 120 kHz, `legacy-band:8d1b68b45f0b596a1fa0bfb5`
+- `missing`: Maritime (26.1–26.957 MHz, marine), uncovered 857 kHz, `legacy-band:44f2975615090c1417cbd1f7`
+- `service_conflict`: 10m ISM (26.957–27.283 MHz, utility), uncovered 326 kHz, `legacy-band:fa809bcb93b309abfd8b2b83`
+- `service_conflict`: Maritime (27.283–27.41 MHz, marine), uncovered 127 kHz, `legacy-band:f92fa7c379ae0105bb51df4c`
+- `service_conflict`: Meteorological Aids (27.41–28 MHz, utility), uncovered 590 kHz, `legacy-band:b296938f14bcbe55edf9b2a5`
+- `missing`: Military, microphones, radiocommands, PMR, medical implants (29.7–40.66 MHz, utility), uncovered 10.96 MHz, `legacy-band:d4954ca3adc927e6ba187d54`
+- `missing`: 8m ISM (40.66–40.7 MHz, utility), uncovered 40 kHz, `legacy-band:bd2ef48df6ca1b57d3b97cbb`
+- `missing`: Fixed Mobile/ Maritime (40.7–50 MHz, marine), uncovered 9.3 MHz, `legacy-band:19ec4936f7a956ecce438fac`
+- `service_conflict`: Land Military / PMR (52–70 MHz, utility), uncovered 18 MHz, `legacy-band:45fd61ee538594a2a4f2a508`
+- `missing`: Miltary, PMR/PAMR (70.5–73 MHz, utility), uncovered 2.5 MHz, `legacy-band:7df29263380ff5ae651c2e5b`
+- `missing`: Radio Astronomy (73–74.6 MHz, utility), uncovered 1.6 MHz, `legacy-band:8a0ae44d51ee77187343b57a`
+- `missing`: Radionavigation (74.6–75.2 MHz, aviation), uncovered 600 kHz, `legacy-band:2a992e27f7205c6796e9f06b`
+- `missing`: Miltary, PMR/PAMR (75.2–87.5 MHz, utility), uncovered 12.3 MHz, `legacy-band:1673c38acfd334db03d0343f`
+- `service_conflict`: Air Band VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:8e9b71f913dceaeea9b7a39a`
+- `service_conflict`: Air Band Voice (118–121.49 MHz, aviation), uncovered 3.49 MHz, `legacy-band:a6af371bcc7604120c090de2`
+- `service_conflict`: Civilian Aircraft Distress/ Emergency (121.49–121.51 MHz, aviation), uncovered 20 kHz, `legacy-band:c11e2d386d2adee430962b76`
+- `service_conflict`: Air Band Voice (121.51–131.545 MHz, aviation), uncovered 10.035 MHz, `legacy-band:1b97c450db699a41950d0ce3`
+- `service_conflict`: ACARS (131.545–131.555 MHz, aviation), uncovered 10 kHz, `legacy-band:9817134d1c0389ba4cec70fa`
+- `service_conflict`: Aviation (131.555–137 MHz, aviation), uncovered 5.445 MHz, `legacy-band:7b9954c28b5daba91b9eac0c`
+- `service_conflict`: Satellite (137–138 MHz, satellite1), uncovered 1 MHz, `legacy-band:8561c52afd042b645ae71bdf`
+- `missing`: Aeronautical Military Systems (138–144 MHz, military), uncovered 6 MHz, `legacy-band:996e58d42199f363c37a852e`
+- `service_conflict`: ISS Voice Uplink + Beacons (144.48–144.5 MHz, satellite), uncovered 20 kHz, `legacy-band:d85b0aaa04e9c4770d7106dc`
+- `service_conflict`: ISS Voice/ SSTV Downlink (145.79–145.81 MHz, satellite), uncovered 20 kHz, `legacy-band:a92ba102c2bd731fbc4508c7`
+- `service_conflict`: Satellite in 2m Ham Band| (145.81–146 MHz, satellite1), uncovered 190 kHz, `legacy-band:3251482357c1638a0baddf2c`
+- `missing`: 2m Band (Not NL) (146–148 MHz, amateur), uncovered 2 MHz, `legacy-band:ac95fd1b0ccadee18c019623`
+- `missing`: Fixed Mobile (148–155.9875 MHz, marine), uncovered 7.9875 MHz, `legacy-band:39a0b415eb9552d787077123`
+- `service_conflict`: Fixed Mobile/ Marine (155.9875–174 MHz, marine1), uncovered 18.0125 MHz, `legacy-band:b9a36f8dcf883aafde732fd3`
+- `missing`: DAB+ radio (174–230 MHz, broadcast), uncovered 56 MHz, `legacy-band:9ad1aa31c3bc77fb41e2fb93`
+- `missing`: Defence Systems (230–242.95 MHz, military), uncovered 12.95 MHz, `legacy-band:bfbcc2d40503fe2230bff230`
+- `missing`: EPIRBs (242.95–243.05 MHz, utility), uncovered 100 kHz, `legacy-band:b8690d16134549395adb7514`
+- `missing`: Defence Systems (243.05–322 MHz, military), uncovered 78.95 MHz, `legacy-band:7661356e610d74aee386aba4`
+- `missing`: Radio Astronomy / Defence (322–328.6 MHz, utility), uncovered 6.6 MHz, `legacy-band:3c787b761c34e4408b0c6635`
+- `missing`: ILS Glide path (328.6–335.4 MHz, aviation), uncovered 6.8 MHz, `legacy-band:810b272f3ee5faaab3de64d8`
+- `missing`: Defence Systems, PMR/PMAR/PPDR (335.4–399.9 MHz, military), uncovered 64.5 MHz, `legacy-band:388a0900cc2389dcb679e6d4`
+- `missing`: MSS Earth stations (399.9–400.05 MHz, satellite), uncovered 150 kHz, `legacy-band:bb0c6cc5ed90e76860e48e6d`
+- `missing`: Standard Frequency and Time Signal-Satellite Service (400.05–400.15 MHz, satellite), uncovered 100 kHz, `legacy-band:cb4511936917f5f5116be147`
+- `missing`: (NVNG)/ Mobile Satellite Service (MSS) (400.15–401 MHz, satellite), uncovered 850 kHz, `legacy-band:1a3b22c88733ff6a94281ec3`
+- `missing`: Earth Exploration Satellite (401–403 MHz, satellite1), uncovered 2 MHz, `legacy-band:7cf27edb980ab09b15fcfd41`
+- `missing`: Meteorological and Medical Aids (403–406 MHz, utility), uncovered 3 MHz, `legacy-band:7f356e7580bf6bb5a4aca3f0`
+- `missing`: Distress Beacons (S and RSAT| NOAAs 15, 18, 19) (406–406.1 MHz, aviation), uncovered 100 kHz, `legacy-band:4cbded7c9876bea3aa11ecc8`
+- `missing`: Radio Astronomy (406.1–410 MHz, utility), uncovered 3.9 MHz, `legacy-band:eaeda9950f1b2edf79b0da00`
+- `missing`: Land Maritime Military (410–430 MHz, military), uncovered 20 MHz, `legacy-band:05bf7966b48f817f07a7b5d4`
+- `service_conflict`: Shared 70cm Ham and 70cm ISM (433.05–434.79 MHz, utility), uncovered 1.74 MHz, `legacy-band:068534f40d29bb570cadc0e3`
+- `service_conflict`: Satellite in 70cm Ham Band (434.79–438 MHz, satellite), uncovered 3.21 MHz, `legacy-band:d9ec4f2cb411bd74b2fa7ade`
+- `service_conflict`: Land Maritime Military (440–446.0125 MHz, military), uncovered 6.0125 MHz, `legacy-band:3768483fec5d63ac9d850455`
+- `service_conflict`: Land Maritime Military (446.1875–450 MHz, military), uncovered 3.8125 MHz, `legacy-band:322a5f17ce49e3a6552bc1ab`
+- `missing`: Land Mobile, Paging, PMR/PAMR (450–465.9865 MHz, utility), uncovered 15.9865 MHz, `legacy-band:74b44b83b64844cde2588015`
+- `missing`: Metops' DCP configuration control (465.9865–465.9885 MHz, satellite), uncovered 2 kHz, `legacy-band:d693b9861d03d9958a0b1db2`
+- `missing`: Land Mobile, Paging, PMR/PAMR (465.9885–470 MHz, utility), uncovered 4.0115 MHz, `legacy-band:b22e13514b14236dcd5c68df`
+- `missing`: DVB-T Television UHF (470–608 MHz, broadcast), uncovered 138 MHz, `legacy-band:0d3825df19df6f64914b229a`
+- `missing`: Radio Astronomy (Ch.37) (608–614 MHz, utility), uncovered 6 MHz, `legacy-band:b8a7e0d502fae62b037cecb1`
+- `missing`: DVB-T Television UHF (614–790 MHz, broadcast), uncovered 176 MHz, `legacy-band:bfaebb67e956a277e2ff6c56`
+- `missing`: Mobile Communications (790–862 MHz, utility), uncovered 72 MHz, `legacy-band:a8de7c48f9c6007f3f12c0d5`
+- `service_conflict`: ISM Europe (862–870 MHz, utility1), uncovered 8 MHz, `legacy-band:235bdb9da72ede3765e3195b`
+- `missing`: Mobile Communications (870–876 MHz, utility), uncovered 6 MHz, `legacy-band:1d740fa15dd342ac965c7af7`
+- `missing`: GSM-R (Train) (876–880 MHz, utility1), uncovered 4 MHz, `legacy-band:e764cd3d170659645ea954a1`
+- `missing`: GSM (880–915 MHz, utility), uncovered 35 MHz, `legacy-band:02593c9e118a0a680116e986`
+- `missing`: Mobile radiolocation (915–921 MHz, utility1), uncovered 6 MHz, `legacy-band:3dc6cf340d9b101dd9254733`
+- `missing`: GSM-R (Train) (921–925 MHz, utility1), uncovered 4 MHz, `legacy-band:9d47221c946ee279a89b8c0c`
+- `missing`: GSM (925–960 MHz, utility), uncovered 35 MHz, `legacy-band:4810b020ed685bb617b6f9ed`
+- `service_conflict`: Aviation (0.96–1.164 GHz, aviation), uncovered 204 MHz, `legacy-band:fa2977b9ad100c0c5b5fe293`
+- `service_conflict`: Satellite (1.164–1.24 GHz, satellite1), uncovered 76 MHz, `legacy-band:59e38dd61fa3ba39f5acdf7f`
+- `missing`: Radio Astronomy (1.3–1.4 GHz, utility), uncovered 100 MHz, `legacy-band:b9f1eb2fd68cb3962f6bf9a2`
+- `missing`: Earth Exploration-Satellite/ Radio Astronomy (1.4–1.42040475 GHz, satellite), uncovered 20.40475 MHz, `legacy-band:c2a18184c04635dc1d50bea0`
+- `missing`: Hygrogen Line (1.42040475–1.42040675 GHz, utility), uncovered 2 kHz, `legacy-band:303fc2bc8d18b06b61ba0961`
+- `missing`: Earth Exploration-Satellite/ Radio Astronomy (1.42040675–1.427 GHz, satellite), uncovered 6.59325 MHz, `legacy-band:552a2fe482183d246afb2f64`
+- `missing`: Fixed Mobile (1.427–1.452 GHz, utility), uncovered 25 MHz, `legacy-band:58d5952d51093092419cf573`
+- `missing`: T-DAB (1.452–1.492 GHz, broadcast), uncovered 40 MHz, `legacy-band:0498cd09d04f245f8f2c103d`
+- `missing`: Fixed and Military (1.492–1.525 GHz, utility), uncovered 33 MHz, `legacy-band:47276e90468fa806725cc7fe`
+- `missing`: Satellite (1.525–1.6605 GHz, satellite), uncovered 135.5 MHz, `legacy-band:f271b3358ad11e6155395244`
+- `missing`: Radio Astronomy (1.6605–1.6684 GHz, utility), uncovered 7.9 MHz, `legacy-band:94032747b28fc055885b2f0b`
+- `missing`: Meteorological Aids and Radio Astronomy (1.6684–1.67 GHz, utility), uncovered 1.6 MHz, `legacy-band:11fb89abd8a8b5393aea006f`
+- `missing`: Government Use Meteorological-Satellite (1.67–1.675 GHz, satellite), uncovered 5 MHz, `legacy-band:3b1c3c2f7a07aa82f6630332`
+- `missing`: Meteorological Satellite (1.675–1.6965 GHz, satellite1), uncovered 21.5 MHz, `legacy-band:e15647e99abd29e40b890da2`
+- `missing`: Meteorological Satellite (1.6965–1.71 GHz, satellite), uncovered 13.5 MHz, `legacy-band:7bea8f8fa0b0f4a2734ab74d`
+- `missing`: GSM (1.71–1.785 GHz, utility), uncovered 75 MHz, `legacy-band:05fd925bf41e3c2c33850ea8`
+- `missing`: Fixed Mobile (1.785–1.805 GHz, utility1), uncovered 20 MHz, `legacy-band:19a0f0f5d9e8b7fe769d3894`
+- `missing`: GSM (1.805–1.88 GHz, utility), uncovered 75 MHz, `legacy-band:ea26e21c608d15b811987129`
+- `missing`: DECT (1.88–1.9 GHz, utility), uncovered 20 MHz, `legacy-band:89323bfbed5739a6fab127fb`
+- `missing`: Mobile (1.9–1.98 GHz, utility1), uncovered 80 MHz, `legacy-band:04a31efeeff8c9f837c47b41`
+- `missing`: Earth-to-Space and Space-to-Space Communications (1.98–2.01 GHz, satellite1), uncovered 30 MHz, `legacy-band:3238480c7c9a1f2bc5b45e25`
+- `missing`: Mobile (2.01–2.025 GHz, utility), uncovered 15 MHz, `legacy-band:bfd09e90d3f6f6d113db92ba`
+- `missing`: Earth-to-Space and Space-to-Space Communications (2.025–2.11 GHz, satellite1), uncovered 85 MHz, `legacy-band:53f79b0cd46bb401c819aa9a`
+- `missing`: Earth-to-Space (Deep space) (2.11–2.12 GHz, satellite1), uncovered 10 MHz, `legacy-band:0d36023d35e5d2be3013c7d2`
+- `missing`: Radio Astronomy (2.29–2.3 GHz, utility), uncovered 10 MHz, `legacy-band:f4bf2717ad88cee698a3b4b6`
+- `service_conflict`: ISM Band (13cm) (2.4–2.5 GHz, utility), uncovered 100 MHz, `legacy-band:4f4c6dbdc8dda06e529321d8`
+- `missing`: IMT (2.5–2.5445 GHz, cellular), uncovered 44.5 MHz, `legacy-band:5daca98ce6b9742db4fdceff`
+- `missing`: Radioastronomy (2.69–2.7 GHz, utility), uncovered 10 MHz, `legacy-band:93e1258724630371beab0083`
+- `missing`: Radar meteo (2.7–2.9 GHz, military), uncovered 200 MHz, `legacy-band:a38e355b005e38bb5706651f`
+- `missing`: Maritime Radar (2.9–3.4 GHz, marine), uncovered 500 MHz, `legacy-band:57e2c6603dd8f76dac0b6158`
+- `missing`: Digital Networks (3.475–4.2 GHz, utility), uncovered 725 MHz, `legacy-band:2bff7d8fc43f3079bd58040d`
+- `missing`: Altimeters (4.2–4.4 GHz, aviation), uncovered 200 MHz, `legacy-band:aa6328a3164fe835b7424de8`
+- `missing`: Feeder link (5.15–5.25 GHz, satellite), uncovered 100 MHz, `legacy-band:6f1e80bb78137574b6d52661`
+- `missing`: Digital networks and 802.11 (5.25–5.65 GHz, utility), uncovered 400 MHz, `legacy-band:bab59f200deb3c9808e60452`
+- `missing`: Digital Networks and LPR (5.925–7.75 GHz, utility), uncovered 1.825 GHz, `legacy-band:faf59b7d800c56aac5a8dac0`
+- `missing`: LPR (7.75–7.975 GHz, utility), uncovered 225 MHz, `legacy-band:8e2e75ca5718f84ac92e578e`
+- `missing`: Remote sensing (7.975–8.215 GHz, utility), uncovered 240 MHz, `legacy-band:bc5d9b9f5d03c72c45a542f1`
+- `missing`: TLPR and SRD (8.215–8.65 GHz, utility), uncovered 435 MHz, `legacy-band:610c464e67368199c91b8daf`
+- `missing`: Radar Doppler (8.65–8.85 GHz, aviation), uncovered 200 MHz, `legacy-band:6291ce0c733c4cb10f79452a`
+- `missing`: Maritime Radar (8.85–9 GHz, marine), uncovered 150 MHz, `legacy-band:e2ef633ffe4552c094b8c53e`
+- `missing`: Radar and transponder SART (9–9.5 GHz, marine), uncovered 500 MHz, `legacy-band:31fb1b6f1ffb7aac6020e875`
+- `missing`: TLPR and SRD (9.5–10 GHz, utility), uncovered 500 MHz, `legacy-band:4ca2c83a5c054b6506561b7f`
+- `missing`: Point to point TV networks (10.5–10.68 GHz, utility), uncovered 180 MHz, `legacy-band:d48a1a09175c2d6a14c62ca5`
+- `missing`: Digital network (fixed) (10.68–11.7 GHz, utility), uncovered 1.02 GHz, `legacy-band:fe28b94a1e25cbdb29b7fa45`
+- `missing`: TV satellite (11.7–12.5 GHz, satellite), uncovered 800 MHz, `legacy-band:4b2866f3b4f4fba8e38ce460`
+- `missing`: Digital network (fixed) (12.5–13.25 GHz, utility), uncovered 750 MHz, `legacy-band:cb12c2db8d2afed1935e4d30`
+- `missing`: Satellite Uplink (14–14.5 GHz, satellite), uncovered 500 MHz, `legacy-band:00a0c19cb7d5452624c4238b`
+- `missing`: Digital network (fixed) (14.5–14.62 GHz, utility), uncovered 120 MHz, `legacy-band:c632f5a0b52787d229e208a8`
+- `missing`: Digital network (fixed) (15.23–15.35 GHz, utility), uncovered 120 MHz, `legacy-band:1846a01cc914985967cbe22a`
+- `missing`: Digital network (poit to point) (17.1–19.3 GHz, utility), uncovered 2.2 GHz, `legacy-band:a816af3e6fe6144f0f406c67`
+- `missing`: Feeder link (19.3–19.7 GHz, satellite), uncovered 400 MHz, `legacy-band:70239be746a0a253bf670645`
+- `missing`: HEST, LEST, ESIM, ESOMP (19.7–20.2 GHz, satellite), uncovered 500 MHz, `legacy-band:f0c9ae0ba9c19f48d13e34bc`
+- `missing`: Digital network (fixed) (22–22.33 GHz, utility), uncovered 330 MHz, `legacy-band:d471608080e44f5ec04c9af2`
+- `invalid`: Digital network (fixed) (22.67475–2.28335 GHz, utility), uncovered 0 Hz, `legacy-band:554aa39b90f94171304aa83c`
+- `missing`: Digital network (fixed), SAP/SAB (22.92675–23.15 GHz, utility), uncovered 223.25 MHz, `legacy-band:c748f86ea943b487391f2070`
+- `missing`: Digital network (fixed) (23.15–23.338 GHz, utility), uncovered 188 MHz, `legacy-band:e521af9435c284f418886c60`
+- `service_conflict`: ISM, SRD and LPR (24–24.45 GHz, utility), uncovered 450 MHz, `legacy-band:3e06705c20245b774a4e4578`
+- `missing`: Digital network (point to point, multipoint) (24.45–25.109 GHz, utility), uncovered 659 MHz, `legacy-band:366e809151a4dd4298ba1017`
+- `invalid`: LPR, SRD and SRR (25.109–2.5445 GHz, utility), uncovered 0 Hz, `legacy-band:532a6fc959aca916e2d0a181`
+- `missing`: Network (point to point, multipoint) (2.5445–2.6117 GHz, utility), uncovered 67.2 MHz, `legacy-band:0ee48ce4fc5e7107b35ae255`
+- `missing`: LPR, SRD and SRR (2.6117–2.65 GHz, utility), uncovered 38.3 MHz, `legacy-band:e36bfbd178cb809c3f0d3ae1`
+- `missing`: Terrestrial electric utility (26.5–27.5 GHz, utility), uncovered 1 GHz, `legacy-band:58672fd871d557c437144090`
+- `missing`: Network (point to point, multipoint) (27.5–29.1 GHz, utility), uncovered 1.6 GHz, `legacy-band:f9cb80623fc048ebdebf3be4`
+- `missing`: Network (point to point, multipoint) (29.1–29.5 GHz, utility), uncovered 400 MHz, `legacy-band:4cde6021539dd7dcdb8d909d`
+- `missing`: Network (point to point, multipoint) (31–31.3 GHz, utility), uncovered 300 MHz, `legacy-band:f47ae694beb74e9089d9cb1a`
+- `missing`: Network (high density, fixed) (31.983–32.599 GHz, utility), uncovered 616 MHz, `legacy-band:d46784d230636bc34ed547fe`
+- `missing`: Network (high density, fixed) (32.795–33.4 GHz, utility), uncovered 605 MHz, `legacy-band:38bbbb42b7824c26a7b4f639`
+- `missing`: Network (high density, fixed) (37.338–38.3 GHz, utility), uncovered 962 MHz, `legacy-band:23b3c4a383da1fc2e4a23f21`
+- `missing`: Network (high density, fixed) (38.59–39.5 GHz, utility), uncovered 910 MHz, `legacy-band:7bda0114f18fa758cb427572`
+- `missing`: FWS systems (fixed) (40.5–43.5 GHz, utility), uncovered 3 GHz, `legacy-band:6afaa77af6a647bb9738d6ca`
+- `missing`: Network (high density, fixed) (51.4–52.6 GHz, utility), uncovered 1.2 GHz, `legacy-band:0419462d0a88fd9d04c1b498`
+- `missing`: Network (high density, fixed) (55.78–61 GHz, utility), uncovered 5.22 GHz, `legacy-band:cae32d36ae75961e654dc732`
+- `missing`: ISM (61–64 GHz, utility), uncovered 3 GHz, `legacy-band:b949a1b8a5ff5a30cd42577d`
+- `missing`: Network (high density, fixed) (64–66 GHz, utility), uncovered 2 GHz, `legacy-band:22367f99b42ca94f1277e4af`
+- `missing`: Links (high density, fixed) (71–74 GHz, utility), uncovered 3 GHz, `legacy-band:365851a2d32ff174d6a6eec3`
+- `service_conflict`: LPR, SRD, SRR, TLPR, vehichle radar (74–76.5 GHz, utility), uncovered 2.5 GHz, `legacy-band:6677ae1576d3d34b2fa8ad3b`
+- `missing`: Links (high density, fixed) (84–86 GHz, utility), uncovered 2 GHz, `legacy-band:7e280a7301ac5f77548b6a62`
+- `missing`: ISM (120.2–122.25 GHz, utility), uncovered 2.05 GHz, `legacy-band:218975f1f3c302a6f62f28b9`
+
+### QO-100
+
+- `service_conflict`: Beacon (10.4895–10.489505 GHz, broadcast), uncovered 5 kHz, `legacy-band:759b6e220d80ca691c9d68fb`
+- `service_conflict`: Beacon (10.489745–10.489755 GHz, broadcast), uncovered 10 kHz, `legacy-band:04f85d1a27c49d5737f6e2fb`
+- `service_conflict`: Beacon (10.48999–10.49 GHz, broadcast), uncovered 10 kHz, `legacy-band:da7aa5b48acc5ecaa5ebc2e6`
+
+### Republic of Korea
+
+- `missing`: Radio Navigation (8.3–14 kHz, aviation), uncovered 5.7 kHz, `legacy-band:eff9b1018b87b6c505ef42f4`
+- `missing`: Coastal Telegraph (14–19.95 kHz, marine), uncovered 5.95 kHz, `legacy-band:3836724b29f95b74c87cb4a9`
+- `missing`: Standard Frequency Time Signal (19.95–20.25 kHz, utility), uncovered 300 Hz, `legacy-band:6c3b177e9acd1e93380e054b`
+- `missing`: Coastal Telegraph (20.25–70 kHz, marine), uncovered 49.75 kHz, `legacy-band:b5a11cbdae3eca731ce69fd7`
+- `service_conflict`: Radio Navigation (70–160 kHz, navigation), uncovered 90 kHz, `legacy-band:62afa8b1e4c0875a71b84c95`
+- `service_conflict`: Aviation Radio Navigation (160–285 kHz, aviation), uncovered 125 kHz, `legacy-band:e5aa78a23d90cddad99d3432`
+- `service_conflict`: Aviation Maritime Radiobeacon (285–325 kHz, aviation), uncovered 40 kHz, `legacy-band:2b346e9b2bbc7cec00313e00`
+- `service_conflict`: Aviation Radio Navigation (325–472 kHz, aviation), uncovered 147 kHz, `legacy-band:f99d9aa0e4103429fb115773`
+- `service_conflict`: International Distress Safety Call (479–505 kHz, marine), uncovered 26 kHz, `legacy-band:c381df923142e3556717f097`
+- `service_conflict`: Maritime Telegraph (505–526.5 kHz, marine), uncovered 21.5 kHz, `legacy-band:de9e46314cfcd076d4184eea`
+- `service_conflict`: Radiobuoy (1.6065–1.8 MHz, navigation), uncovered 193.5 kHz, `legacy-band:2b6ccaf5a77c4f5857adb055`
+- `service_conflict`: Radiobuoy Control LORAN (1.825–2 MHz, radiolocation), uncovered 175 kHz, `legacy-band:60440607bc9cd962730a3ed6`
+- `missing`: Radiobuoy (2–2.065 MHz, fixed), uncovered 65 kHz, `legacy-band:d595f33bbd58790653415f75`
+- `missing`: Distress Call (2.065–2.107 MHz, marine), uncovered 42 kHz, `legacy-band:d8f2b0a9d6aa04ae6aa2de5b`
+- `missing`: International Distress Search and Rescue (2.1735–2.1905 MHz, land-mobile), uncovered 17 kHz, `legacy-band:828b889c669dd5602a202204`
+- `service_conflict`: Road Management (2.194–2.495 MHz, fixed), uncovered 301 kHz, `legacy-band:75c113f494340693ebec3756`
+- `missing`: Standard Frequency Time Signal (2.495–2.505 MHz, utility), uncovered 10 kHz, `legacy-band:454c0aaea2288253530b9ced`
+- `missing`: Ship Station Telephone (2.505–2.85 MHz, fixed), uncovered 345 kHz, `legacy-band:c62f40b470fac2f997656adc`
+- `missing`: Aviation Mobile R (2.85–3.025 MHz, aviation), uncovered 175 kHz, `legacy-band:ec62b5fb5a47af8bf5d0fc9f`
+- `missing`: Aviation Mobile OR (3.025–3.155 MHz, aviation), uncovered 130 kHz, `legacy-band:9ca2352d7629854feb64f0c8`
+- `missing`: Aviation Mobile R (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:c28c551ba22a39eda0e7886b`
+- `service_conflict`: Experimental Station (3.55–3.79 MHz, fixed), uncovered 240 kHz, `legacy-band:08b8db54d3adaeff39f4dc8c`
+- `service_conflict`: Standard Frequency Time Signal (3.995–4.005 MHz, utility), uncovered 10 kHz, `legacy-band:612efda365781655963d02ae`
+- `missing`: Ship Station Telephone (4.005–4.063 MHz, marine), uncovered 58 kHz, `legacy-band:8c3dc143ee4ea384a29a2b48`
+- `missing`: Oceanographic Data (4.063–4.065 MHz, marine), uncovered 2 kHz, `legacy-band:31f2f276e2bb36ae84f8893c`
+- `missing`: Ship Station Duplex Telephone (4.065–4.146 MHz, marine), uncovered 81 kHz, `legacy-band:56eeca0cca483d32549727e2`
+- `missing`: Ship Station Simplex Telephone (4.146–4.152 MHz, marine), uncovered 6 kHz, `legacy-band:9a0ef3edebf49603a3fa1e07`
+- `missing`: Ship Station Wideband Telegraph Fax (4.152–4.172 MHz, marine), uncovered 20 kHz, `legacy-band:79b17fc04c84fae5b9c06c98`
+- `missing`: Ship Station Narrowband (4.172–4.18175 MHz, marine), uncovered 9.75 kHz, `legacy-band:89031c1d38413c74bd232ec8`
+- `missing`: Ship Station A1A Morse Code Communication (4.18675–4.20225 MHz, marine), uncovered 15.5 kHz, `legacy-band:9b392bedd4449ed7e72f594f`
+- `missing`: Radiolocation (4.438–4.488 MHz, radiolocation), uncovered 50 kHz, `legacy-band:3a4174a69ac028149eb66d2c`
+- `missing`: Calling Response (4.488–4.65 MHz, fixed), uncovered 162 kHz, `legacy-band:70995a8e99904375356d0e85`
+- `service_conflict`: Aviation Mobile R (4.65–4.85 MHz, aviation), uncovered 200 kHz, `legacy-band:7bdfde23a66936ef11b034f0`
+- `missing`: Standard Frequency Time Signal (4.995–5.005 MHz, utility), uncovered 10 kHz, `legacy-band:0b2ac1b27267bade06640c1d`
+- `missing`: Search Rescue (5.48–5.73 MHz, aviation), uncovered 250 kHz, `legacy-band:77743e5b9c29ec0f5bc1ac89`
+- `missing`: Standard Frequency Time Signal (7.995–8.005 MHz, utility), uncovered 10 kHz, `legacy-band:28a4d48dcdc3e4786ce2efde`
+- `missing`: Standard Frequency Time Signal (9.995–10.005 MHz, utility), uncovered 10 kHz, `legacy-band:9508142ba4b74207488ba689`
+- `legacy_contains_openwebrx`: Amateur Station (10.1–10.15 MHz, amateur), uncovered 10 kHz, `legacy-band:89014d2b3e10430b8d4cc9b6`
+- `missing`: Aviation Mobile (10.15–11.6 MHz, aviation), uncovered 1.45 MHz, `legacy-band:18c754a41544c6b5dca3a0ec`
+- `missing`: Aviation Mobile (13.26–13.36 MHz, aviation), uncovered 100 kHz, `legacy-band:3e2b8c3bf93182943fae7aa7`
+- `missing`: Radio Astronomy (13.36–13.41 MHz, astronomy), uncovered 50 kHz, `legacy-band:90c9c963a3fee480f4987296`
+- `missing`: Aviation Mobile (15.01–15.1 MHz, aviation), uncovered 90 kHz, `legacy-band:280826625b30155ecaf2f1bd`
+- `partial_overlap`: Shortwave Broadcast (15.8–15.995 MHz, broadcast), uncovered 165 kHz, `legacy-band:1b61f3af192bf12e5f15f536`
+- `missing`: Standard Frequency Time Signal (15.995–16.005 MHz, utility), uncovered 10 kHz, `legacy-band:e9b90259123bc61575eb2825`
+- `missing`: TV Broadcast (54–72 MHz, broadcast), uncovered 18 MHz, `legacy-band:d082136937ff5a799ecb3456`
+- `missing`: Flood Warning (72–74.8 MHz, broadcast), uncovered 2.8 MHz, `legacy-band:1220b037bdc880d1e1216057`
+- `partial_overlap`: TV Broadcast (76–88 MHz, broadcast), uncovered 11.5 MHz, `legacy-band:a8b6f6dd38c05fa5355a548e`
+- `service_conflict`: ILS Localizer VOR (108–117.975 MHz, fixed), uncovered 9.975 MHz, `legacy-band:95e15d6e42de06f438165429`
+- `service_conflict`: General Communication (146–148 MHz, fixed), uncovered 2 MHz, `legacy-band:d9599fd411051f9eebca16bd`
+- `service_conflict`: Low Power Device (162.0375–174 MHz, fixed), uncovered 11.9625 MHz, `legacy-band:a2d0acf163d16a56311f2426`
+- `missing`: TV Broadcast (174–216 MHz, broadcast), uncovered 42 MHz, `legacy-band:76940fb14ba7ad2a7224c976`
+- `missing`: Low Power Device (216–230 MHz, fixed), uncovered 14 MHz, `legacy-band:82e750c8d9bc6fe890e43774`
+- `missing`: Low Power Device (273–322 MHz, fixed), uncovered 49 MHz, `legacy-band:eba268444be868a8aaba9bc6`
+- `service_conflict`: Personal Radio (420–470 MHz, fixed), uncovered 50 MHz, `legacy-band:423f8d013b2ba6856f018577`
+- `missing`: Public Network (698–806 MHz, broadcast), uncovered 108 MHz, `legacy-band:ea89247f603cc41029b4263d`
+- `missing`: Low Power Device (942–960 MHz, fixed), uncovered 18 MHz, `legacy-band:6805492aa78dcf867502aff6`
+- `missing`: Satellite Mobile Communication (15.25–16.605 GHz, fixed), uncovered 1.355 GHz, `legacy-band:7644546dca3336b99dd87195`
+- `missing`: Mobile Communication (25–37 GHz, land-mobile), uncovered 12 GHz, `legacy-band:5ff843572c55599471f5420a`
+
+### Russia
+
+- `partial_overlap`: LW (144–415 kHz, broadcast), uncovered 56 kHz, `legacy-band:b04c7cdb5303e67795d32db5`
+- `legacy_contains_openwebrx`: SW 60m (4.75–5.06 MHz, broadcast), uncovered 65 kHz, `legacy-band:3076ad17eeff7e0aad14d650`
+- `legacy_contains_openwebrx`: SW 11m (25.65–26.1 MHz, broadcast), uncovered 20 kHz, `legacy-band:a2a4c68b03d59785ab51afa2`
+- `service_conflict`: CB (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:216576a2eb853ce254b44c9a`
+- `service_conflict`: Broadcast FM(OIRT) (65.9–74 MHz, broadcast), uncovered 8.1 MHz, `legacy-band:ae2fb2603ff461c2799e1530`
+- `service_conflict`: Air Band VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:d337bb6b60ac0b2820b52efa`
+- `service_conflict`: Air Band Voice (118–137 MHz, aviation), uncovered 19 MHz, `legacy-band:9795965c14fdefd882efe291`
+- `service_conflict`: Polar Orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:0d577198f8abf017201e8c55`
+- `service_conflict`: Train communications (151.7125–156.0125 MHz, railway), uncovered 4.3 MHz, `legacy-band:7ac0d36d309abc2140e8bca2`
+- `service_conflict`: Marine (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:d4855ddcb78fa38af26b9f87`
+- `missing`: Military Air (225–240 MHz, military), uncovered 15 MHz, `legacy-band:c778c6ca7f37a9af8a4b4912`
+- `missing`: Military Sat / Military Air (240–270 MHz, military), uncovered 30 MHz, `legacy-band:718f05e23264fbebc1a50c68`
+- `missing`: Military Air (270–380 MHz, military), uncovered 110 MHz, `legacy-band:349c417c22efc26363d26fe4`
+- `service_conflict`: PMR (446–446.2 MHz, amateur), uncovered 200 kHz, `legacy-band:af9518e260cd46af76c37ec2`
+- `missing`: LTE-FDD-450 Uplink (451–456 MHz, broadcast), uncovered 5 MHz, `legacy-band:9da1527a8a145c098c3d90df`
+- `missing`: LTE-FDD-450 Downlink (461–466 MHz, broadcast), uncovered 5 MHz, `legacy-band:54e447ccf1811388355ffde1`
+- `missing`: UHF TV (470–790 MHz, broadcast), uncovered 320 MHz, `legacy-band:6b1f77b6d943cfad904e0f99`
+- `missing`: LTE-800-FDD Downlink (791–821 MHz, broadcast), uncovered 30 MHz, `legacy-band:978b07a86bc6dc8a6c086c5f`
+- `missing`: LTE-800-FDD Uplink (832–862 MHz, broadcast), uncovered 30 MHz, `legacy-band:e7cda06634c973938d521755`
+- `missing`: GSM-900 Uplink (880–915 MHz, broadcast), uncovered 35 MHz, `legacy-band:55c1dc8c382ff65c7f466cf5`
+- `service_conflict`: GSM-900 Downlink (925–960 MHz, broadcast), uncovered 35 MHz, `legacy-band:273ac2a3524b9826d6706e18`
+- `service_conflict`: L-Band (1–1.089998 GHz, broadcast), uncovered 89.998 MHz, `legacy-band:6edfba7cea2929474e88bf59`
+- `service_conflict`: ADS-B / L-Band (1.089998–1.090002 GHz, broadcast), uncovered 4 kHz, `legacy-band:41fe4c5877950517447cd1ca`
+- `service_conflict`: L-Band (1.090002–1.26 GHz, broadcast), uncovered 169.998 MHz, `legacy-band:eef99f57f2fbfacc2577f4db`
+- `missing`: L-Band (1.3–1.71 GHz, broadcast), uncovered 410 MHz, `legacy-band:1396b4a5dda7b53ad65d82f4`
+- `missing`: DCS-1800 Uplink / L-Band (1.71–1.785 GHz, broadcast), uncovered 75 MHz, `legacy-band:eb0132534010d8c24bc32366`
+- `missing`: L-Band (1.785–1.805 GHz, broadcast), uncovered 20 MHz, `legacy-band:fc8dd85167bb452206cb0997`
+- `missing`: DCS-1800 Downlink / L-Band (1.805–1.88 GHz, broadcast), uncovered 75 MHz, `legacy-band:283c1956626d8d9c47fb8ff1`
+- `missing`: DECT Phones / L-Band (1.88–1.9 GHz, broadcast), uncovered 20 MHz, `legacy-band:64e06b59305e8cb28b38e20d`
+- `missing`: L-Band (1.9–1.92 GHz, broadcast), uncovered 20 MHz, `legacy-band:40517f34ad357362aeb34fd6`
+- `missing`: UMTS-FDD Uplink / L-Band (1.92–1.98 GHz, broadcast), uncovered 60 MHz, `legacy-band:9398e79dcc662e3486b45f9a`
+- `missing`: L-Band (1.98–2 GHz, broadcast), uncovered 20 MHz, `legacy-band:f3ba9c8923947b29f7ab5189`
+- `missing`: S-Band (2–2.01 GHz, broadcast), uncovered 10 MHz, `legacy-band:00781b971c5ac15d2ea3df09`
+- `missing`: UMTS-TDD / S-Band (2.01–2.025 GHz, broadcast), uncovered 15 MHz, `legacy-band:ff692749eb63d4c2fe75cc2e`
+- `missing`: S-Band (2.025–2.11 GHz, broadcast), uncovered 85 MHz, `legacy-band:bd33e0289bd2531fe39d94ae`
+- `missing`: UMTS-FDD Downlink / S-Band (2.11–2.17 GHz, broadcast), uncovered 60 MHz, `legacy-band:0798ba84af2d538a33ad7861`
+- `service_conflict`: S-Band (2.17–2.32 GHz, broadcast), uncovered 150 MHz, `legacy-band:43f91f62b4cdc99f465a64c5`
+- `service_conflict`: S-Band (2.32015–2.4 GHz, broadcast), uncovered 79.85 MHz, `legacy-band:0b0e304cc282255ec63c5ed5`
+- `missing`: 2.4GHz WiFi / S-Band (2.45–2.4835 GHz, broadcast), uncovered 33.5 MHz, `legacy-band:7812becf0f2c76222823e2a0`
+- `missing`: S-Band (2.4835–2.5 GHz, broadcast), uncovered 16.5 MHz, `legacy-band:b9c49cf595af5bb9fece3abc`
+- `missing`: LTE-FDD Uplink / S-Band (2.5–2.57 GHz, broadcast), uncovered 70 MHz, `legacy-band:73c0ee6c4e4fd7bc3f37909b`
+- `missing`: LTE-TDD / S-Band (2.57–2.62 GHz, broadcast), uncovered 50 MHz, `legacy-band:a41c1b2f0f5c0529fe476351`
+- `missing`: LTE-FDD Downlink / S-Band (2.62–2.69 GHz, broadcast), uncovered 70 MHz, `legacy-band:94658c05d5dd4df94d9e8e43`
+- `service_conflict`: S-Band (2.69–4 GHz, broadcast), uncovered 1.31 GHz, `legacy-band:500f10f0b7e31990fc90ab9d`
+- `missing`: C-Band (4–5.15 GHz, broadcast), uncovered 1.15 GHz, `legacy-band:8cc3f688f26bfc9a87c8535a`
+- `missing`: 5GHz WiFi / C-Band (5.15–5.35 GHz, broadcast), uncovered 200 MHz, `legacy-band:badb5e4a8299f5642a40f6d2`
+- `missing`: C-Band (5.35–5.65 GHz, broadcast), uncovered 300 MHz, `legacy-band:e7f924d314db4662c1ae6d3a`
+- `service_conflict`: 5GHz WiFi / C-Band (5.67–5.725 GHz, broadcast), uncovered 55 MHz, `legacy-band:f45cbd3286a4d70c85c225e2`
+- `service_conflict`: C-Band / 5GHz WiFi (5.76–5.762 GHz, broadcast), uncovered 2 MHz, `legacy-band:584645a25fd4f02b10752053`
+- `invalid`: C-Band (5.85–5.65 GHz, broadcast), uncovered 0 Hz, `legacy-band:b47c5528ceb1809d68801279`
+- `service_conflict`: C-Band (5.85–8 GHz, broadcast), uncovered 2.15 GHz, `legacy-band:de2d1c704a30e4b7bd681877`
+- `missing`: X-Band (8–10 GHz, broadcast), uncovered 2 GHz, `legacy-band:84621a1c3f27dc35ce1e483d`
+- `missing`: X-Band (10.5–12 GHz, broadcast), uncovered 1.5 GHz, `legacy-band:730d08ae10a5eaff08ab735f`
+
+### Slovakia
+
+- `service_conflict`: CB (26.965–27.405 MHz, other), uncovered 440 kHz, `legacy-band:f6b43431f64c7a231dedaa6e`
+
+### Turkey
+
+- `service_conflict`: CB (26.565–27.405 MHz, other), uncovered 840 kHz, `legacy-band:3e5cd6b97a588a403ab16b21`
+- `service_conflict`: Pagers (27.75–28 MHz, amateur), uncovered 250 kHz, `legacy-band:932ee4a390a7194e3179d305`
+- `service_conflict`: Airband VOR/ILS (108–117.975 MHz, aviation), uncovered 9.975 MHz, `legacy-band:5bc32e0c5a77f380a4570ee9`
+- `service_conflict`: Airband Voice (117.975–137 MHz, aviation), uncovered 19.025 MHz, `legacy-band:cdd31a85e45f23fb87ca9e98`
+- `service_conflict`: Sayac Okuma (169.4–169.475 MHz, other), uncovered 75 kHz, `legacy-band:b131801574a32a577ef86897`
+- `service_conflict`: Pagers (167–167.1 MHz, other), uncovered 100 kHz, `legacy-band:713aa9c98c84c224f89dd98a`
+- `service_conflict`: Public announcement systems (173.8825–174 MHz, other), uncovered 117.5 kHz, `legacy-band:423e5791744236bd447c14cb`
+- `missing`: DVB-T (174–216 MHz, broadcast), uncovered 42 MHz, `legacy-band:5e7d75bb22333c8fd959ff39`
+- `missing`: T-DAB (216–233 MHz, broadcast), uncovered 17 MHz, `legacy-band:9e91a0fefd2d7f4d5559b58f`
+- `missing`: ILS-Glide Path (328.6–335.4 MHz, aviation), uncovered 6.8 MHz, `legacy-band:900f8f545fb529c74034c224`
+- `missing`: Public Safety/Emergency (380–385 MHz, other), uncovered 5 MHz, `legacy-band:b40bacd728705b3ddd8bea26`
+- `missing`: Public Safety/Emergency (390–395 MHz, other), uncovered 5 MHz, `legacy-band:93092c9a0f859286f33a317d`
+- `missing`: Public announcement systems (445.25–445.4625 MHz, other), uncovered 212.5 kHz, `legacy-band:e75e43b93d39562fc18bb820`
+- `service_conflict`: RFID (865–868 MHz, other), uncovered 3 MHz, `legacy-band:694d92505670e1595c2096a9`
+- `missing`: RFID (916.1–918.9 MHz, other), uncovered 2.8 MHz, `legacy-band:ce4e12c608d138fb989151bf`
+- `missing`: DECT (1.88–1.9 GHz, other), uncovered 20 MHz, `legacy-band:32dea2b75d26117dd4fee8a1`
+- `missing`: 3cm (104.5–104.52 GHz, amateur), uncovered 20 MHz, `legacy-band:844aa87ea8be45d306b2f5b8`
+- `invalid`: 75GHz (75.5–7.6 GHz, amateur), uncovered 0 Hz, `legacy-band:7223df6d56c96df764e07bcc`
+- `legacy_contains_openwebrx`: 134GHz (134–142 GHz, amateur), uncovered 1 GHz, `legacy-band:224aad924e54dd199fc93333`
+
+### UK
+
+- `partial_overlap`: Long Wave (148.5–283.5 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:d5e5d4568121f96634a23012`
+- `service_conflict`: Air/Marine Nav Beacons (283.5–526.5 kHz, aviation), uncovered 243 kHz, `legacy-band:f8d4a2e16a50ce58a5047691`
+- `missing`: Maritime (2.045–2.3 MHz, marine), uncovered 255 kHz, `legacy-band:02ec2d1907481505055244c3`
+- `missing`: Maritime (2.5–2.85 MHz, marine), uncovered 350 kHz, `legacy-band:cd7176d2122f8e6fd63a11ad`
+- `missing`: Aeronautical Mobile (2.85–3.155 MHz, aviation), uncovered 305 kHz, `legacy-band:861f9b106f4358bd8d51ce50`
+- `missing`: Aeronautical Mobile (3.4–3.5 MHz, aviation), uncovered 100 kHz, `legacy-band:204906f51d609d217fa76dfb`
+- `missing`: Maritime (4.063–4.438 MHz, marine), uncovered 375 kHz, `legacy-band:73d2f5604438cee9d2373880`
+- `missing`: Aeronautical Mobile (4.65–4.75 MHz, aviation), uncovered 100 kHz, `legacy-band:ea0c97efe911dab0c32b19b6`
+- `legacy_contains_openwebrx`: 60m Ham Band (5.2585–5.4065 MHz, amateur), uncovered 133 kHz, `legacy-band:c68cb225ca6ba8698e5c03a8`
+- `missing`: Aeronautical Mobile (5.45–5.73 MHz, aviation), uncovered 280 kHz, `legacy-band:7c9b006b4eb859c1e89eec8d`
+- `missing`: Maritime (6.2–6.525 MHz, marine), uncovered 325 kHz, `legacy-band:6b0054dd099dbf3c40db8353`
+- `missing`: Aeronautical Mobile (6.525–6.765 MHz, aviation), uncovered 240 kHz, `legacy-band:3a48bf6363279a88f3447a51`
+- `missing`: Maritime (8.195–8.815 MHz, marine), uncovered 620 kHz, `legacy-band:4d693b2d52fc6ea67e25a97c`
+- `missing`: Aeronautical Mobile (8.815–9.04 MHz, aviation), uncovered 225 kHz, `legacy-band:16527d906edf75dd352ab7a6`
+- `missing`: Aeronautical Mobile (10.005–10.1 MHz, aviation), uncovered 95 kHz, `legacy-band:2e0ad9b59bb3e1f00a9a5fd6`
+- `missing`: Aeronautical Mobile (11.175–11.4 MHz, aviation), uncovered 225 kHz, `legacy-band:c0371c9aaf7e58adb7bed13b`
+- `legacy_contains_openwebrx`: 25m Broadcast (11.6–12.23 MHz, broadcast), uncovered 130 kHz, `legacy-band:239fe23541e9b11fc74484cc`
+- `missing`: Maritime (12.23–13.2 MHz, marine), uncovered 970 kHz, `legacy-band:28bb7a5228ac536a0926618a`
+- `missing`: Aeronautical Mobile (13.2–13.36 MHz, aviation), uncovered 160 kHz, `legacy-band:5f37db99539917c73af2a4e1`
+- `missing`: Aeronautical Mobile (15.01–15.1 MHz, aviation), uncovered 90 kHz, `legacy-band:7f1c07de9f465317ee9b7a85`
+- `missing`: Maritime (16.36–17.41 MHz, marine), uncovered 1.05 MHz, `legacy-band:f2142d54f0b202348c360e8f`
+- `missing`: Aeronautical Mobile (17.9–18.03 MHz, aviation), uncovered 130 kHz, `legacy-band:b76bca059ec709371d511b61`
+- `missing`: Maritime - ship tx (18.78–18.9 MHz, marine), uncovered 120 kHz, `legacy-band:e4506a333e91d51020a75d5f`
+- `missing`: Maritime - coast tx (19.68–19.99 MHz, marine), uncovered 310 kHz, `legacy-band:8a771d1665b0eb67c363c697`
+- `missing`: Aeronautical Mobile (21.87–22 MHz, aviation), uncovered 130 kHz, `legacy-band:8d659e71385f61f346701152`
+- `missing`: Aeronautical Mobile (23.2–23.35 MHz, aviation), uncovered 150 kHz, `legacy-band:a94d23b5446a10abc89607a3`
+- `invalid`: 11m Broadcast (256.7–26.1 MHz, broadcast), uncovered 0 Hz, `legacy-band:726a114e96cda2e95196ea3d`
+- `service_conflict`: CB - CEPT (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:109261a6426482db99cb6a9c`
+- `service_conflict`: CB (27.6–28 MHz, amateur), uncovered 400 kHz, `legacy-band:cb1e84cb63c48951f44abf1f`
+- `missing`: Analogue Cordless Phones (31.0375–40.1125 MHz, amateur), uncovered 9.075 MHz, `legacy-band:5bf5f57353108d53eac16b1d`
+- `missing`: Low Power Devices (49.82–49.9875 MHz, amateur), uncovered 167.5 kHz, `legacy-band:0bc26562daf59b4b26436f65`
+- `service_conflict`: Air Band TACAN/ILS (108–117.975 MHz, aviation), uncovered 9.975 MHz, `legacy-band:344b4ed837cdb4692238911a`
+- `service_conflict`: Air Band Voice (117.975–137 MHz, aviation), uncovered 19.025 MHz, `legacy-band:c4810c398204a085095fec13`
+- `service_conflict`: Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:676010f4aabf481b07c8bf96`
+- `missing`: Land/Mountain Rescue (147.34375–147.5 MHz, pmr), uncovered 156.25 kHz, `legacy-band:512c645cf9ce6f8d5d738436`
+- `missing`: Satellites (148–150.05 MHz, satellite), uncovered 2.05 MHz, `legacy-band:8e2b8a22ebcd75d8a39da427`
+- `missing`: Pagers - Flex/POCSAG (153.025–153.5 MHz, pmr), uncovered 475 kHz, `legacy-band:a4c070e1ceeb6f8b1f0212dd`
+- `missing`: Land/Mountain Rescue DMR (155–156 MHz, pmr), uncovered 1 MHz, `legacy-band:ad62ad9223325680338f2bac`
+- `service_conflict`: Marine - ship tx (156–157.85 MHz, marine), uncovered 1.85 MHz, `legacy-band:3ac62764d7212f31bdd59db7`
+- `service_conflict`: Short Term Hire (158.7875–159.6875 MHz, pmr), uncovered 900 kHz, `legacy-band:bd363bc7105e8d4d7dec534f`
+- `service_conflict`: Marine - coast tx (160.65–162.025 MHz, marine), uncovered 1.375 MHz, `legacy-band:d5d59b2cc29ebc23ddee6f9e`
+- `service_conflict`: Short Term Hire (163.2875–164.2 MHz, pmr), uncovered 912.5 kHz, `legacy-band:73febeb52a7112c7fc1e294b`
+- `service_conflict`: Business Radio (165–174 MHz, pmr), uncovered 9 MHz, `legacy-band:44a383bb394d571b772ac6ea`
+- `missing`: DAB Radio (174–230 MHz, broadcast), uncovered 56 MHz, `legacy-band:bd225c71ab6027a7a787695c`
+- `missing`: Military Air (230–400 MHz, military), uncovered 170 MHz, `legacy-band:14ce64f6f2db14ed51d554d8`
+- `missing`: Satellites (399.9–401 MHz, satellite), uncovered 1.1 MHz, `legacy-band:d21731bf81f780b191949549`
+- `missing`: Weather Balloons (401–406 MHz, aviation), uncovered 5 MHz, `legacy-band:512c230f3987781df2a66ae2`
+- `missing`: Private Mobile Radio inc trams (422–424 MHz, pmr), uncovered 2 MHz, `legacy-band:3e5bd626334fc120a29061ad`
+- `missing`: Outside Broadcast Talkback (446.2–447.5125 MHz, pmr), uncovered 1.3125 MHz, `legacy-band:1244291dfbc5ad73c39abdfe`
+- `missing`: Private Mobile Radio (447.6–454 MHz, pmr), uncovered 6.4 MHz, `legacy-band:9d278585f2c09083e242e275`
+- `missing`: Mosques (454–455 MHz, amateur), uncovered 1 MHz, `legacy-band:f0d4aafc344d75b5209cb829`
+- `missing`: Private Mobile Radio inc OB (455–470 MHz, pmr), uncovered 15 MHz, `legacy-band:13a614e3d2a2c03014659bf3`
+- `missing`: Digital TV Broadcast (470–700 MHz, broadcast), uncovered 230 MHz, `legacy-band:383bdaf0d74a1e1a19e92af6`
+- `missing`: Cell phones (703–788 MHz, cellular), uncovered 85 MHz, `legacy-band:e914b12d6c0d9ac964527e84`
+- `missing`: Band 20 Cell phone downlink (791–821 MHz, cellular), uncovered 30 MHz, `legacy-band:631bdb970a5e8a2a3b65e09b`
+- `missing`: Band 20 Cell phone uplink (832–862 MHz, cellular), uncovered 30 MHz, `legacy-band:2c0f9095dd607a9a1d34c3df`
+- `service_conflict`: Licence Exempt Short Range (862–875.8 MHz, amateur), uncovered 13.8 MHz, `legacy-band:707239bc2d511e18f6b834aa`
+- `missing`: Band 8 Cell phone uplink (880.1–914.9 MHz, cellular), uncovered 34.8 MHz, `legacy-band:79996b3c552a99fe42a0d077`
+- `missing`: Band 8 Cell phone downlink (925.1–929.5 MHz, cellular), uncovered 4.4 MHz, `legacy-band:4796ad218b76c18c4fa14cbf`
+- `legacy_contains_openwebrx`: 23cm Ham Band (1.24–1.325 GHz, amateur), uncovered 25 MHz, `legacy-band:9bf320caa78b956bb7f7ef60`
+- `missing`: Band 32 Cell phone (1.452–1.492 GHz, cellular), uncovered 40 MHz, `legacy-band:cfc98d946c8c50e82757ad1e`
+- `missing`: Satellite L-band (1.518–1.559 GHz, satellite), uncovered 41 MHz, `legacy-band:8025f0161fc26341d8d46e08`
+- `missing`: Satellite L-band (1.6265–1.6605 GHz, satellite), uncovered 34 MHz, `legacy-band:ba9e44d67e3dfeb06cb25b7b`
+- `missing`: Satellite L-band (1.668–1.675 GHz, satellite), uncovered 7 MHz, `legacy-band:679b8ba00875db08187a4155`
+- `missing`: Band 3 Cell phone uplink (1.71–1.785 GHz, cellular), uncovered 75 MHz, `legacy-band:9e64afee49d7d5cd8da361cc`
+- `missing`: Band 3 Cell phone downlink (1.8051–1.88 GHz, cellular), uncovered 74.9 MHz, `legacy-band:f2e49a5625a7d3913fd26324`
+- `missing`: DECT cordless phones (1.88–1.9 GHz, cellular), uncovered 20 MHz, `legacy-band:abbe5fd42bbbdd2ac9226717`
+- `missing`: Band 3 Cell phones (1.9–1.92 GHz, cellular), uncovered 20 MHz, `legacy-band:488532e0e62a83d30380ce6e`
+- `missing`: Band 1 Cell phone uplink (1.92–1.9797 GHz, cellular), uncovered 59.7 MHz, `legacy-band:922778ceb1f5324393f999df`
+- `missing`: Band 1 Cell phone downlink (2.1103–2.1697 GHz, cellular), uncovered 59.4 MHz, `legacy-band:f609f7a78d9faa02e1a198ed`
+- `service_conflict`: ISM - wifi and bluettoth (2.4–2.483 GHz, ism), uncovered 83 MHz, `legacy-band:251c78ae35e70a8dcfaf4de8`
+- `invalid`: Band 38 Cell phones (2.5–0.269 GHz, cellular), uncovered 0 Hz, `legacy-band:b42649310fb4319584e5e753`
+- `service_conflict`: Band 42 5G Cell phones (3.41–3.72 GHz, cellular), uncovered 310 MHz, `legacy-band:8ac145471e9c38c5b6c0ca3a`
+- `service_conflict`: ISM - wifi (5.15–5.85 GHz, ism), uncovered 700 MHz, `legacy-band:1bfb757557fd14a42a90f30e`
+
+### USA
+
+- `partial_overlap`: Long Wave (148.5–519 kHz, broadcast), uncovered 51.5 kHz, `legacy-band:15b3aa1ee646dee71e9b3b05`
+- `partial_overlap`: Medium Wave (AM Broadcast) (0.525–1.705 MHz, broadcast), uncovered 5 kHz, `legacy-band:55adab808d7913f55b773d7b`
+- `missing`: Shortwave Broadcast (5.005–5.06 MHz, broadcast), uncovered 55 kHz, `legacy-band:117e8414e83d36284eb2b8ef`
+- `legacy_contains_openwebrx`: 60m Ham Band (5.3305–5.4065 MHz, amateur), uncovered 61 kHz, `legacy-band:ef298eaf783f6c42bdb1afac`
+- `service_conflict`: CB (26.96–27.41 MHz, amateur), uncovered 450 kHz, `legacy-band:77d287f68ebc6a7793ab7707`
+- `missing`: TV Channels 2-4 (54–72 MHz, broadcast), uncovered 18 MHz, `legacy-band:c946084bd937f354b85a4665`
+- `partial_overlap`: TV Channels 5-6 (76–88 MHz, broadcast), uncovered 11.5 MHz, `legacy-band:8c2d6bb3ee4f81f57074a45e`
+- `service_conflict`: Air Band VOR/ILS (108–118 MHz, aviation), uncovered 10 MHz, `legacy-band:38f501a8718f7ee2c5b5e0d4`
+- `service_conflict`: Air Band Voice (118–137 MHz, aviation), uncovered 19 MHz, `legacy-band:b6d497c5143f1d1968cf2e7e`
+- `service_conflict`: Polar Orbiting Satellites (137–138 MHz, satellite), uncovered 1 MHz, `legacy-band:515bdd7363646ce67fe5c5bc`
+- `missing`: MURS (lower) (151.82–151.94 MHz, amateur), uncovered 120 kHz, `legacy-band:40358da8c04e3d1e98e53f1b`
+- `missing`: MURS (upper) (154.57–154.6 MHz, amateur), uncovered 30 kHz, `legacy-band:5f4b6a35d9f3a60e3f330dcd`
+- `service_conflict`: Marine (156–162.025 MHz, marine), uncovered 6.025 MHz, `legacy-band:e98144a85a1b58cf475af0a3`
+- `service_conflict`: NOAA Weather Radio (162.3625–162.5875 MHz, broadcast), uncovered 225 kHz, `legacy-band:24add4542a2703ae54bc2df8`
+- `missing`: TV Channels 7-13 (174–216 MHz, broadcast), uncovered 42 MHz, `legacy-band:a0874604a1387f7908900224`
+- `missing`: 1.25m Band (lower) (219–220 MHz, amateur), uncovered 1 MHz, `legacy-band:fe9714fb862b3a158fac7433`
+- `missing`: Military Air (225–380 MHz, military), uncovered 155 MHz, `legacy-band:f73d5810890cad0a30517660`
+- `missing`: Military Sat (240–270 MHz, military), uncovered 30 MHz, `legacy-band:9756734db57382ac9268f13a`
+- `service_conflict`: FRS (462.55–462.725 MHz, amateur), uncovered 175 kHz, `legacy-band:8481e0bdea1b3fc3c2dcfe07`
+- `service_conflict`: FRS - GMRS (467.55–467.725 MHz, amateur), uncovered 175 kHz, `legacy-band:b96f4df606b38b8de07235c8`
+- `missing`: TV Channels 14-20 (470–512 MHz, broadcast), uncovered 42 MHz, `legacy-band:e4fb111027adb46913402098`
+- `missing`: TV Channels 21-36 (512–608 MHz, broadcast), uncovered 96 MHz, `legacy-band:30378d9aaa1222b08416a2d8`
+- `missing`: TV Broadcasting (614–698 MHz, broadcast), uncovered 84 MHz, `legacy-band:87c0b7d092d68b7757376052`

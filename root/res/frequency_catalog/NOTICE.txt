@@ -1,0 +1,20 @@
+OpenWebRX+ frequency data
+
+This application contains a normalized band and bookmark dataset derived
+from OpenWebRX+ contributors.
+Source: https://github.com/luarvique/openwebrx
+Revision: 624c9ac1341a97a6cf4901b5098bf3498eac7b62
+License: AGPL-3.0-only
+The complete license text is distributed as OPENWEBRX-LICENSE.txt.
+
+SDR++ IARU regional supplements
+
+Missing amateur-band ranges are supplemented from official IARU regional
+band plans. These are advisory operating plans, not authorization to
+transmit; national regulations always prevail.
+International Amateur Radio Union Region 1: IARU-R1 VHF Handbook, VHF Handbook 10.02
+Source: https://www.iaru-r1.org/wp-content/uploads/2024/11/VHF_Handbook_V10_02.pdf
+International Amateur Radio Union Region 2: IARU Region 2 Band Plan, September 2020
+Source: https://www.iaru-r2.org/wp-content/uploads/2020/02/IARU-Region-2-Band-plan.pdf
+International Amateur Radio Union Region 3: Band Plans IARU Region 3, R3-004 Rev. 2, November 2024
+Source: https://www.iaru-r3.org/wp-content/uploads/2025/01/R3-004-Band-Plans-IARU-Region-3.pdf

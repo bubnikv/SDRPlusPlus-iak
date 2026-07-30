@@ -367,6 +367,7 @@ if (MSVC)
 
     add_custom_command(TARGET sdrpp POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/root" "$<TARGET_FILE_DIR:sdrpp>"
+        COMMAND ${CMAKE_COMMAND} -E remove -f "$<TARGET_FILE_DIR:sdrpp>/res/frequency_catalog/system-v1.cbor"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:sdrpp>/recordings"
         COMMENT "Copying Windows runtime root skeleton")
 
@@ -400,7 +401,13 @@ configure_file(${CMAKE_SOURCE_DIR}/sdrpp_module.cmake ${CMAKE_CURRENT_BINARY_DIR
 
 # Install directives
 install(TARGETS sdrpp DESTINATION bin)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-iak)
+if (ANDROID)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-iak
+        PATTERN "system-v1.json" EXCLUDE)
+else ()
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-iak
+        PATTERN "system-v1.cbor" EXCLUDE)
+endif ()
 configure_file(${CMAKE_SOURCE_DIR}/sdrpp-iak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-iak.desktop @ONLY)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -433,6 +440,7 @@ if (MSVC)
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/root" "${_sdrpp_windows_bundle_stage_dir}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_sdrpp_windows_bundle_stage_dir}/modules"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:sdrpp>" "${_sdrpp_windows_bundle_stage_dir}"
+        COMMAND ${CMAKE_COMMAND} -E remove -f "${_sdrpp_windows_bundle_stage_dir}/res/frequency_catalog/system-v1.cbor"
         COMMENT "Staging Windows bundle under ${SDRPP_WINDOWS_BUNDLE_STAGE_ROOT}"
         VERBATIM)
     add_dependencies(stage_windows_bundle sdrpp)

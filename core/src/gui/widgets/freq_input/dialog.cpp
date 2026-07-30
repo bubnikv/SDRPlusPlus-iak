@@ -2,6 +2,7 @@
 #include <gui/widgets/popup_dialog.h>
 #include <gui/widgets/simple_widgets.h>
 #include <gui/style.h>
+#include <gui/gui.h>
 #include <config.h>
 #include <core.h>
 
@@ -22,6 +23,7 @@ namespace freq_input {
 
         if (requestOpen) {
             requestOpen = false;
+            gui::bandStack.commit();
             keypad.onOpen();
             bands.onOpen();
             // Last-used page.

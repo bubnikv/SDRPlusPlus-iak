@@ -141,6 +141,9 @@ task copyResources(type: Copy) {
     from '../../root/'
     into 'assets/'
     include('**/*')
+    // Android loads the canonical CBOR catalog. Keep the desktop JSON source
+    // resource out of the APK rather than relying on package compression.
+    exclude('res/frequency_catalog/system-v1.json')
 }
 
 repositories {

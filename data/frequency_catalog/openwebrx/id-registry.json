@@ -1,0 +1,314 @@
+{
+  "artifact_role": "generator-input",
+  "band_aliases": {},
+  "bands": {
+    "amateur|1.25m": {
+      "band_id": "band:amateur:125cm",
+      "name": "1.25m",
+      "service": "amateur"
+    },
+    "amateur|1.2cm": {
+      "band_id": "band:amateur:12mm",
+      "name": "1.2cm",
+      "service": "amateur"
+    },
+    "amateur|10m": {
+      "band_id": "band:amateur:10m",
+      "name": "10m",
+      "service": "amateur"
+    },
+    "amateur|12m": {
+      "band_id": "band:amateur:12m",
+      "name": "12m",
+      "service": "amateur"
+    },
+    "amateur|13cm": {
+      "band_id": "band:amateur:13cm",
+      "name": "13cm",
+      "service": "amateur"
+    },
+    "amateur|15m": {
+      "band_id": "band:amateur:15m",
+      "name": "15m",
+      "service": "amateur"
+    },
+    "amateur|160m": {
+      "band_id": "band:amateur:160m",
+      "name": "160m",
+      "service": "amateur"
+    },
+    "amateur|17m": {
+      "band_id": "band:amateur:17m",
+      "name": "17m",
+      "service": "amateur"
+    },
+    "amateur|1mm": {
+      "band_id": "band:amateur:1mm",
+      "name": "1mm",
+      "service": "amateur"
+    },
+    "amateur|2.5mm": {
+      "band_id": "band:amateur:25mm",
+      "name": "2.5mm",
+      "service": "amateur"
+    },
+    "amateur|20m": {
+      "band_id": "band:amateur:20m",
+      "name": "20m",
+      "service": "amateur"
+    },
+    "amateur|2190m": {
+      "band_id": "band:amateur:2190m",
+      "name": "2190m",
+      "service": "amateur"
+    },
+    "amateur|2200m": {
+      "band_id": "band:amateur:2200m",
+      "name": "2200m",
+      "service": "amateur"
+    },
+    "amateur|23cm": {
+      "band_id": "band:amateur:23cm",
+      "name": "23cm",
+      "service": "amateur"
+    },
+    "amateur|2m": {
+      "band_id": "band:amateur:2m",
+      "name": "2m",
+      "service": "amateur"
+    },
+    "amateur|2mm": {
+      "band_id": "band:amateur:2mm",
+      "name": "2mm",
+      "service": "amateur"
+    },
+    "amateur|30m": {
+      "band_id": "band:amateur:30m",
+      "name": "30m",
+      "service": "amateur"
+    },
+    "amateur|33cm": {
+      "band_id": "band:amateur:33cm",
+      "name": "33cm",
+      "service": "amateur"
+    },
+    "amateur|3cm": {
+      "band_id": "band:amateur:3cm",
+      "name": "3cm",
+      "service": "amateur"
+    },
+    "amateur|40m": {
+      "band_id": "band:amateur:40m",
+      "name": "40m",
+      "service": "amateur"
+    },
+    "amateur|4m": {
+      "band_id": "band:amateur:4m",
+      "name": "4m",
+      "service": "amateur"
+    },
+    "amateur|4mm": {
+      "band_id": "band:amateur:4mm",
+      "name": "4mm",
+      "service": "amateur"
+    },
+    "amateur|5cm": {
+      "band_id": "band:amateur:5cm",
+      "name": "5cm",
+      "service": "amateur"
+    },
+    "amateur|60m": {
+      "band_id": "band:amateur:60m",
+      "name": "60m",
+      "service": "amateur"
+    },
+    "amateur|630m": {
+      "band_id": "band:amateur:630m",
+      "name": "630m",
+      "service": "amateur"
+    },
+    "amateur|6cm": {
+      "band_id": "band:amateur:6cm",
+      "name": "6cm",
+      "service": "amateur"
+    },
+    "amateur|6m": {
+      "band_id": "band:amateur:6m",
+      "name": "6m",
+      "service": "amateur"
+    },
+    "amateur|6mm": {
+      "band_id": "band:amateur:6mm",
+      "name": "6mm",
+      "service": "amateur"
+    },
+    "amateur|70cm": {
+      "band_id": "band:amateur:70cm",
+      "name": "70cm",
+      "service": "amateur"
+    },
+    "amateur|80m": {
+      "band_id": "band:amateur:80m",
+      "name": "80m",
+      "service": "amateur"
+    },
+    "amateur|8m": {
+      "band_id": "band:amateur:8m",
+      "name": "8m",
+      "service": "amateur"
+    },
+    "amateur|9cm": {
+      "band_id": "band:amateur:9cm",
+      "name": "9cm",
+      "service": "amateur"
+    },
+    "broadcast|11m broadcast": {
+      "band_id": "band:broadcast:11m",
+      "name": "11m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|120m broadcast": {
+      "band_id": "band:broadcast:120m",
+      "name": "120m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|13m broadcast": {
+      "band_id": "band:broadcast:13m",
+      "name": "13m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|15m broadcast": {
+      "band_id": "band:broadcast:15m",
+      "name": "15m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|16m broadcast": {
+      "band_id": "band:broadcast:16m",
+      "name": "16m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|19m broadcast": {
+      "band_id": "band:broadcast:19m",
+      "name": "19m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|22m broadcast": {
+      "band_id": "band:broadcast:22m",
+      "name": "22m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|25m broadcast": {
+      "band_id": "band:broadcast:25m",
+      "name": "25m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|31m broadcast": {
+      "band_id": "band:broadcast:31m",
+      "name": "31m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|41m broadcast": {
+      "band_id": "band:broadcast:41m",
+      "name": "41m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|49m broadcast": {
+      "band_id": "band:broadcast:49m",
+      "name": "49m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|60m broadcast": {
+      "band_id": "band:broadcast:60m",
+      "name": "60m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|75m broadcast": {
+      "band_id": "band:broadcast:75m",
+      "name": "75m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|90m broadcast": {
+      "band_id": "band:broadcast:90m",
+      "name": "90m Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|am broadcast": {
+      "band_id": "band:broadcast:mediumwave",
+      "name": "AM Broadcast",
+      "service": "broadcast"
+    },
+    "broadcast|fm broadcast": {
+      "band_id": "band:broadcast:fm",
+      "name": "FM Broadcast",
+      "service": "broadcast"
+    },
+    "personal-radio|11m cb": {
+      "band_id": "band:personal-radio:cb",
+      "name": "11m CB",
+      "service": "personal-radio"
+    },
+    "personal-radio|au915": {
+      "band_id": "band:personal-radio:au915",
+      "name": "AU915",
+      "service": "personal-radio"
+    },
+    "personal-radio|eu868": {
+      "band_id": "band:personal-radio:eu868",
+      "name": "EU868",
+      "service": "personal-radio"
+    },
+    "personal-radio|gmrs462": {
+      "band_id": "band:personal-radio:gmrs462",
+      "name": "GMRS462",
+      "service": "personal-radio"
+    },
+    "personal-radio|gmrs467": {
+      "band_id": "band:personal-radio:gmrs467",
+      "name": "GMRS467",
+      "service": "personal-radio"
+    },
+    "personal-radio|lpd433": {
+      "band_id": "band:personal-radio:lpd433",
+      "name": "LPD433",
+      "service": "personal-radio"
+    },
+    "personal-radio|pmr446": {
+      "band_id": "band:land-mobile:pmr446",
+      "name": "PMR446",
+      "service": "personal-radio"
+    },
+    "personal-radio|us915": {
+      "band_id": "band:personal-radio:us915",
+      "name": "US915",
+      "service": "personal-radio"
+    },
+    "service|ads-b": {
+      "band_id": "band:service:ads-b",
+      "name": "ADS-B",
+      "service": "service"
+    },
+    "service|vhf air": {
+      "band_id": "band:service:vhf-air",
+      "name": "VHF Air",
+      "service": "service"
+    },
+    "service|vhf marine": {
+      "band_id": "band:service:vhf-marine",
+      "name": "VHF Marine",
+      "service": "service"
+    },
+    "service|vhf satellite": {
+      "band_id": "band:service:vhf-satellite",
+      "name": "VHF Satellite",
+      "service": "service"
+    }
+  },
+  "plans": {
+    "default": "plan:openwebrx:default",
+    "r1": "plan:openwebrx:itu-r1",
+    "r2": "plan:openwebrx:itu-r2",
+    "r3": "plan:openwebrx:itu-r3"
+  },
+  "schema_version": 1,
+  "source": "openwebrx"
+}

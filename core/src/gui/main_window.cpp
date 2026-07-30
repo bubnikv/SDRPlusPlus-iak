@@ -244,6 +244,8 @@ void MainWindow::init() {
 
     core::configManager.release();
 
+    gui::bandStack.init();
+
     // Correct the offset of all VFOs so that they fit on the screen
     float finalBwHalf = gui::waterfall.getBandwidth() / 2.0;
     for (auto& [_name, _vfo] : gui::waterfall.vfos) {
@@ -882,6 +884,7 @@ void MainWindow::draw() {
     // Continuous ("sticky") auto-range steps here (outside the controls child)
     // so it keeps tracking even when the menu is collapsed.
     autoRange.update();
+    gui::bandStack.update(ImGui::GetIO().DeltaTime);
 
     gui::waterfall.setFFTMin(fftMin);
     gui::waterfall.setFFTMax(fftMax);
@@ -906,6 +909,7 @@ void MainWindow::draw() {
         }
         ImGui::SameLine();
         if (ImGui::Button("Exit##sdrpp_exit_ok", exitBtnSize)) {
+            gui::bandStack.commit();
             setPlayState(false);
             backend::finishAppAndRemoveTask();
             ImGui::CloseCurrentPopup();

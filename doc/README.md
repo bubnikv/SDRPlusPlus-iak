@@ -44,11 +44,14 @@ itself belongs in `design/` or `todo/`. Fork surveys live in
 - [dsp-pipeline.md](design/dsp-pipeline.md) — source → front end → VFO → decoder → sink: threading, buffers, latency
 - [dsp-pipeline-codex-review.md](design/dsp-pipeline-codex-review.md) — independent second read of the same path
 - [deps-build-system.md](design/deps-build-system.md) — third-party dependency build
+- [frequency-catalog-schema.md](design/frequency-catalog-schema.md) — stable Band, Segment, bookmark and provider-record identity
 - [iq-file-formats.md](design/iq-file-formats.md) — IQ/baseband record, playback and interchange formats
 - [libcurl-integration.md](design/libcurl-integration.md) — libcurl is core-owned; plugins must not link it
 
 **Research**
 - [band-stacking.md](research/band-stacking.md) — what a band-stack register contains, when it is written, what a band boundary is
+- [band-bookmark-sources.md](research/band-bookmark-sources.md) — source registry, authority boundaries, precedence, and update policy for bands and bookmarks
+- [openwebrx-frequency-data.md](research/openwebrx-frequency-data.md) — pinned band/bookmark inputs, scope behavior, normalization, and licensing
 - [nn-cw-decoders-denoisers.md](research/nn-cw-decoders-denoisers.md) — neural CW decoders and denoisers
 - [keyboard-shortcuts.md](research/keyboard-shortcuts.md) — this fork's bindings read from source, compared against gqrx/HDSDR/SDRangel/CubicSDR/Quisk
 - [forks/](research/forks/README.md) — fork landscape and per-fork merge reviews
@@ -57,6 +60,7 @@ itself belongs in `design/` or `todo/`. Fork surveys live in
 - [android-ui.md](todo/android-ui.md) — Android look-and-feel findings and backlog
 - [kiwisdr-ui.md](todo/kiwisdr-ui.md) — KiwiSDR map selector UI/UX
 - [band-picker.md](todo/band-picker.md) — F-INP band grid; acceptance checklist still open
+- [frequency-catalog.md](todo/frequency-catalog.md) — master roadmap for system/user bands, bookmarks, schedules, and repeaters
 - [eibi-schedules-module.md](todo/eibi-schedules-module.md) — EiBi station schedules overlay module
 - [cleanup.md](todo/cleanup.md) — mechanical improvements worth doing in passing, with what they actually cost
 

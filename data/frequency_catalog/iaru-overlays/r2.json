@@ -1,0 +1,87 @@
+{
+  "artifact_role": "generator-input",
+  "profile": "r2",
+  "schema_version": 1,
+  "source": {
+    "checked_on": "2026-07-28",
+    "organization": "International Amateur Radio Union Region 2",
+    "provider": "iaru-r2",
+    "revision": "September 2020",
+    "title": "IARU Region 2 Band Plan",
+    "url": "https://www.iaru-r2.org/wp-content/uploads/2020/02/IARU-Region-2-Band-plan.pdf"
+  },
+  "segments": [
+    {
+      "band_id": "band:amateur:160m",
+      "band_name": "160m",
+      "key": "160m-lower-edge",
+      "max_hz": 1810000,
+      "min_hz": 1800000,
+      "source_locator": "page 5"
+    },
+    {
+      "band_id": "band:amateur:33cm",
+      "band_name": "33cm",
+      "key": "33cm",
+      "max_hz": 928000000,
+      "min_hz": 902000000,
+      "source_locator": "pages 13-14"
+    },
+    {
+      "band_id": "band:amateur:13cm",
+      "band_name": "13cm",
+      "key": "13cm-lower-edge",
+      "max_hz": 2320000000,
+      "min_hz": 2300000000,
+      "source_locator": "pages 15-16"
+    },
+    {
+      "band_id": "band:amateur:12mm",
+      "band_name": "1.2cm",
+      "key": "12mm",
+      "max_hz": 24250000000,
+      "min_hz": 24000000000,
+      "source_locator": "page 19"
+    },
+    {
+      "band_id": "band:amateur:6mm",
+      "band_name": "6mm",
+      "key": "6mm",
+      "max_hz": 47200000000,
+      "min_hz": 47000000000,
+      "source_locator": "pages 19-20"
+    },
+    {
+      "band_id": "band:amateur:4mm",
+      "band_name": "4mm",
+      "key": "4mm",
+      "max_hz": 81500000000,
+      "min_hz": 76000000000,
+      "source_locator": "page 20"
+    },
+    {
+      "band_id": "band:amateur:25mm",
+      "band_name": "2.5mm",
+      "key": "25mm",
+      "max_hz": 123000000000,
+      "min_hz": 122250000000,
+      "source_locator": "page 20"
+    },
+    {
+      "band_id": "band:amateur:2mm",
+      "band_name": "2mm",
+      "key": "2mm",
+      "max_hz": 141000000000,
+      "min_hz": 134000000000,
+      "source_locator": "pages 20-21"
+    },
+    {
+      "band_id": "band:amateur:1mm",
+      "band_name": "1mm",
+      "key": "1mm",
+      "max_hz": 250000000000,
+      "min_hz": 241000000000,
+      "source_locator": "page 21"
+    }
+  ]
+}

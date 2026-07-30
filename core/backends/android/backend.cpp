@@ -155,6 +155,7 @@ namespace backend {
         case APP_CMD_PAUSE:
             flog::warn("APP_CMD_PAUSE");
             wasPlayingBeforeSuspend = gui::mainWindow.sdrIsRunning();
+            gui::bandStack.commit();
             gui::mainWindow.setPlayState(false);
             break;
         case APP_CMD_RESUME:

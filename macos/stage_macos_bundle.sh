@@ -15,6 +15,7 @@ rm -rf "$BUNDLE"
 bundle_create_struct "$BUNDLE"
 
 cp -R "$REPO_ROOT/root/res"/* "$BUNDLE/Contents/Resources/"
+rm -f "$BUNDLE/Contents/Resources/frequency_catalog/system-v1.cbor"
 bundle_create_icns "$REPO_ROOT/root/res/icons/sdrpp.macos.png" "$BUNDLE/Contents/Resources/sdrpp"
 
 eval "$("$REPO_ROOT/scripts/get_version.sh" "$REPO_ROOT")"

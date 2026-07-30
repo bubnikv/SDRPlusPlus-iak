@@ -1,5 +1,20 @@
 # Implementation plan: EiBi station schedules overlay module
 
+> **Catalog integration update (2026-07-28):** the parser/updater in this plan
+> is now an `eibi` dynamic provider for the core `FrequencyCatalog`. It loads
+> and publishes `ProviderSnapshot::eibiSchedules` through
+> `ProviderCacheStore`; the overlay queries the immutable catalog snapshot.
+> Keep the worker, seasonal source selection, last-good-cache behavior, and
+> module/UI separation below, but do not introduce a second independent
+> in-memory schedule database or cache format.
+>
+> **Progress (2026-07-28):** Phase 0 EiBi format verification and Phase 1 are
+> implemented under `misc_modules/station_schedules/`. The live A26 file had
+> 9,360 records and 11 data fields (10 semicolons); its header has one extra
+> trailing semicolon. The source abstraction returns ordered download targets
+> and parses downloaded bytes directly into `ProviderSnapshot`. Network I/O,
+> cache policy, publication, and UI remain Phase 2+.
+
 Self-contained brief for an implementation agent. Execute the phases in order. Everything you
 need to know is in this document plus the referenced files in this repository.
 
@@ -110,9 +125,11 @@ went stale in 2022). Design a small source abstraction and a failover chain:
 
 ### Source abstraction
 
-- `ScheduleSource` interface: `name()`, `fetch(cacheDir) -> bool` (download with timeouts,
-  atomic file replace), `parse(path) -> std::vector<StationEntry>`. Each source normalizes
-  into the common `StationEntry`; fields a source doesn't provide stay at defaults.
+- `ScheduleSource` interface: `providerName()`, `targetsFor(UtcDate)` and
+  `parse(payload, target, ProviderSnapshot, report)`. The source owns URL/scope
+  selection and normalization only. The Phase 2 updater owns HTTP, cache
+  validators, sanity thresholds, last-good selection, and publication so these
+  policies are shared by future providers instead of duplicated in each parser.
 - Failover policy in the updater thread: EiBi current season → EiBi previous season → AOKI →
   HFCC. A source "fails" when the download errors/times out, or parsing yields fewer than
   1000 entries (sanity threshold). On total failure, keep serving the last good cache from
@@ -139,8 +156,8 @@ went stale in 2022). Design a small source abstraction and a failover chain:
   (semicolon-separated, one header line): frequency in kHz (float); time as `HHMM-HHMM` UTC;
   days field; ITU country code; station name; language; target area; remarks/transmitter
   site. Save a ~50-line excerpt as a comment-documented sample next to the parser test.
-- Encoding is Latin-1; convert to UTF-8 for ImGui (a small table-free converter: code points
-  < 0x80 pass through, 0x80–0xFF become 2-byte UTF-8).
+- Encoding is CP1252 (confirmed both from OpenWebRX+ and live non-ASCII rows);
+  convert to UTF-8 for ImGui, including the CP1252 0x80–0x9F mapping.
 - Days field grammar (implement at least): empty = daily; ranges like `Mo-Fr`; comma lists
   like `Sa,Su`; digit strings like `1245` (1 = Monday … 7 = Sunday). Anything else (e.g.
   seasonal notes like `24Dec`): treat as "always on" but keep the raw string for the tooltip.
@@ -172,14 +189,15 @@ struct StationEntry {
 Extra fields appear in the tooltip only when known (power, azimuth, site coordinates). They
 also future-proof a distance-to-transmitter display if the user ever configures a location.
 
-- Storage: `std::shared_ptr<const std::vector<StationEntry>>` sorted by frequency, atomically
-  replaced after parse; render thread copies the shared_ptr under a mutex per frame.
-- Cache: `core::args["root"].s() + "/eibi_cache/sked-<season>.csv"` plus a small JSON meta
-  (or reuse the module config) recording the last successful download time. On startup:
-  if a cache file for the current (or previous) season exists, parse it immediately;
-  kick the updater thread if the file is missing or older than 7 days. Menu shows "DB: <season>,
-  <N> entries, downloaded <date>" and an "Update now" button. Download to a `.tmp` file and
-  rename over the old one only on success + successful parse.
+- Storage: publish a frequency-sorted `ProviderSnapshot::eibiSchedules` to the core catalog.
+  The render path retains one immutable `CatalogSnapshot` while drawing and binary-searches
+  the catalog's frequency index; it does not copy or own the provider vector.
+- Cache: use `ProviderCacheStore` under
+  `core::args["root"].s() + "/frequency_cache"` with scope key `sked-<season>`. On startup,
+  publish a valid fresh or stale processed cache immediately, then kick the updater when it
+  is missing, stale, or for the previous season. Menu shows "DB: <season>, <N> entries,
+  downloaded <date>" and an "Update now" button. The shared cache store writes a complete
+  validated snapshot to a sibling temporary file and replaces the old one only on success.
 - Config (`station_schedules_config.json` via its own `ConfigManager`, same pattern as
   frequency_manager `_INIT_`): enabled, displayMode (Off/Top/Bottom), rows (1–10), centered,
   rectangles, colors (label + text as `#RRGGBB`, reuse frequency_manager's `hexStrToColor`
@@ -210,40 +228,41 @@ only: curl, the cache files, parsing, and the final locked swap. It must be join
 joined in the module destructor (set a stop flag; don't detach). No ImGui calls off the GUI
 thread. `flog::*` is safe from the worker.
 
-## Phases
+## Phase status and remaining work
 
-1. **Phase 0 — recon.** Read the reference files listed above. Download a real EiBi CSV to
-   the scratchpad, confirm format, note the actual column indices in a comment block. Also
-   probe the fallback sources: find and document the current working bulk-download URLs and
-   formats for AOKI and HFCC (URL, format, size, license/usage notes). If a fallback has no
-   stable machine-fetchable URL, record that finding — it decides Phase 5 scope.
-2. **Phase 1 — EiBi parser + source abstraction.** `schedule_source.h` (StationEntry +
-   ScheduleSource interface) and `source_eibi.h/.cpp`: season computation, Latin-1→UTF-8,
-   CSV line parser, days grammar, sort by frequency. Standalone test program in the
-   scratchpad exercising: a real downloaded file (entry count > 5000, no crash), a truncated
-   line, an empty days field, `Mo-Fr`, `1245`, an overnight time window (`2200-0100`),
-   garbage input. Run it if a compiler is available in the shell; otherwise leave the test
-   source in the scratchpad and note it untested.
-3. **Phase 2 — module shell + updater.** Module boilerplate (copy frequency_manager's
-   `_INIT_`/instance pattern), config load/save, cache handling, worker-thread download with
-   timeouts, failover chain (with only EiBi registered so far), atomic replace, parse + swap,
-   menu status line (active source, season, entry count, download date) + "Update now".
-4. **Phase 3 — overlay.** fftRedraw with row packing and live filtering, fftInput with
-   cached-rect hit-testing (including the `inputHandled` early-return guard), tooltip,
-   click-to-tune. Menu options wired to config (display mode defaults to Bottom). Apply the
-   matching `inputHandled` guard patch to frequency_manager's `fftInput`.
-5. **Phase 4 — integration.** Root CMakeLists option (`OPT_BUILD_STATION_SCHEDULES`, default
-   ON, same pattern as the other misc modules); module CMakeLists with
-   `include(${SDRPP_MODULE_CMAKE})`; changelog entry in `changelog.md` under the current
-   unreleased section ("### Added": one bullet crediting EiBi and Otto Pattemore's plugin as
-   the concept origin, matching the changelog's existing citation style).
-6. **Phase 5 — fallback sources.** Based on Phase 0 findings: `source_aoki.cpp` (plain-text
-   table parser, keep transmitter lat/lon) and `source_hfcc.cpp` (ZIP extraction via the
-   bundled zlib, fixed-width parser, join with the station/site code tables for display
-   names, keep power/azimuth). Register them in the failover chain and the source-pin combo.
-   Extend the scratchpad test program with one real sample file per implemented source. If a
-   source proved unfetchable in Phase 0, skip its implementation and document why in the
-   final report.
+This detail plan is subordinate to the master roadmap in
+`doc/todo/frequency-catalog.md`, especially its R4 phase.
+
+1. **Phase 0 — EiBi recon: complete; fallback recon: deferred.**
+   The live A26 CSV and official README were inspected, the actual 11-field
+   layout and CP1252 encoding were confirmed, and a 51-record fixture was
+   saved. AOKI/HFCC reconnaissance is intentionally deferred until the primary
+   path works.
+2. **Phase 1 — EiBi parser and source abstraction: implemented, not compiled.**
+   `schedule_source.h` and `source_eibi.{h,cpp}` now provide seasonal
+   current/previous targets and normalize downloaded bytes into
+   `ProviderSnapshot::eibiSchedules`. Smoke-test source covers malformed input,
+   daily/range/digit/calendar days, overnight and `2400` times, CP1252,
+   validity dates, and stable IDs. The current task constraint prohibits an
+   SDR++ build; the user must run it during roadmap R0.
+3. **Phase 2 — module shell and updater: remaining.**
+   Add module lifecycle/configuration, provider registration, immediate
+   fresh-or-stale cache publication, joinable worker, conditional HTTP,
+   current/previous season fallback, sanity threshold, atomic processed-cache
+   replacement, monotonic revisions, last-good retention, status, and
+   “Update now.” Set `CurlRequestOptions::maxBody` to the EiBi 2 MiB source
+   limit; the processed cache separately enforces 16 MiB and 25,000 records.
+4. **Phase 3 — overlay: remaining.**
+   Add UTC/date live filtering, visible-range grouping and row packing,
+   bottom-by-default display, tooltips, cached hit testing, click-to-tune, and
+   cross-overlay `inputHandled` guards.
+5. **Phase 4 — build and packaging integration: remaining.**
+   Add the root option and module CMake file, Android/default module packaging,
+   changelog, license, and EiBi/Otto Pattemore attribution.
+6. **Phase 5 — fallback sources: optional and deferred.**
+   First verify current AOKI/HFCC bulk endpoints, formats, stability, and usage
+   terms. Implement only a source that can be fetched and redistributed
+   reliably; do not delay the working EiBi feature for fallback breadth.
 
 ## Definition of done
 

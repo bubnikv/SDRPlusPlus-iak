@@ -84,7 +84,7 @@ namespace freq_input {
     void Bands::onOpen() {
         pressBand = -1;
         longPressDone = false;
-        regPopupBand = nullptr;
+        haveRegPopupBand = false;
         core::configManager.acquire();
         category = core::configManager.conf.value("freqEntryCategory", "Ham");
         core::configManager.release();
@@ -193,7 +193,8 @@ namespace freq_input {
                     float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
                     if ((dx * dx) + (dy * dy) <= (slop * slop) && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
                         longPressDone = true;
-                        regPopupBand = &b;
+                        regPopupBand = b;
+                        haveRegPopupBand = true;
                         openRegPopup = true;
 #ifdef __ANDROID__
                         backend::hapticTick();
@@ -231,8 +232,8 @@ namespace freq_input {
         // 1 second to display the Band Stacking Register contents).
         if (openRegPopup) { ImGui::OpenPopup("##sdrpp_band_registers"); }
         if (ImGui::BeginPopup("##sdrpp_band_registers")) {
-            if (regPopupBand) {
-                const bandplan::Band_t& b = *regPopupBand;
+            if (haveRegPopupBand) {
+                const bandplan::Band_t& b = regPopupBand;
                 ImGui::TextDisabled("%s", b.name.c_str());
                 std::vector<BandRegister> regs = gui::bandStack.registersFor(b);
                 if (regs.empty()) {

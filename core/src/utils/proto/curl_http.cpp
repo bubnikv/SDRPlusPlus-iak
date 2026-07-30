@@ -1,5 +1,7 @@
 #include "curl_http.h"
 
+#include <algorithm>
+#include <cctype>
 #include <stdexcept>
 #include <utility>
 
@@ -57,6 +59,34 @@ namespace net::http {
             return total;
         }
 
+        size_t writeHeader(char* ptr, size_t size, size_t nmemb, void* userdata) {
+            size_t total = size * nmemb;
+            auto* headers = static_cast<std::map<std::string, std::string>*>(userdata);
+            std::string line(ptr, total);
+            // libcurl calls this for every response in a redirect/auth chain.
+            // Retain validators from the final response only.
+            if (line.rfind("HTTP/", 0) == 0) {
+                headers->clear();
+                return total;
+            }
+            size_t colon = line.find(':');
+            if (colon == std::string::npos) {
+                return total;
+            }
+            std::string name = line.substr(0, colon);
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            size_t first = line.find_first_not_of(" \t", colon + 1);
+            size_t last = line.find_last_not_of(" \t\r\n");
+            std::string value;
+            if (first != std::string::npos && last != std::string::npos && last >= first) {
+                value = line.substr(first, last - first + 1);
+            }
+            (*headers)[std::move(name)] = std::move(value);
+            return total;
+        }
+
         int xferInfo(void* clientp, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
             const auto* cb = static_cast<const std::function<bool()>*>(clientp);
             return (*cb && (*cb)()) ? 1 : 0;
@@ -79,6 +109,7 @@ namespace net::http {
         char error[CURL_ERROR_SIZE] = {};
         ResponseBuffer buffer;
         buffer.maxBody = options.maxBody;
+        CurlResponse response;
 
         CURLcode rc = curl_easy_setopt(easy.handle, CURLOPT_ERRORBUFFER, error);
         if (rc != CURLE_OK) {
@@ -98,6 +129,15 @@ namespace net::http {
         rc = curl_easy_setopt(easy.handle, CURLOPT_WRITEDATA, &buffer);
         if (rc != CURLE_OK) {
             throw std::runtime_error(std::string("curl_easy_setopt(CURLOPT_WRITEDATA) failed: ") + curl_easy_strerror(rc));
+        }
+
+        rc = curl_easy_setopt(easy.handle, CURLOPT_HEADERFUNCTION, writeHeader);
+        if (rc != CURLE_OK) {
+            throw std::runtime_error(std::string("curl_easy_setopt(CURLOPT_HEADERFUNCTION) failed: ") + curl_easy_strerror(rc));
+        }
+        rc = curl_easy_setopt(easy.handle, CURLOPT_HEADERDATA, &response.headers);
+        if (rc != CURLE_OK) {
+            throw std::runtime_error(std::string("curl_easy_setopt(CURLOPT_HEADERDATA) failed: ") + curl_easy_strerror(rc));
         }
 
         setOption(easy.handle, CURLOPT_CONNECTTIMEOUT_MS, options.connectTimeoutMs, "CURLOPT_CONNECTTIMEOUT_MS");
@@ -143,7 +183,6 @@ namespace net::http {
             throw std::runtime_error(std::string("curl_easy_perform failed: ") + detail);
         }
 
-        CurlResponse response;
         response.body = std::move(buffer.body);
 
         rc = curl_easy_getinfo(easy.handle, CURLINFO_RESPONSE_CODE, &response.status);

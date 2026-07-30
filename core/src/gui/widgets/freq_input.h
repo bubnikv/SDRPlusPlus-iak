@@ -1,11 +1,8 @@
 #pragma once
 #include <imgui.h>
+#include <gui/widgets/bandplan.h>
 #include <stdint.h>
 #include <string>
-
-namespace bandplan {
-    struct Band_t;
-}
 
 // The F-INP direct-entry dialog: a modal with two pages, BAND and F-INP, opened
 // by the top bar's keypad button or by a long press on a frequency digit.
@@ -83,7 +80,8 @@ namespace freq_input {
         // "touch the band key for 1 second").
         int pressBand = -1;  // index into the shown[] grid, -1 = none
         bool longPressDone = false;
-        const bandplan::Band_t* regPopupBand = nullptr; // band whose registers the popup lists
+        bandplan::Band_t regPopupBand{};
+        bool haveRegPopupBand = false;
     };
 
     // The modal shell: the page toggle, the last-used page, and the keys that

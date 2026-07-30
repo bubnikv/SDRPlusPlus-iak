@@ -5,6 +5,11 @@
 #include <string>
 #include "command_args.h"
 
+namespace frequency_catalog {
+    class FrequencyCatalog;
+    class CatalogStore;
+}
+
 namespace core {
     SDRPP_EXPORT ConfigManager configManager;
     SDRPP_EXPORT ModuleManager moduleManager;
@@ -24,6 +29,11 @@ namespace core {
     // Resolve a possibly relative path from the config against the
     // executable's directory (see core.cpp for rationale).
     SDRPP_CPP_EXPORT std::string resolveConfigPath(const std::string& path);
+
+    // Process-wide catalog for stable Bands, plan Segments, persisted
+    // bookmarks and dynamic frequency-data providers.
+    SDRPP_CPP_EXPORT frequency_catalog::FrequencyCatalog& getFrequencyCatalog();
+    SDRPP_CPP_EXPORT frequency_catalog::CatalogStore& getFrequencyCatalogStore();
 };
 
 int sdrpp_main(int argc, char* argv[]);

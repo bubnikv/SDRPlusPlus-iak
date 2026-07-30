@@ -1,0 +1,13 @@
+root/res/frequency_catalog/*.json text eol=lf
+root/res/frequency_catalog/OPENWEBRX-LICENSE.txt text eol=lf
+root/res/frequency_catalog/NOTICE.txt text eol=lf
+root/res/frequency_catalog/*.cbor binary
+data/frequency_catalog/openwebrx/*.json text eol=lf
+data/frequency_catalog/openwebrx/README.md text eol=lf
+data/frequency_catalog/openwebrx/upstream/** text eol=lf
+# Preserve exact pinned upstream bytes, including upstream whitespace.
+data/frequency_catalog/openwebrx/upstream/** -whitespace
+data/frequency_catalog/legacy-comparison/*.json text eol=lf
+data/frequency_catalog/legacy-comparison/*.md text eol=lf
+scripts/update_openwebrx_catalog.py text eol=lf
+scripts/audit_legacy_band_coverage.py text eol=lf

@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "plans": {
+    "australia.json": {
+      "country_code": "AU",
+      "profiles": [
+        "r3"
+      ]
+    },
+    "austria.json": {
+      "country_code": "AT",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "belgium.json": {
+      "country_code": "BE",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "brazil.json": {
+      "country_code": "BR",
+      "profiles": [
+        "r2"
+      ]
+    },
+    "canada.json": {
+      "country_code": "CA",
+      "profiles": [
+        "r2"
+      ]
+    },
+    "china.json": {
+      "country_code": "CN",
+      "profiles": [
+        "r3"
+      ]
+    },
+    "france.json": {
+      "country_code": "FR",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "general.json": {
+      "country_code": "",
+      "profiles": [
+        "default"
+      ]
+    },
+    "germany-mobile-lte-bands.json": {
+      "country_code": "DE",
+      "profiles": [
+        "r1"
+      ],
+      "specialized": true
+    },
+    "germany-mobile-networks.json": {
+      "country_code": "DE",
+      "profiles": [
+        "r1"
+      ],
+      "specialized": true
+    },
+    "germany.json": {
+      "country_code": "DE",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "ireland.json": {
+      "country_code": "IE",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "italy.json": {
+      "country_code": "IT",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "netherlands.json": {
+      "country_code": "NL",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "qo-100.json": {
+      "country_code": "",
+      "profiles": [
+        "default",
+        "r1",
+        "r2",
+        "r3"
+      ],
+      "specialized": true
+    },
+    "republic-of-korea.json": {
+      "country_code": "KR",
+      "profiles": [
+        "r3"
+      ]
+    },
+    "russia.json": {
+      "country_code": "RU",
+      "profiles": [
+        "r1",
+        "r3"
+      ]
+    },
+    "slovakia.json": {
+      "country_code": "SK",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "turkey.json": {
+      "country_code": "TR",
+      "profiles": [
+        "r1"
+      ]
+    },
+    "united-kingdom.json": {
+      "country_code": "GB",
+      "legacy_country_codes": [
+        "UK"
+      ],
+      "profiles": [
+        "r1"
+      ]
+    },
+    "usa.json": {
+      "country_code": "US",
+      "profiles": [
+        "r2"
+      ]
+    }
+  }
+}

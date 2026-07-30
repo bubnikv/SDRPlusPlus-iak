@@ -5,6 +5,7 @@
 #include <backend.h>
 #include <utils/hrfreq.h>
 #include <cstdlib>
+#include <cstring>
 #include <cmath>
 #include <algorithm>
 #ifdef __ANDROID__
@@ -20,13 +21,8 @@ static bool isInArea(ImVec2 val, ImVec2 min, ImVec2 max) {
     return val.x >= min.x && val.x < max.x && val.y >= min.y && val.y < max.y;
 }
 
-FrequencySelect::FrequencySelect() {
-}
-
 void FrequencySelect::init() {
-    for (int i = 0; i < 12; i++) {
-        digits[i] = 0;
-    }
+    memset(digits, 0, sizeof(digits));
 }
 
 void FrequencySelect::onPosChange() {

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "aliases": {
+    "amateur|1.25cm amateur": "band:amateur:12mm",
+    "amateur|122 123ghz amateur": "band:amateur:25mm",
+    "amateur|134 141ghz amateur": "band:amateur:2mm",
+    "amateur|134ghz": "band:amateur:2mm",
+    "amateur|24ghz": "band:amateur:12mm",
+    "amateur|241 250ghz amateur": "band:amateur:1mm",
+    "amateur|47ghz": "band:amateur:6mm",
+    "amateur|75ghz": "band:amateur:4mm",
+    "amateur|radioamatori 1.5cm": "band:amateur:12mm",
+    "amateur|radioamatori 2.1mm": "band:amateur:2mm",
+    "amateur|radioamatori 2.23mm": "band:amateur:2mm",
+    "amateur|radioamatori 2.4mm": "band:amateur:25mm",
+    "amateur|radioamatori 7mm": "band:amateur:6mm",
+    "personal-radio|11m cb": "band:personal-radio:cb",
+    "personal-radio|cb": "band:personal-radio:cb",
+    "personal-radio|pmr446": "band:land-mobile:pmr446"
+  }
+}

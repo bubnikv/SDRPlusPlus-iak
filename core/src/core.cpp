@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <gui/menus/theme.h>
 #include <backend.h>
+#include <frequency_catalog/store.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb_image_resize.h>
@@ -147,7 +148,11 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["bandColors"]["broadcast"] = "#0000FFFF";
     defConfig["bandColors"]["marine"] = "#00FFFFFF";
     defConfig["bandColors"]["military"] = "#FFFF00FF";
-    defConfig["bandMemory"] = json::object();
+    defConfig["bandStack"] = {
+        { "version", 3 },
+        { "registerCount", 3 },
+        { "bands", json::object() }
+    };
     defConfig["bandPlan"] = "General";
     defConfig["bandPlanEnabled"] = true;
     defConfig["bandPlanPos"] = 0;
@@ -340,7 +345,11 @@ int sdrpp_main(int argc, char* argv[]) {
     core::configManager.setPath(root + "/config.json");
     bool firstStart = !std::filesystem::exists(root + "/config.json");
     core::configManager.load(defConfig);
-
+    if (bandstack::migrateConfig(core::configManager.conf)) {
+        // Persist the one-way migration before modules or the UI can observe
+        // the new state, even if startup is interrupted later.
+        core::configManager.save();
+    }
 
     core::configManager.enableAutoSave();
     core::configManager.acquire();
@@ -434,6 +443,44 @@ int sdrpp_main(int argc, char* argv[]) {
 
     core::configManager.release(true);
 
+    // Static catalog ownership belongs to core, not to a feature module. Load
+    // both packaged system data and app-private user data before either GUI or
+    // server modules are initialized.
+    std::string resDir = core::getResourcesDirectory();
+    std::string catalogError;
+    if (!core::getFrequencyCatalogStore().initialize(
+            resDir,
+            std::filesystem::path(root) / "frequency_catalog",
+            catalogError)) {
+        flog::error("Could not initialize frequency catalog: {0}", catalogError);
+        curl::cleanup();
+        return 1;
+    }
+    for (const std::string& warning :
+        core::getFrequencyCatalogStore().recoveryWarnings()) {
+        flog::warn("Frequency catalog recovery: {0}", warning);
+    }
+    {
+        frequency_catalog::CatalogSourceInfo source =
+            core::getFrequencyCatalogStore().sourceInfo();
+        frequency_catalog::CatalogContext context =
+            core::getFrequencyCatalogStore().activeContext();
+        std::shared_ptr<const frequency_catalog::CatalogSnapshot> snapshot =
+            core::getFrequencyCatalog().snapshot();
+        flog::info(
+            "Loaded frequency catalog {0} revision {1}: {2} plans, {3} bands, "
+            "{4} segments, {5} bookmarks; {6} active plan(s), "
+            "{7} supplemental source(s)",
+            source.name,
+            source.revision,
+            snapshot ? snapshot->plans.size() : 0,
+            snapshot ? snapshot->bands.size() : 0,
+            snapshot ? snapshot->segments.size() : 0,
+            snapshot ? snapshot->bookmarks.size() : 0,
+            context.activePlans.size(),
+            source.supplements.size());
+    }
+
     if (serverMode) {
         int rc = server::main();
         curl::cleanup();
@@ -441,7 +488,6 @@ int sdrpp_main(int argc, char* argv[]) {
     }
 
     core::configManager.acquire();
-    std::string resDir = core::getResourcesDirectory();
     json bandColors = core::configManager.conf["bandColors"];
     core::configManager.release();
 
@@ -498,6 +544,8 @@ int sdrpp_main(int argc, char* argv[]) {
 
     // On android, none of this shutdown should happen due to the way the UI works
 #ifndef __ANDROID__
+    gui::bandStack.commit();
+
     // Shut down all modules
     for (auto& [name, mod] : core::moduleManager.modules) {
         mod.end();

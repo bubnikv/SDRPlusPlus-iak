@@ -6,7 +6,7 @@
 
 class FrequencySelect {
 public:
-    FrequencySelect();
+    FrequencySelect() = default;
     void init();
     void draw();
     float getWidth();

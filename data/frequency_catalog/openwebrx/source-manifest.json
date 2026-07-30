@@ -1,0 +1,351 @@
+{
+  "artifact_role": "audit",
+  "catalog_schema_version": 1,
+  "generated": {
+    "counts": {
+      "bands": 60,
+      "bookmarks": 1705,
+      "plans": 4,
+      "segments": 206
+    },
+    "full_catalog": {
+      "path": "system-v1.full.json",
+      "sha256": "540c8a810edaaf38c5edb6c2e2ad398a3a1ce34f485cb15176108c704a01ce50",
+      "size": 1261730
+    },
+    "id_registry": {
+      "path": "id-registry.json",
+      "sha256": "84a2084be66e507f4d1cb2998f7f39edbda9f5fa00c739830ad9018191b6850b",
+      "size": 7825
+    },
+    "legacy_coverage_audit": {
+      "band_aliases": {
+        "path": "../legacy-comparison/band-aliases.json",
+        "sha256": "9207dd35e9665c7f9065577982107b274bbae4c31ed92f4539b6113683715518",
+        "size": 858
+      },
+      "coverage_markdown": {
+        "path": "../legacy-comparison/coverage-report.md",
+        "sha256": "a97bfd6aca6742b00721d2f7596bdd5aee438df177f6f9f7a78c644a625f47b2",
+        "size": 105281
+      },
+      "coverage_report": {
+        "path": "../legacy-comparison/coverage-report.json",
+        "sha256": "da2f60ea7b7a1bd0f0951d9366ba762925bbd41f37d9458bb5cd41d8bd1572cf",
+        "size": 2270511
+      },
+      "review_decisions": {
+        "path": "../legacy-comparison/review-decisions.json",
+        "sha256": "f23fe607f40f0f47a7f37ef48e244e9636d885a5e36eb3f313951b46cfe2b1ca",
+        "size": 62385
+      },
+      "scope_map": {
+        "path": "../legacy-comparison/scope-map.json",
+        "sha256": "77020a29735dc82c549decb5a379fd5262876124c487db8c1f4aa177238b0942",
+        "size": 2341
+      }
+    },
+    "runtime_cbor": {
+      "path": "../../../root/res/frequency_catalog/system-v1.cbor",
+      "sha256": "0a29129b9e47321d69e85fe47f0b8fb9a11fd9497d5ac2b4e377bd448fa36638",
+      "size": 314010
+    },
+    "runtime_json": {
+      "path": "../../../root/res/frequency_catalog/system-v1.json",
+      "sha256": "d4e9a5a4bbcd29cf81adafa0bd03be5e771303130923cd9f22bc37cd5d2303bd",
+      "size": 779080
+    },
+    "runtime_manifest": {
+      "path": "../../../root/res/frequency_catalog/manifest-v1.json",
+      "sha256": "e4ec00d533dac8c5d762f917937306f2529cffd7929f4db37410759b19418480",
+      "size": 1810
+    },
+    "validation_report": {
+      "path": "validation-report.json",
+      "sha256": "052ed4316007e3fb0059e472c01301c6604455e89539aae668f2ab110e8bda09",
+      "size": 110863
+    }
+  },
+  "inputs": [
+    {
+      "local_path": "upstream/LICENSE.txt",
+      "path": "LICENSE.txt",
+      "sha256": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6",
+      "size": 34520,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/LICENSE.txt"
+    },
+    {
+      "local_path": "upstream/bands-r1.json",
+      "path": "bands-r1.json",
+      "sha256": "1514ad8dd6446d73408f4524f28cb8322e0886346ef3da44efc929e1cf568690",
+      "size": 9457,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bands-r1.json"
+    },
+    {
+      "local_path": "upstream/bands-r2.json",
+      "path": "bands-r2.json",
+      "sha256": "0fde7b305dce6d6335f05ca3701c71edfe1c417c4366693e6b48f26bece13c7f",
+      "size": 9498,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bands-r2.json"
+    },
+    {
+      "local_path": "upstream/bands-r3.json",
+      "path": "bands-r3.json",
+      "sha256": "f090258b3f47c00c5ab82f36738c12e273298c52b9953f0e63f70c0fcc92cded",
+      "size": 9118,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bands-r3.json"
+    },
+    {
+      "local_path": "upstream/bands.json",
+      "path": "bands.json",
+      "sha256": "acce2f7dd7e4bdae5f9012af284f57d211925a9f15321c5155e0c612bb3856c4",
+      "size": 10405,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bands.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/aviation.json",
+      "path": "bookmarks.d/aviation.json",
+      "sha256": "d37e193b7431a30fb581c0a175e035443c9341285f5d76e15401ed07afbdd4a9",
+      "size": 18478,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/aviation.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/br/cb.json",
+      "path": "bookmarks.d/br/cb.json",
+      "sha256": "728b2537317d601ffb7a9357a88cab372d2162c074c11a85fab8b51857beda9a",
+      "size": 8118,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/br/cb.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/cb.json",
+      "path": "bookmarks.d/cb.json",
+      "sha256": "edd37af51637dee56c35500108764b56c6899f6edbcdf553121a331203b199e9",
+      "size": 3954,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/cb.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/cn/prs.json",
+      "path": "bookmarks.d/cn/prs.json",
+      "sha256": "9181ac82d6a2eb354d318628e68f94072cf0105dab97e24c65d694b912afc1d4",
+      "size": 2014,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/cn/prs.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/cn/srs.json",
+      "path": "bookmarks.d/cn/srs.json",
+      "sha256": "846479a87d251080dad6475ef4dba25230ce7a7b55e2a860ac5c116ef7bb0641",
+      "size": 12135,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/cn/srs.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/de/cb.json",
+      "path": "bookmarks.d/de/cb.json",
+      "sha256": "5b15450eb4efc0aecb8a8c1e8f5aba4572cc078013b495dcb7e6713680cdf1f6",
+      "size": 7985,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/de/cb.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/de/freenet.json",
+      "path": "bookmarks.d/de/freenet.json",
+      "sha256": "0f39e1205a70eb1b8d0f146e86cc20993e3864d48584cd5c1b463309a16d591a",
+      "size": 597,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/de/freenet.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/marine.json",
+      "path": "bookmarks.d/marine.json",
+      "sha256": "fec42d3deec437c365fc5e80028e15a0e0fdaf9d092682758374d6834595df2e",
+      "size": 2593,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/marine.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/misc.json",
+      "path": "bookmarks.d/misc.json",
+      "sha256": "160c41900111484e5d8d01745e28b7de90f8d4479c9f66877dc03054e71d183f",
+      "size": 2388,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/misc.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/no/kdr.json",
+      "path": "bookmarks.d/no/kdr.json",
+      "sha256": "bbaa404f7144df56d99c7005ee7ecd8876ac67c60a5f1581a524d5d4562b583f",
+      "size": 603,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/no/kdr.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r1/lpd.json",
+      "path": "bookmarks.d/r1/lpd.json",
+      "sha256": "6f29ff27366f5aa8558a6162c2fb839dbb0a8d84fa86be576e5c2403d12a5421",
+      "size": 5040,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r1/lpd.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r1/pmr.json",
+      "path": "bookmarks.d/r1/pmr.json",
+      "sha256": "30a8f7c6f1cb71e1d1c5c5003f44bea653845cc0fb41ed5b18bcb0b5f1342992",
+      "size": 1610,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r1/pmr.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r2/aar.json",
+      "path": "bookmarks.d/r2/aar.json",
+      "sha256": "7c54c4a09ef2c2c90e1d632067cec2724b5f747aa795246885c9c7547c9ae09e",
+      "size": 9694,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r2/aar.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r2/gmrs.json",
+      "path": "bookmarks.d/r2/gmrs.json",
+      "sha256": "2b22058863dca5a523b9bab2cc415a5303b195523f399581cb457d6731568ca7",
+      "size": 3062,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r2/gmrs.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r2/murs.json",
+      "path": "bookmarks.d/r2/murs.json",
+      "sha256": "015375a39022727df09b32c01dc8045d4b03aee3ef56891ca9178eb13a5b8c53",
+      "size": 508,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r2/murs.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/r3/pmr.json",
+      "path": "bookmarks.d/r3/pmr.json",
+      "sha256": "30a8f7c6f1cb71e1d1c5c5003f44bea653845cc0fb41ed5b18bcb0b5f1342992",
+      "size": 1610,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/r3/pmr.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/se/cb69.json",
+      "path": "bookmarks.d/se/cb69.json",
+      "sha256": "2ebf274ea4427444bfa37fc6b26f78ad4b4c1c382abd69de0a8f0ce3f82a0097",
+      "size": 1748,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/se/cb69.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/se/jakt155.json",
+      "path": "bookmarks.d/se/jakt155.json",
+      "sha256": "845282abdf3e1d2eb558f2545786a7b718379c97095c753f4f055af0e118f997",
+      "size": 711,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/se/jakt155.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/se/jakt31.json",
+      "path": "bookmarks.d/se/jakt31.json",
+      "sha256": "80f3c881ab8c873428155fd1e26a019e8358f22d8c3c1c354fe6ed048e38900f",
+      "size": 4034,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/se/jakt31.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/se/srbr.json",
+      "path": "bookmarks.d/se/srbr.json",
+      "sha256": "f49d7917dd393ebabedf7aed4af90d3bedc9761e0ecf72a1fd1b66e65187dc56",
+      "size": 811,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/se/srbr.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/us/cb.json",
+      "path": "bookmarks.d/us/cb.json",
+      "sha256": "4f2800fa4001ac25e32add0e02713253ca850b00405c9b9f3d8fd1494f7b3427",
+      "size": 3920,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/us/cb.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/us/noaa.json",
+      "path": "bookmarks.d/us/noaa.json",
+      "sha256": "15d5ff9dec453f61cbaae21d79e7cc3f6a65becd4cdbb37f86971a2fa07363ec",
+      "size": 920,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/us/noaa.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/us/uscg.json",
+      "path": "bookmarks.d/us/uscg.json",
+      "sha256": "30239a966b3929d73a919516c9943482374fe2d7e41e21118ec60a1405f3554e",
+      "size": 8192,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/us/uscg.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/vhf-marine.json",
+      "path": "bookmarks.d/vhf-marine.json",
+      "sha256": "1ba431f5788bc63027cd81bf9a917c9e477d60a4e7699a31d4b252d001da881d",
+      "size": 10243,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/vhf-marine.json"
+    },
+    {
+      "local_path": "upstream/bookmarks.d/wfax.json",
+      "path": "bookmarks.d/wfax.json",
+      "sha256": "962f441475d00990b3ed80a1eb4e9cba80fdb9ad40a1058236d95e91f73e50b8",
+      "size": 9641,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/bookmarks.d/wfax.json"
+    },
+    {
+      "local_path": "upstream/owrx/bands.py",
+      "path": "owrx/bands.py",
+      "sha256": "c581a544d5caf1214e7c3983b460052c40398f4aec5297c150fa71acca4948b6",
+      "size": 5506,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/owrx/bands.py"
+    },
+    {
+      "local_path": "upstream/owrx/bookmarks.py",
+      "path": "owrx/bookmarks.py",
+      "sha256": "86a7b3a53e775b150fdbb7345b41d18618828ce2d99ca6f6d78181b717c807ac",
+      "size": 7888,
+      "url": "https://raw.githubusercontent.com/luarvique/openwebrx/624c9ac1341a97a6cf4901b5098bf3498eac7b62/owrx/bookmarks.py"
+    },
+    {
+      "authority_url": "https://www.iaru-r1.org/wp-content/uploads/2024/11/VHF_Handbook_V10_02.pdf",
+      "local_path": "../iaru-overlays/r1.json",
+      "path": "iaru-overlays/r1.json",
+      "sha256": "17e2139e5174d1183b5cebd47d572704211c4dd956d4f99354a6ea937263c3bd",
+      "size": 1576
+    },
+    {
+      "authority_url": "https://www.iaru-r2.org/wp-content/uploads/2020/02/IARU-Region-2-Band-plan.pdf",
+      "local_path": "../iaru-overlays/r2.json",
+      "path": "iaru-overlays/r2.json",
+      "sha256": "7bfc428ade3cbe11f8e96bc1e7c88bbe7eaa43a4feec15cc62779cf03e9b2714",
+      "size": 2151
+    },
+    {
+      "authority_url": "https://www.iaru-r3.org/wp-content/uploads/2025/01/R3-004-Band-Plans-IARU-Region-3.pdf",
+      "local_path": "../iaru-overlays/r3.json",
+      "path": "iaru-overlays/r3.json",
+      "sha256": "0c6cccd5a8c84b6734084b72f8ba79618a800ec32c560d936a8e59bba84f1d35",
+      "size": 1586
+    }
+  ],
+  "schema_version": 1,
+  "source": {
+    "attribution": "OpenWebRX+ contributors",
+    "license": "AGPL-3.0-only",
+    "license_path": "../../../root/res/frequency_catalog/OPENWEBRX-LICENSE.txt",
+    "license_url": "https://github.com/luarvique/openwebrx/blob/624c9ac1341a97a6cf4901b5098bf3498eac7b62/LICENSE.txt",
+    "repository": "https://github.com/luarvique/openwebrx",
+    "revision": "624c9ac1341a97a6cf4901b5098bf3498eac7b62"
+  },
+  "supplemental_sources": [
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 1",
+      "provider": "iaru-r1",
+      "revision": "VHF Handbook 10.02",
+      "title": "IARU-R1 VHF Handbook",
+      "url": "https://www.iaru-r1.org/wp-content/uploads/2024/11/VHF_Handbook_V10_02.pdf"
+    },
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 2",
+      "provider": "iaru-r2",
+      "revision": "September 2020",
+      "title": "IARU Region 2 Band Plan",
+      "url": "https://www.iaru-r2.org/wp-content/uploads/2020/02/IARU-Region-2-Band-plan.pdf"
+    },
+    {
+      "checked_on": "2026-07-28",
+      "name": "International Amateur Radio Union Region 3",
+      "provider": "iaru-r3",
+      "revision": "R3-004 Rev. 2, November 2024",
+      "title": "Band Plans IARU Region 3",
+      "url": "https://www.iaru-r3.org/wp-content/uploads/2025/01/R3-004-Band-Plans-IARU-Region-3.pdf"
+    }
+  ]
+}

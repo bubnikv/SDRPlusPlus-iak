@@ -1,5 +1,12 @@
 # Band stack — review of the current implementation, and a proposed model
 
+> **Model correction (2026-07-28):** the implementation no longer uses the
+> canonical frequency-owning buckets described in older research sections
+> below. A `Band` is a span-free semantic identity, a `Segment` owns a range in
+> a scoped `BandPlan`, and stack state is keyed by `(band_id, plan_id)`.
+> Overlapping services and nested operating segments are valid. See
+> `doc/design/frequency-catalog-schema.md` for the implemented contract.
+
 Date: 2026-07-25. Companion to `doc/research/band-stacking.md`, which establishes
 from primary sources what a band-stack register actually contains (Icom CI-V
 `1A 01`, Thetis `clsBandStackManager.cs`, Quisk `bandState`, Elecraft K4 `MA$`).
@@ -84,13 +91,29 @@ the keypad's result back through `Outcome` leaves `keypad.cpp` with no `gui::`,
 `core::` or `config.h` dependency at all, so the one page that is pure input
 handling is now testable without an application around it.
 
-**What this did and did not fix.** The *structural* cause above is gone: the
-store is a `gui::bandStack` instance that anything on the UI thread can reach,
-and §8.11 lists where each remaining P1 item now drops in. The *behavioural* gap
-is untouched, and deliberately so (§8.9) — `BandStack` is still stateless and
-still only ever called from the band grid, so nothing polls, nothing commits at
-shutdown, and gap 3 stands exactly as described until Part 3 is built. Finding
-§1.4/5 is the one to watch: it is now a missing caller, not a missing seam.
+**Implementation update, 2026-07-28.** P1 is now implemented in the working
+tree, using the agreed terminology: stable **Bands** (`band_id`) own stack
+state, while plan-specific **Segments** (`segment_id` in the catalog schema)
+only filter recall. Native system Band identity comes from the maintained
+OpenWebRX+ ID/alias registry and the generated catalog snapshot; the legacy
+immediate UI adapter maps recognized rows onto those same stable IDs.
+`band:general` is the reserved fallback identity. Provider/static-data
+refreshes cannot replace these IDs. `bandMemory` migrates before config-key
+repair into `bandStack.version == 3`; `BandStack` now has an in-memory
+current-slot model, polling, five-second dwell commits, and
+dialog/shutdown/Android lifecycle commits. Band-stack changes synchronously
+flush `config.json`, so Android pause does not depend on the autosave worker's
+next one-second wakeup. The popup holds its Segment by value rather than
+retaining a vector pointer across frames. The real-build/manual checklist in
+Part 7 remains unchecked; this implementation pass intentionally performed
+non-build checks only. Parts 2–4 (register editing/locks UI, per-Band display,
+and broader control reach) remain future work.
+
+**What the extraction did and did not fix.** The original extraction only
+removed the structural cause: it created the process-wide `gui::bandStack`
+seam. The implementation update above has since filled that seam with the P1
+state model and lifecycle callers. Historical findings below describe the
+pre-P1 code unless their status explicitly says otherwise.
 
 ### 1.2 The keying defect and its three consequences
 
@@ -958,17 +981,20 @@ the `current` pointer, GEN, poll-based shadow, dwell + dialog-open + shutdown +
 Android-pause commits, the `SET_MODE` guard, `regPopupBand` de-pointering.
 Closes research gaps 1–3 and findings §1.2 (a)(b)(c), §1.3, §1.4/1,2,6,7.
 
+Implementation status: **code complete, real-build/manual verification
+pending**. In code and persisted JSON, “bucket” is now **Band** and carries a
+`band_id`; the tapped plan entry is a **Segment**.
+
 Verify in a real build:
 
-- [ ] Existing `bandMemory` migrates: the 15 shortwave stacks fan out into
-      distinct `SW*` buckets; `bandMemory` is gone from `config.json`;
-      `bandStack.version == 2`.
+- [ ] Existing `bandMemory` migrates into stable `(band_id, plan_id)` entries;
+      `bandMemory` is gone from `config.json`; `bandStack.version == 3`.
 - [ ] Tune around 20 m for a while, tap 40 m, tap 20 m → back where you were,
       and the other two 20 m registers are **unchanged**.
 - [ ] Tune to 446.05 MHz, tap another band, tap PMR446 → returns to 446.05, and
       the 70 cm register is untouched.
 - [ ] Tune to 9.500 MHz (31 m SW), tap 40 m, tap the 31 m segment → returns to
-      9.500 (this fails today).
+      9.500.
 - [ ] Tune to 15.000 MHz (WWV, in no plan band and in no bucket), tap 20 m, then
       tap GEN → returns to 15.000. *Not 5.000 MHz, the obvious choice: 5.000 is
       in no plan band but it does fall in `SW60m` (4.700–5.100), because that
@@ -985,8 +1011,9 @@ Verify in a real build:
 
 ### P2 — the register UI
 
-Repeat-tap cycling with subset filtering (§3.5), and a long-press list with
-pick / store-here / add / lock / label / delete. Closes gaps 4–5.
+Repeat-tap cycling with subset filtering (§3.5) and the long-press pick list now
+exist. Still required: store-here / add / lock / label / delete. Closes the
+remaining parts of gaps 4–5.
 
 ### P3 — per-band display
 
