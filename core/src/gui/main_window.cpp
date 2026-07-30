@@ -854,8 +854,9 @@ void MainWindow::draw() {
     ImGui::SetCursorPosX((ImGui::GetWindowSize().x / 2.0) - 10 * style::uiScale);
     ImVec2 wfSliderSize(20.0 * style::uiScale, 150.0 * style::uiScale);
     bool   sliderSeparators = true;
-    if (3.f * wfSliderSize.y > ImGui::GetContentRegionAvail().y - 5.f * ImGui::GetTextLineHeightWithSpacing()) {
-        wfSliderSize.y = ImGui::GetContentRegionAvail().y / 3.f - ImGui::GetTextLineHeightWithSpacing();
+    float wfCtrlReserve = 5.f * ImGui::GetTextLineHeightWithSpacing() + 20.f * style::uiScale;
+    if (3.f * wfSliderSize.y > ImGui::GetContentRegionAvail().y - wfCtrlReserve) {
+        wfSliderSize.y = std::max(20.f * style::uiScale, (ImGui::GetContentRegionAvail().y - wfCtrlReserve) / 3.f);
         sliderSeparators = false;
     }
     bool zoomSliderChanged = ImGui::VSliderFloat("##_7_", wfSliderSize, &bw, 1.0, 0.0, "");
