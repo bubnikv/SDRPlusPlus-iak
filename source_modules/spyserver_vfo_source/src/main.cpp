@@ -179,6 +179,24 @@ private:
         client->setSetting(SPYSERVER_SETTING_FFT_DISPLAY_PIXELS, SVFO_FFT_PIXELS);
     }
 
+    // Single decision point for IQ_DIGITAL_GAIN, called from start(), the IQ BW
+    // combo and the RF gain slider. In Auto it uses computeDigitalGain() (the
+    // per-decimation formula, as before). With Auto off it sends the manual
+    // slider value (dB) straight through, bypassing the formula - lets you
+    // A/B the formula against a hand-set value on a live strong signal.
+    void applyDigitalGain() {
+        if (!client) { return; }
+        int gainDb;
+        if (digitalGainAuto) {
+            int srvBits = svfoIqFormatsBitCount[iqType];
+            gainDb = client->computeDigitalGain(srvBits, gain, iqDecimId + client->devInfo.MinimumIQDecimation);
+        }
+        else {
+            gainDb = digitalGainManual;
+        }
+        client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)gainDb);
+    }
+
     static void start(void* ctx) {
         SpyServerVFOSourceModule* _this = (SpyServerVFOSourceModule*)ctx;
         if (_this->running) { return; }
@@ -189,15 +207,13 @@ private:
             if (!_this->client) { return; }
         }
 
-        int srvBits = svfoIqFormatsBitCount[_this->iqType];
-
         // Narrowband IQ, for demodulation only - tuned to the current VFO
         // frequency, same as the original spyserver_source.
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FORMAT, svfoIqFormats[_this->iqType]);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_DECIMATION, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FREQUENCY, _this->freq);
         _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-        _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
+        _this->applyDigitalGain();
 
         // Wide FFT, for the waterfall only - independently tuned/decimated,
         // but re-centred on the same frequency as the IQ on every retune
@@ -482,9 +498,8 @@ private:
             SmGui::LeftLabel("IQ sample bit depth");
             SmGui::FillWidth();
             if (SmGui::Combo("##spyserver_vfo_source_type", &_this->iqType, svfoIqFormatStr)) {
-                int srvBits = svfoIqFormatsBitCount[_this->iqType];
                 _this->client->setSetting(SPYSERVER_SETTING_IQ_FORMAT, svfoIqFormats[_this->iqType]);
-                _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
+                _this->applyDigitalGain();
                 svfoConfig.acquire();
                 svfoConfig.conf["devices"][_this->devRef]["sampleBitDepthId"] = _this->iqType;
                 svfoConfig.release(true);
@@ -494,9 +509,8 @@ private:
                 SmGui::LeftLabel("Gain");
                 SmGui::FillWidth();
                 if (SmGui::SliderInt("##spyserver_vfo_source_gain", (int*)&_this->gain, 0, _this->client->devInfo.MaximumGainIndex)) {
-                    int srvBits = svfoIqFormatsBitCount[_this->iqType];
                     _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-                    _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
+                    _this->applyDigitalGain();
                     svfoConfig.acquire();
                     svfoConfig.conf["devices"][_this->devRef]["gainId"] = _this->gain;
                     svfoConfig.release(true);
@@ -522,6 +536,43 @@ private:
                 svfoConfig.acquire();
                 svfoConfig.conf["devices"][_this->devRef]["fftDbRange"] = _this->fftDbRange;
                 svfoConfig.release(true);
+            }
+
+            // Manual IQ digital gain override. Auto = use the per-decimation
+            // formula (as before). Unchecked = send this dB value straight to
+            // the server, bypassing the formula - for calibrating the right
+            // boost per IQ BW on a live signal (deep decimation on the R2 in
+            // particular over-boosts and clips strong stations under Auto).
+            SmGui::LeftLabel("Digital Gain");
+            if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
+                _this->applyDigitalGain();
+                svfoConfig.acquire();
+                svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
+                svfoConfig.release(true);
+            }
+            if (_this->digitalGainAuto) { style::beginDisabled(); }
+            SmGui::FillWidth();
+            if (SmGui::SliderInt("##spyserver_vfo_source_diggain", &_this->digitalGainManual, 0, 60)) {
+                _this->applyDigitalGain();
+                svfoConfig.acquire();
+                svfoConfig.conf["devices"][_this->devRef]["digitalGainManual"] = _this->digitalGainManual;
+                svfoConfig.release(true);
+            }
+            if (_this->digitalGainAuto) { style::endDisabled(); }
+
+            // Show the value actually being sent, so you can read off what Auto
+            // computes for the current decimation and use it as a starting
+            // point when hand-tuning.
+            {
+                int shownDigGain;
+                if (_this->digitalGainAuto && _this->client) {
+                    int srvBits = svfoIqFormatsBitCount[_this->iqType];
+                    shownDigGain = _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
+                }
+                else {
+                    shownDigGain = _this->digitalGainManual;
+                }
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "sent: %d dB", shownDigGain);
             }
 
             SmGui::Text("Status:");
@@ -635,6 +686,8 @@ private:
                 svfoConfig.conf["devices"][devRef]["gainId"] = 0;
                 svfoConfig.conf["devices"][devRef]["fftDbOffset"] = 0;
                 svfoConfig.conf["devices"][devRef]["fftDbRange"] = 150;
+                svfoConfig.conf["devices"][devRef]["digitalGainAuto"] = true;
+                svfoConfig.conf["devices"][devRef]["digitalGainManual"] = 20;
             }
             iqDecimId = svfoConfig.conf["devices"][devRef]["iqDecimId"];
             fftDecimId = svfoConfig.conf["devices"][devRef]["fftDecimId"];
@@ -642,6 +695,8 @@ private:
             gain = svfoConfig.conf["devices"][devRef]["gainId"];
             fftDbOffset = svfoConfig.conf["devices"][devRef]["fftDbOffset"];
             fftDbRange = svfoConfig.conf["devices"][devRef]["fftDbRange"];
+            digitalGainAuto = svfoConfig.conf["devices"][devRef]["digitalGainAuto"];
+            digitalGainManual = svfoConfig.conf["devices"][devRef]["digitalGainManual"];
             svfoConfig.release(true);
 
             gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
@@ -736,6 +791,8 @@ private:
 
     int fftDbOffset = 0;
     int fftDbRange = 150;
+    bool digitalGainAuto = true;
+    int digitalGainManual = 20;
 
     // FFT_FREQUENCY: only updated on real device-retune events, set by
     // tune(). IQ_FREQUENCY: continuously tracked from the VFO's live
