@@ -211,11 +211,18 @@ exact-variant matrix in a shipping radio, and it is exactly the convention
 
 ## 5. Where this fork stands
 
-Implemented (`core/src/gui/widgets/frequency_select.cpp`, commits 12ec9799 /
-d9c915fb): `bandMemory[<band name>]` = array of ≤3 `{freq, mode}`, newest first,
-deduped by frequency, revalidated by band containment on read. Tap a band key →
-recall register 1; long-press → list the registers and pick one. Registers are
-written in `selectBand()` only, for the band containing the current frequency.
+Implemented in `core/src/gui/band_stack.cpp`: `bandMemory[<stable band_id>]` is
+an array of exactly three optional `{freq, mode}` entries, revalidated against
+the stable band's segment union on read. Entry 0 is always current. Leaving a
+band overwrites entry 0 without reordering; tapping the active band stores it
+and rotates left; choosing a long-press row rotates that entry to the top while
+preserving cyclic order. Opening resolves only inside the restored visible
+group and writes no register. Desktop shutdown and Android lifecycle hooks may
+follow manual tuning to another band only within the current service, then
+overwrite its top entry without rotating. The full service-owned catalog
+remains separate work. Continuous shadow/dwell tracking is not part of the
+agreed interaction: ordinary tuning does not write a register until an explicit
+band/register transition or lifecycle save.
 
 Layer 2 (mode profiles) already exists and is per *exact* mode:
 `config.conf[<vfo>][<demod>]` holds bandwidth, snapInterval, squelch, CTCSS,
@@ -225,37 +232,24 @@ high-pass, de-emphasis, FM IF NR, noise blanker. This matches the Icom model
 Layer 3 (per-band display) does not exist; waterfall levels are the global
 `min` / `max` scalars in the root config.
 
-Gaps, in the order I'd fix them:
+Remaining gaps, in the order to consider them:
 
-1. **Write-back pushes instead of overwriting.** Every band change unshifts a
-   new register, so a single evening of CW on 20 m leaves the stack as
-   `[14.031, 14.028, 14.025]` and evicts the FT8 and SSB entries the user
-   actually wanted. Both Icom ("when you change the operating band or the
-   Register, the previously operated frequency and mode are stored") and Thetis
-   overwrite the *currently selected* slot. Fix: track a current-register index
-   per band and write in place; push a new entry only on an explicit "add".
-2. **No GEN bucket.** A frequency inside no band is silently dropped, so a
-   shortwave excursion is lost on the next band tap. Icom has code 15 GENE,
-   Thetis has `Band.GEN` *and* `waterfall_low_threshold_gen`. Add a reserved
-   `#GEN` key with containment checking disabled, and optionally a GEN key in
-   the grid.
-3. **Write-back only happens on band-grid use.** Tuning by wheel or keypad and
-   quitting stores nothing. Thetis's answer is a live shadow entry committed at
-   transitions *and at shutdown*; the cheap 80 % version here is to commit on
-   dialog open and on config save at exit.
-4. **Repeat-tap is a no-op.** Tapping the current band re-recalls the register
-   you are already on. Every reviewed product cycles on repeat press
-   (`BN$^;` on the K4, `Next()` in Thetis, the band key on Icom/Yaesu). Cycling
-   on repeat-tap and keeping long-press for the list is the conventional
-   behaviour.
-5. **No lock flag.** With automatic write-back and three slots, a lock is what
-   keeps a curated entry (the FT8 frequency) from being consumed. Thetis's rule
-   is one line: skip the commit if `locked`, but always apply the lock flag
-   itself.
-6. **Per-band waterfall levels** (`min`/`max` per band, plus `#GEN`) as a
-   separate `bandDisplay` map, not inside the register. Interacts with the
-   sticky auto-range work: when auto-range is latched the stored levels are
-   redundant, so restore them only when it is off.
+1. **No GEN band.** A frequency inside no service band is deliberately not
+   written, so a general-coverage excursion cannot be recalled as a band stack.
+   Icom has code 15 GENE and Thetis has `Band.GEN`; add a reserved `#GEN` stable
+   ID only if that general-coverage behavior proves useful.
+2. **Stable-ID coverage is limited by the legacy bridge.** Rows not recognized
+   by `band_mapping` remain selectable but intentionally have no stack. The
+   layered service catalog is the durable fix.
+3. **No lock, label, or delete metadata.** The current three-slot model is
+   intentionally minimal. Add these only if users need curated entries that
+   lifecycle write-back must not overwrite.
+4. **Per-band waterfall levels** (`min`/`max` per band, plus any future `#GEN`)
+   belong in a separate `bandDisplay` map, not inside the register. This
+   interacts with sticky auto-range: restore stored levels only when it is off.
+5. **Optional final UI polish:** keep the selector open after a band/register
+   choice, after close-on-select has been exercised on desktop and touch
+   devices.
 
 Deliberately *not* recommended: per-entry filter/bandwidth (it would fight the
 existing per-demod mode profiles, which is the same layering Icom uses); a

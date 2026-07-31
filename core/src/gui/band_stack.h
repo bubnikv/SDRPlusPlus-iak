@@ -12,6 +12,7 @@ namespace bandplan {
 // previously operated frequency and mode are stored". See
 // doc/research/band-stacking.md for what the reference implementations keep.
 struct BandRegister {
+    bool populated = false;
     double freq = 0;  // VFO tune frequency, Hz, display domain
     int mode = -1;    // RADIO_IFACE_MODE_*, -1 = nothing stored; radioModeName() to show it
 };
@@ -19,42 +20,51 @@ struct BandRegister {
 // The band stacking data layer: what is remembered per band, and what happens
 // when the user asks for one.
 //
-// The band grid in FrequencySelect is a view over this. It draws keys and
-// register lists and reports gestures; every decision -- which register, which
-// frequency, which mode, what to write back, what a first visit means -- is
-// made here.
+// The F-INP band grid is a view over this. It draws keys and register lists and
+// reports gestures; every decision -- which register, which frequency, which
+// mode, what to write back, what a first visit means -- is made here.
 //
 // Threading contract:
 //   - UI thread only. Nothing here is called from the tune path, so rigctl's
 //     network thread (doc/bugs/ui-thread-sync.md) never reaches this state:
 //     the current frequency is sampled, never pushed in.
 //
-// Stateless for now -- the config is the store. The instance exists so that the
-// state this needs next (which register each band is currently in, the
-// uncommitted "last visited" entry, the commit timer) has a home that does not
-// churn call sites. See doc/design/band-stack.md.
+// The config is the store. Each band owns three rotating optional entries;
+// entry 0 is always current, so no separate register pointer exists. The
+// instance keeps the band picker and lifecycle hooks behind one API. See
+// doc/design/band-stack.md.
 class BandStack {
 public:
-    // Registers stored for a band, newest first, dropping any entry no longer
-    // inside the band's (possibly edited) edges. Empty for a band never visited
-    // or one without a stable band ID.
+    // The band's three rotating slots. Unpopulated entries remain present so
+    // pressing the active band can rotate into an empty slot and populate it.
+    // Entry 0 is always the active register.
     std::vector<BandRegister> registersFor(const bandplan::Band_t& band) const;
 
-    // Resolve the active stable band in the last selected service. Empty means
-    // stacking is disabled, no stable band contains the frequency, or the
-    // match is ambiguous.
-    std::string activeBandId(double frequency) const;
+    // Resolve within the visible band group. Opening/changing a group may
+    // visibly select another service; it never writes a register.
+    std::string activateBandForGroup(
+        const std::string& group,
+        double frequency);
 
-    // A tap on a band key: store the frequency and mode of the band being left,
-    // then tune to this band's newest register -- or, on a first visit, to its
-    // default (def_freq / def_mode, else the convention below).
-    void selectBand(const bandplan::Band_t& band);
+    // A band-key tap. `activeBandId` is the visible source selected by
+    // activateBandForGroup(), not a globally inferred write-back target.
+    // Repeating that band stores entry 0, rotates left, and recalls the new 0.
+    void selectBand(
+        const bandplan::Band_t& band,
+        const std::string& activeBandId,
+        const std::string& group);
 
-    // A pick from a band's register list: the same write-back, but tune to the
-    // register the user chose. `index` indexes registersFor(band).
-    void recallRegister(const bandplan::Band_t& band, int index);
+    // A register-list pick: store the visible source, rotate the picked target
+    // entry to index 0 while preserving cyclic order, and recall it when set.
+    void recallRegister(
+        const bandplan::Band_t& band,
+        int index,
+        const std::string& activeBandId,
+        const std::string& group);
 
-    // Persist the current frequency and mode into the active stable band.
+    // Persist the current selector memory at a lifecycle boundary. Band
+    // matching is restricted to the last group and current service; shutdown
+    // never changes service.
     void commitCurrent();
 
     // Mode implied by a band's service and frequency, for bands whose plan entry

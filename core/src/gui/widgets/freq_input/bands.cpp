@@ -269,13 +269,10 @@ namespace freq_input {
         pressBand = -1;
         longPressDone = false;
         regPopupBandId.clear();
+        scrollActiveIntoView = true;
         core::configManager.acquire();
-        const freq_input::BandService activeService =
-            freq_input::bandServiceFromKey(
-                core::configManager.conf.value("lastActiveBandService", "other"));
-        category = activeService == BandService::Other
-            ? core::configManager.conf.value("freqEntryCategory", "Ham")
-            : bandCategory(activeService);
+        category =
+            core::configManager.conf.value("freqEntryCategory", "Ham");
         core::configManager.release();
     }
 
@@ -298,14 +295,14 @@ namespace freq_input {
         std::vector<CanonicalBandEntry> avail =
             canonicalBandEntries(*plan, ctx);
 
-        // Category row: only non-empty buckets, plus All. A persisted category that
+        // Category row: only non-empty groups, plus All. A persisted category that
         // vanished (plan or tuning range changed) falls back to All for display.
-        static const char* buckets[] = { "Ham", "Bcast", "Air", "Marine", "Util" };
+        static const char* groupLabels[] = { "Ham", "Bcast", "Air", "Marine", "Util" };
         std::vector<const char*> cats;
         for (int i = 0; i < 5; i++) {
             for (const auto& e : avail) {
-                if (!strcmp(bandCategory(e.band.service), buckets[i])) {
-                    cats.push_back(buckets[i]);
+                if (!strcmp(bandCategory(e.band.service), groupLabels[i])) {
+                    cats.push_back(groupLabels[i]);
                     break;
                 }
             }
@@ -317,6 +314,7 @@ namespace freq_input {
         }
         if (doSegmentedControl("##sdrpp_band_category", catIdx, cats.data(), (int)cats.size(), ImVec2(m.totalWidth, m.rowHeight))) {
             category = cats[catIdx];
+            scrollActiveIntoView = true;
             core::configManager.acquire();
             core::configManager.conf["freqEntryCategory"] = category;
             core::configManager.release(true);
@@ -333,7 +331,9 @@ namespace freq_input {
             }
         }
         const std::string activeBandId =
-            gui::bandStack.activeBandId((double)ctx.frequency);
+            gui::bandStack.activateBandForGroup(
+                effective,
+                (double)ctx.frequency);
 
         // OpenPopup must run at this (modal) scope, not inside the grid child, or
         // its popup ID won't match the BeginPopup below. The long-press detector
@@ -382,9 +382,14 @@ namespace freq_input {
                     style::drawSelectedToggleStroke(selCols);
                     style::popSelectedToggle();
                 }
-                // A quick tap recalls the newest register; a motionless hold opens
-                // the band's register list. Stepping waits for release so the two
-                // can't both fire (same idiom as the digit long-press).
+                if (active && scrollActiveIntoView) {
+                    ImGui::SetScrollHereY(0.5f);
+                    scrollActiveIntoView = false;
+                }
+                // A quick tap recalls the top entry (and rotates the stack when
+                // the active band is tapped again); a motionless hold opens the
+                // register list. Stepping waits for release so the two can't
+                // both fire (same idiom as the digit long-press).
                 if (!b.bandId.empty() && ImGui::IsItemActivated()) {
                     pressBand = i;
                     longPressDone = false;
@@ -417,11 +422,10 @@ namespace freq_input {
                     }
                 }
                 if (clicked && !longPressDone) {
-                    gui::bandStack.selectBand(b);
-                    category = bandCategory(b.service);
-                    core::configManager.acquire();
-                    core::configManager.conf["freqEntryCategory"] = category;
-                    core::configManager.release(true);
+                    gui::bandStack.selectBand(
+                        b,
+                        activeBandId,
+                        effective);
                     out.close = true;
 #ifdef __ANDROID__
                     backend::hapticTick();
@@ -469,9 +473,6 @@ namespace freq_input {
                 const bandplan::Band_t& b = *regPopupBand;
                 ImGui::TextDisabled("%s", b.name.c_str());
                 std::vector<BandRegister> regs = gui::bandStack.registersFor(b);
-                if (regs.empty()) {
-                    ImGui::TextDisabled("No stored registers");
-                }
                 // Rows sized off the band grid rather than a bare dp() constant:
                 // three keys wide, so the list reads as belonging to the key it
                 // was opened from, and tall enough to be the same touch target.
@@ -484,10 +485,8 @@ namespace freq_input {
                 char id[24];
                 char num[8];
                 for (int k = 0; k < (int)regs.size(); k++) {
-                    // The register the radio is sitting on right now, marked the
-                    // way the band key that owns it is.
-                    const bool current =
-                        std::llround(regs[k].freq) == (long long)ctx.frequency;
+                    // The stack rotates, so its top row is always current.
+                    const bool current = k == 0;
                     snprintf(id, sizeof(id), "##sdrpp_reg_%d", k);
                     if (current) { style::pushSelectedToggle(regCols); }
                     const bool pick = ImGui::Button(id, rowSz);
@@ -509,13 +508,22 @@ namespace freq_input {
                     // together as one left-aligned string of its own length.
                     dl->PushClipRect(rmin, rmax, true);
                     drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(rmin.x + rowSz.x * 0.08f, cy), rowSz.x * 0.12f, dim, num);
-                    drawCenteredLabel(dl, style::bigFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, mhzExact(regs[k].freq).c_str());
-                    drawCenteredLabel(dl, style::baseFont, style::dp(11.0f), ImVec2(rmin.x + rowSz.x * 0.71f, cy), rowSz.x * 0.14f, dim, "MHz");
-                    drawCenteredLabel(dl, style::baseFont, style::dp(13.0f), ImVec2(rmin.x + rowSz.x * 0.89f, cy), rowSz.x * 0.18f, col, radioModeName(regs[k].mode));
+                    if (regs[k].populated) {
+                        drawCenteredLabel(dl, style::bigFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, mhzExact(regs[k].freq).c_str());
+                        drawCenteredLabel(dl, style::baseFont, style::dp(11.0f), ImVec2(rmin.x + rowSz.x * 0.71f, cy), rowSz.x * 0.14f, dim, "MHz");
+                        drawCenteredLabel(dl, style::baseFont, style::dp(13.0f), ImVec2(rmin.x + rowSz.x * 0.89f, cy), rowSz.x * 0.18f, col, radioModeName(regs[k].mode));
+                    }
+                    else {
+                        drawCenteredLabel(dl, style::baseFont, style::dp(14.0f), ImVec2(rmin.x + rowSz.x * 0.50f, cy), rowSz.x * 0.55f, dim, "Empty");
+                    }
                     dl->PopClipRect();
 
                     if (pick) {
-                        gui::bandStack.recallRegister(b, k);
+                        gui::bandStack.recallRegister(
+                            b,
+                            k,
+                            activeBandId,
+                            effective);
                         out.close = true;
                         ImGui::CloseCurrentPopup();
 #ifdef __ANDROID__

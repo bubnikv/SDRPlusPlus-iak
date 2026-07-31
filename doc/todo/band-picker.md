@@ -1,6 +1,8 @@
 # Band Picker — Implementation Plan (handoff)
 
-Date: 2026-07-18. Status: data groundwork done, UI not started.
+Date: 2026-07-18. Status: historical handoff; the UI has shipped and the
+name-keyed single-register rules below are superseded by
+`doc/design/band-stack.md` and `doc/research/band-stacking.md`.
 Prerequisite reading: `core/src/gui/widgets/frequency_select.{h,cpp}` (the
 F-INP dialog lives there), `scripts/enrich_bandplans.py` (docstring +
 `heuristic_mode()`).

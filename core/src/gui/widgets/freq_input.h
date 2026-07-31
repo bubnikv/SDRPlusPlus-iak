@@ -110,12 +110,14 @@ namespace freq_input {
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:
-        // Selected category bucket ("Ham", ..., "All"), loaded from config on open.
+        // Selected presentation group ("Ham", ..., "All"), restored exactly
+        // from config on open.
         std::string category;
+        bool scrollActiveIntoView = false;
 
-        // Band-key press tracking: a quick tap recalls the band's newest
-        // register, a motionless hold opens its stacking-register list (IC-705:
-        // "touch the band key for 1 second").
+        // Band-key press tracking: a quick tap recalls/cycles the top register,
+        // a motionless hold opens its stacking-register list (IC-705: "touch
+        // the band key for 1 second").
         int pressBand = -1;  // index into the shown[] grid, -1 = none
         bool longPressDone = false;
         // Stable ID rather than a pointer into the selected plan or the

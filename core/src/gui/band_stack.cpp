@@ -1,14 +1,15 @@
 #include <gui/band_stack.h>
 #include <gui/widgets/bandplan.h>
+#include <gui/widgets/freq_input/spectrum_ranges.h>
 #include <gui/gui.h>
 #include <config.h>
 #include <core.h>
 #include <radio_interface.h>
+#include <algorithm>
 #include <cmath>
 
-// IC-705 parity: three registers per band. The limit is a hardware panel
-// constraint rather than an inherent one (see doc/design/band-stack.md), so it
-// lives in one place ready to be lifted.
+// IC-705 parity and UI contract: every band has three rotating optional
+// entries, with entry 0 always current.
 static const size_t MAX_REGISTERS = 3;
 
 static bool isRadioVFO(const std::string& vfoName) {
@@ -39,142 +40,193 @@ static bool frequencyBelongsToBand(const bandplan::Band_t& band, double freq) {
     return false;
 }
 
-// A band's stored registers, newest first, tolerating the legacy single-object
-// format and dropping any entry no longer inside the (possibly changed) band
-// edges -- the same containment revalidation the single-slot design used.
+// A band's three rotating optional slots. Entry 0 is always current. Invalid
+// persisted entries become empty; there is no public-release migration path.
 static std::vector<BandRegister> readRegisters(const json& mem, const bandplan::Band_t& band) {
-    std::vector<BandRegister> regs;
+    std::vector<BandRegister> regs(MAX_REGISTERS);
     if (band.bandId.empty() || !mem.is_object()) { return regs; }
     auto it = mem.find(bandMemoryKey(band));
-    // Before stable IDs, band memory was keyed by the display name. Read it as
-    // a fallback so an app update does not discard the user's last frequencies.
-    if (it == mem.end() && !band.bandId.empty()) { it = mem.find(band.name); }
-    if (it == mem.end()) { return regs; }
-    auto pushOne = [&](const json& o) {
-        if (!o.is_object()) { return; }
+    if (it == mem.end() || !it->is_array()) { return regs; }
+    for (std::size_t i = 0; i < MAX_REGISTERS && i < it->size(); i++) {
+        const json& o = (*it)[i];
+        if (!o.is_object()) { continue; }
         double f = o.value("freq", 0.0);
-        if (!frequencyBelongsToBand(band, f)) { return; }
+        if (!frequencyBelongsToBand(band, f)) { continue; }
         int m = o.value("mode", -1);
         if (m < 0 || m >= _RADIO_IFACE_MODE_COUNT) { m = -1; }
-        regs.push_back({ f, m });
-    };
-    if (it->is_array()) {
-        for (const auto& e : *it) {
-            pushOne(e);
-            if (regs.size() >= MAX_REGISTERS) { break; }
-        }
-    }
-    else {
-        pushOne(*it); // legacy single register
+        regs[i] = { true, f, m };
     }
     return regs;
 }
 
-// Push freq/mode to the front of a band's register stack: newest first, deduped
-// by frequency, capped at MAX_REGISTERS. IC-705: "when you change the operating
-// band or the Register, the previously operated frequency and mode are stored."
-static void pushRegister(
+static void writeRegisters(
+    json& mem,
+    const bandplan::Band_t& band,
+    const std::vector<BandRegister>& registers)
+{
+    if (band.bandId.empty()) { return; }
+    if (!mem.is_object()) { mem = json::object(); }
+    const std::string key = bandMemoryKey(band);
+    json out = json::array();
+    for (std::size_t i = 0; i < MAX_REGISTERS; i++) {
+        if (i >= registers.size() || !registers[i].populated) {
+            out.push_back(nullptr);
+        }
+        else {
+            out.push_back({
+                { "freq", registers[i].freq },
+                { "mode", registers[i].mode }
+            });
+        }
+    }
+    mem[key] = out;
+}
+
+static bool updateTopRegister(
     json& mem,
     const bandplan::Band_t& band,
     double freq,
     int mode)
 {
-    if (band.bandId.empty()) { return; }
-    if (!mem.is_object()) { mem = json::object(); }
-    const std::string key = bandMemoryKey(band);
-    json existing = json::array();
-    auto it = mem.find(key);
-    if (it == mem.end() && !band.bandId.empty()) { it = mem.find(band.name); }
-    if (it != mem.end()) {
-        if (it->is_array()) { existing = *it; }
-        else if (it->is_object()) { existing.push_back(*it); } // migrate legacy
-    }
-    json out = json::array();
-    out.push_back({ { "freq", freq }, { "mode", mode } });
-    for (const auto& e : existing) {
-        if (out.size() >= MAX_REGISTERS) { break; }
-        if (!e.is_object()) { continue; }
-        if (std::abs(e.value("freq", 0.0) - freq) < 1.0) { continue; } // dedup same frequency
-        out.push_back(e);
-    }
-    mem[key] = out;
-    if (band.name != key) { mem.erase(band.name); }
+    if (!frequencyBelongsToBand(band, freq)) { return false; }
+    std::vector<BandRegister> registers = readRegisters(mem, band);
+    registers[0] = { true, freq, mode };
+    writeRegisters(mem, band, registers);
+    return true;
 }
 
-// Resolve only inside the last active service. Preserve its explicitly selected
-// band while it remains valid; otherwise accept only one distinct stable ID.
-// This avoids manufacturing an answer from JSON order when bands overlap.
-static const bandplan::Band_t* resolveActiveBand(
+static bool serviceInGroup(
+    freq_input::BandService service,
+    const std::string& group)
+{
+    if (group == "All") { return true; }
+    if (group == "Ham") {
+        return service == freq_input::BandService::Amateur;
+    }
+    if (group == "Bcast") {
+        return service == freq_input::BandService::Broadcast;
+    }
+    if (group == "Air") {
+        return service == freq_input::BandService::Aviation;
+    }
+    if (group == "Marine") {
+        return service == freq_input::BandService::Maritime;
+    }
+    if (group == "Util") {
+        return service != freq_input::BandService::Amateur &&
+            service != freq_input::BandService::Broadcast &&
+            service != freq_input::BandService::Aviation &&
+            service != freq_input::BandService::Maritime;
+    }
+    return false;
+}
+
+struct BandCandidate {
+    const bandplan::Band_t* band = nullptr;
+    std::string bandId;
+    freq_input::BandService service = freq_input::BandService::Other;
+};
+
+// Resolve one stable band inside a UI group. Visible resolution may fall back
+// to another service; lifecycle resolution sets lockService and never does.
+static const bandplan::Band_t* resolveBandInGroup(
     const bandplan::BandPlan_t* plan,
     double freq,
-    freq_input::BandService service,
-    const std::string& preferredBandId)
+    const std::string& group,
+    freq_input::BandService preferredService,
+    const std::string& preferredBandId,
+    bool lockService)
 {
-    // An empty preferred ID means the last explicitly selected row had no
-    // stable identity. Stacking is disabled for that selection; do not infer a
-    // different row merely because its span overlaps the tuned frequency.
-    if (!plan || service == freq_input::BandService::Other ||
-        preferredBandId.empty())
+    if (!plan || (lockService &&
+        preferredService == freq_input::BandService::Other))
     {
         return nullptr;
     }
 
-    const bandplan::Band_t* preferred = nullptr;
-    const bandplan::Band_t* unique = nullptr;
-    std::string uniqueId;
-    bool ambiguous = false;
+    std::vector<BandCandidate> candidates;
     for (const auto& band : plan->bands) {
         if (band.bandId.empty() ||
             (band.entityKind != freq_input::LegacyEntityKind::Band &&
              band.entityKind != freq_input::LegacyEntityKind::Segment) ||
-            band.service != service ||
+            !serviceInGroup(band.service, group) ||
+            (lockService && band.service != preferredService) ||
             freq < band.start || freq > band.end)
         {
             continue;
         }
 
-        if (!preferredBandId.empty() && band.bandId == preferredBandId &&
-            (!preferred || (band.end - band.start) < (preferred->end - preferred->start)))
+        auto existing = std::find_if(
+            candidates.begin(),
+            candidates.end(),
+            [&](const BandCandidate& candidate) {
+                return candidate.bandId == band.bandId;
+            });
+        if (existing == candidates.end()) {
+            candidates.push_back({ &band, band.bandId, band.service });
+        }
+        else if ((band.end - band.start) <
+                 (existing->band->end - existing->band->start))
         {
-            preferred = &band;
-        }
-
-        if (uniqueId.empty()) {
-            uniqueId = band.bandId;
-            unique = &band;
-        }
-        else if (band.bandId == uniqueId) {
-            if ((band.end - band.start) < (unique->end - unique->start)) {
-                unique = &band;
-            }
-        }
-        else {
-            ambiguous = true;
+            existing->band = &band;
+            existing->service = band.service;
         }
     }
 
-    if (preferred) { return preferred; }
-    return ambiguous ? nullptr : unique;
+    for (const BandCandidate& candidate : candidates) {
+        if (!preferredBandId.empty() &&
+            candidate.bandId == preferredBandId)
+        {
+            return candidate.band;
+        }
+    }
+
+    const bandplan::Band_t* serviceMatch = nullptr;
+    int serviceMatches = 0;
+    if (preferredService != freq_input::BandService::Other) {
+        for (const BandCandidate& candidate : candidates) {
+            if (candidate.service == preferredService) {
+                serviceMatch = candidate.band;
+                serviceMatches++;
+            }
+        }
+        if (serviceMatches == 1) { return serviceMatch; }
+        if (serviceMatches > 1) { return nullptr; }
+    }
+
+    return candidates.size() == 1 ? candidates[0].band : nullptr;
 }
 
-// Write back the active stable band. The caller holds the config lock.
-static const bandplan::Band_t* storeCurrentBand(
-    json& mem,
-    int mode,
-    freq_input::BandService lastActiveService,
-    const std::string& preferredBandId)
-{
+static const bandplan::Band_t* bandById(const std::string& bandId) {
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    if (!plan) { return nullptr; }
-    double freq = (double)gui::freqSelect.frequency;
-    const bandplan::Band_t* best =
-        resolveActiveBand(plan, freq, lastActiveService, preferredBandId);
-    if (best) { pushRegister(mem, *best, freq, mode); }
-    return best;
+    if (!plan || bandId.empty()) { return nullptr; }
+    for (const auto& band : plan->bands) {
+        if (band.bandId == bandId &&
+            (band.entityKind == freq_input::LegacyEntityKind::Band ||
+             band.entityKind == freq_input::LegacyEntityKind::Segment))
+        {
+            return &band;
+        }
+    }
+    return nullptr;
+}
+
+// Write only to the stable ID the UI visibly selected. No frequency search is
+// allowed on an explicit band/register transition.
+static bool storeVisibleBand(
+    json& mem,
+    const std::string& activeBandId,
+    double frequency,
+    int mode)
+{
+    const bandplan::Band_t* band = bandById(activeBandId);
+    if (!band || !updateTopRegister(mem, *band, frequency, mode)) {
+        return false;
+    }
+    return true;
 }
 
 std::vector<BandRegister> BandStack::registersFor(const bandplan::Band_t& band) const {
-    std::vector<BandRegister> regs;
+    std::vector<BandRegister> regs(MAX_REGISTERS);
     if (band.bandId.empty()) { return regs; }
     core::configManager.acquire();
     // Bound as const so a band never visited isn't given a null entry in the
@@ -186,19 +238,51 @@ std::vector<BandRegister> BandStack::registersFor(const bandplan::Band_t& band) 
     return regs;
 }
 
-std::string BandStack::activeBandId(double frequency) const {
+std::string BandStack::activateBandForGroup(
+    const std::string& group,
+    double frequency)
+{
+    freq_input::BandService preferredService;
+    std::string preferredBandId;
     core::configManager.acquire();
-    const json& conf = core::configManager.conf;
-    const freq_input::BandService service =
-        freq_input::bandServiceFromKey(
-            conf.value("lastActiveBandService", "other"));
-    const std::string preferredBandId =
-        conf.value("lastActiveBandId", std::string());
+    json& conf = core::configManager.conf;
+    preferredService = freq_input::bandServiceFromKey(
+        conf.value("lastActiveBandService", "other"));
+    preferredBandId = conf.value("lastActiveBandId", std::string());
     core::configManager.release();
 
-    const bandplan::Band_t* band =
-        resolveActiveBand(gui::waterfall.bandplan, frequency, service, preferredBandId);
-    return band ? band->bandId : std::string();
+    const bandplan::Band_t* active = resolveBandInGroup(
+        gui::waterfall.bandplan,
+        frequency,
+        group,
+        preferredService,
+        preferredBandId,
+        false);
+
+    core::configManager.acquire();
+    json& activeConf = core::configManager.conf;
+    bool changed = false;
+    if (activeConf.value("freqEntryCategory", std::string()) != group) {
+        activeConf["freqEntryCategory"] = group;
+        changed = true;
+    }
+    if (activeConf.value("lastMemorySelector", std::string()) != "band") {
+        activeConf["lastMemorySelector"] = "band";
+        changed = true;
+    }
+    if (active) {
+        const std::string service(freq_input::bandServiceKey(active->service));
+        if (activeConf.value("lastActiveBandService", std::string()) != service) {
+            activeConf["lastActiveBandService"] = service;
+            changed = true;
+        }
+        if (activeConf.value("lastActiveBandId", std::string()) != active->bandId) {
+            activeConf["lastActiveBandId"] = active->bandId;
+            changed = true;
+        }
+    }
+    core::configManager.release(changed);
+    return active ? active->bandId : std::string();
 }
 
 // Service/frequency mode convention applied when a band carries no def_mode.
@@ -232,80 +316,158 @@ int BandStack::heuristicMode(const bandplan::Band_t& b) {
     return -1; // no mode change for other band types
 }
 
-void BandStack::selectBand(const bandplan::Band_t& band) {
-    int curMode = currentMode();
+void BandStack::selectBand(
+    const bandplan::Band_t& band,
+    const std::string& activeBandId,
+    const std::string& group)
+{
+    const int curMode = currentMode();
+    const double currentFrequency = (double)gui::freqSelect.frequency;
     double targetFreq = 0.0;
     int targetMode = -1;
+    bool applyStoredTarget = false;
+    bool applyDefaultTarget = false;
 
     core::configManager.acquire();
     json& conf = core::configManager.conf;
     json& mem = conf["bandMemory"];
-    const freq_input::BandService previousService =
-        freq_input::bandServiceFromKey(
-            conf.value("lastActiveBandService", "other"));
-    const std::string previousBandId =
-        conf.value("lastActiveBandId", std::string());
-    storeCurrentBand(mem, curMode, previousService, previousBandId);
+    const bool storedSource = storeVisibleBand(
+        mem,
+        activeBandId,
+        currentFrequency,
+        curMode);
+    const bool repeatTap =
+        storedSource && !band.bandId.empty() &&
+        activeBandId == band.bandId;
+
     conf["lastActiveBandService"] =
         std::string(freq_input::bandServiceKey(band.service));
     conf["lastActiveBandId"] = band.bandId;
-    // Read after the write-back: tapping the band already tuned to promotes the
-    // current frequency to register 1, so the recall below is a no-op.
-    std::vector<BandRegister> regs = readRegisters(mem, band);
+    conf["freqEntryCategory"] = group;
+    conf["lastMemorySelector"] = "band";
+
+    std::vector<BandRegister> registers = readRegisters(mem, band);
+    if (repeatTap) {
+        std::rotate(
+            registers.begin(),
+            registers.begin() + 1,
+            registers.end());
+        writeRegisters(mem, band, registers);
+    }
+
+    if (!registers.empty() && registers[0].populated) {
+        targetFreq = registers[0].freq;
+        targetMode = registers[0].mode;
+        applyStoredTarget = true;
+    }
+    else if (!repeatTap) {
+        applyDefaultTarget = true;
+    }
     core::configManager.release(true);
 
-    if (!regs.empty()) {
-        targetFreq = regs[0].freq;
-        targetMode = regs[0].mode;
+    if (applyStoredTarget) {
+        applyTarget(band, targetFreq, targetMode);
     }
-    applyTarget(band, targetFreq, targetMode);
+    else if (applyDefaultTarget) {
+        applyTarget(band, 0.0, -1);
+    }
 }
 
-void BandStack::recallRegister(const bandplan::Band_t& band, int index) {
-    int curMode = currentMode();
+void BandStack::recallRegister(
+    const bandplan::Band_t& band,
+    int index,
+    const std::string& activeBandId,
+    const std::string& group)
+{
+    const int curMode = currentMode();
+    const double currentFrequency = (double)gui::freqSelect.frequency;
     double targetFreq = 0.0;
     int targetMode = -1;
+    bool applyStoredTarget = false;
 
     core::configManager.acquire();
     json& conf = core::configManager.conf;
     json& mem = conf["bandMemory"];
-    // Resolve the pick against the list as the user saw it, before the
-    // write-back below can reorder this band's own stack -- unlike selectBand,
-    // where reading afterwards is what makes a repeat tap a no-op.
-    std::vector<BandRegister> regs = readRegisters(mem, band);
-    if (index >= 0 && index < (int)regs.size()) {
-        targetFreq = regs[index].freq;
-        targetMode = regs[index].mode;
+    storeVisibleBand(
+        mem,
+        activeBandId,
+        currentFrequency,
+        curMode);
+
+    std::vector<BandRegister> registers = readRegisters(mem, band);
+    if (index >= 0 && index < (int)registers.size()) {
+        std::rotate(
+            registers.begin(),
+            registers.begin() + index,
+            registers.end());
+        writeRegisters(mem, band, registers);
+        if (registers[0].populated) {
+            targetFreq = registers[0].freq;
+            targetMode = registers[0].mode;
+            applyStoredTarget = true;
+        }
     }
-    const freq_input::BandService previousService =
-        freq_input::bandServiceFromKey(
-            conf.value("lastActiveBandService", "other"));
-    const std::string previousBandId =
-        conf.value("lastActiveBandId", std::string());
-    storeCurrentBand(mem, curMode, previousService, previousBandId);
     conf["lastActiveBandService"] =
         std::string(freq_input::bandServiceKey(band.service));
     conf["lastActiveBandId"] = band.bandId;
+    conf["freqEntryCategory"] = group;
+    conf["lastMemorySelector"] = "band";
     core::configManager.release(true);
 
-    applyTarget(band, targetFreq, targetMode);
+    if (applyStoredTarget) {
+        applyTarget(band, targetFreq, targetMode);
+    }
 }
 
 void BandStack::commitCurrent() {
     const int mode = currentMode();
+    const double currentFrequency = (double)gui::freqSelect.frequency;
     core::configManager.acquire();
     json& conf = core::configManager.conf;
+
+    if (conf.value("lastMemorySelector", "band") == "spectrum") {
+        const freq_input::SpectrumRange* range =
+            freq_input::spectrumRangeAtFrequency(
+                (std::int64_t)std::llround(currentFrequency));
+        if (range) {
+            json& memory = conf["spectrumRangeMemory"];
+            if (!memory.is_object()) { memory = json::object(); }
+            memory[std::string(range->rangeId)] = currentFrequency;
+            conf["spectrumLastRangeId"] = std::string(range->rangeId);
+            core::configManager.release(true);
+        }
+        else {
+            core::configManager.release(false);
+        }
+        return;
+    }
+
     json& mem = conf["bandMemory"];
     const freq_input::BandService service =
         freq_input::bandServiceFromKey(
             conf.value("lastActiveBandService", "other"));
     const std::string preferredBandId =
         conf.value("lastActiveBandId", std::string());
-    const bandplan::Band_t* current =
-        storeCurrentBand(mem, mode, service, preferredBandId);
-    conf["lastActiveBandId"] =
-        current ? current->bandId : std::string();
-    core::configManager.release(true);
+    const std::string group =
+        conf.value("freqEntryCategory", "Ham");
+    const bandplan::Band_t* current = resolveBandInGroup(
+        gui::waterfall.bandplan,
+        currentFrequency,
+        group,
+        service,
+        preferredBandId,
+        true);
+    if (current &&
+        updateTopRegister(mem, *current, currentFrequency, mode))
+    {
+        // The stable band may follow manual tuning inside the current service;
+        // the service itself is deliberately never changed on save.
+        conf["lastActiveBandId"] = current->bandId;
+        core::configManager.release(true);
+    }
+    else {
+        core::configManager.release(false);
+    }
 }
 
 // Tune to a resolved register, filling in the band's defaults for anything the

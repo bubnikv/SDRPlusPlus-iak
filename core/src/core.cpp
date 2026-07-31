@@ -150,6 +150,7 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["bandMemory"] = json::object();
     defConfig["lastActiveBandService"] = "other";
     defConfig["lastActiveBandId"] = "";
+    defConfig["lastMemorySelector"] = "band";
     defConfig["bandPlan"] = "General";
     defConfig["bandPlanEnabled"] = true;
     defConfig["bandPlanPos"] = 0;

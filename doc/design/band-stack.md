@@ -6,10 +6,18 @@ from primary sources what a band-stack register actually contains (Icom CI-V
 This note reviews what this fork ships today (`12ec9799`, `d9c915fb`) and
 proposes the state machine and data model to replace it.
 
-**Status (updated 2026-07-26).** Part 8 — the extraction step — has been
-implemented; Parts 2–7 have not. Part 1 is left as the point-in-time review it
-was, with each finding marked *fixed* or *open* and its code reference
-re-pointed at where the code lives now. What landed:
+**Status (updated 2026-07-31).** Part 8 — the extraction step — has been
+implemented. Current `master` also has an interim subset of P1: plan rows now
+receive stable `band_id` values and collapse to canonical selector keys, while
+each `bandMemory[band_id]` is exactly three rotating optional entries. Entry 0
+is always current: ordinary write-back updates it in place, repeat tap rotates
+left, and a register-list pick rotates that row to the top. No current pointer
+is stored. Opening resolves only inside the restored visible group without
+writing; lifecycle save is additionally locked to the current service. There
+is deliberately no migration for pre-release development data. The
+service-owned catalog and shadow/dwell work in Parts 2–7 have not landed.
+Part 1 remains a point-in-time review of the earlier implementation. What
+landed before that interim subset:
 
 | Commit | What |
 |---|---|
@@ -21,11 +29,11 @@ re-pointed at where the code lives now. What landed:
 The last of those is not in Part 8's plan; it is the other half of §1.1's
 complaint, done for the same reason and recorded in §1.1 below.
 
-Verdict up front: the *behaviour* is a reasonable first cut, but the **data model
-is keyed on the wrong thing** — band-plan band names — and that single choice
-causes most of the defects below, two of which make band memory silently useless
-in the shipped default band plan. The state machine is also missing its central
-piece: any notion of *which register you are currently operating out of*.
+The original verdict below was that the data model was keyed on mutable,
+duplicate band-plan names and could not represent the active register. The
+interim release fixes those two immediate defects with stable plan-band IDs and
+the rotating-top convention described above; the broader service-owned model
+remains the target architecture.
 
 Terminology used throughout:
 
@@ -458,8 +466,9 @@ struct BandRegister {
 
 // Everything remembered about one bucket.
 struct BandState {
-    std::vector<BandRegister> regs;   // positional slots, size 0..registerCount
-    int  current = 0;                 // THE selected slot -- the missing pointer
+    // Exactly three optional entries. The array rotates only on an explicit
+    // band/register action, so regs[0] is always current without a pointer.
+    std::array<std::optional<BandRegister>, 3> regs;
 
     // Layer 3: per-band display calibration. Absent => inherit the global
     // min/max. It lives HERE and not in a register because the noise floor on
@@ -481,7 +490,7 @@ struct Shadow {
 ```
 
 Service state: `std::map<std::string, BandState> bands;  Shadow shadow;
-int registerCount = 3;  bool perBandDisplay = false;`
+bool perBandDisplay = false;`
 
 **The shadow deliberately carries no mode.** The mode is read from the radio at
 commit time via `RADIO_IFACE_CMD_GET_MODE`. This removes any need for a
@@ -490,36 +499,30 @@ module ABI — and removes any way for the shadow to go stale against the radio.
 
 ### 2.4 Invariants
 
-- `0 <= current < max(1, regs.size())`.
-- Every `regs[i].freq` lies inside the bucket's ranges. Revalidated on load —
+- `regs.size() == 3`; an entry may be empty and `regs[0]` is always current.
+- Every populated `regs[i].freq` lies inside the bucket's ranges. Revalidated on load —
   and because bucket ranges are code-defined and stable, revalidation now almost
   never discards anything, unlike today's revalidation against editable plan
   edges.
-- Frequencies within a bucket are unique (dedup tolerance 1 Hz), matching
-  Thetis's `m_bIgnoreFrequencyDupes`.
-- `regs.size() <= registerCount`. If `registerCount` is lowered, truncate from
-  the back, preserving locked entries.
 - Locked entries are never overwritten or evicted. **If every entry in a stack is
   locked, commit is a no-op** — state this explicitly or the eviction search has
   no terminating case.
-- Slots are **positional, not MRU-ordered**. This is the semantic change that
-  makes the feature useful and it is what both Icom and Thetis do.
+- Entries are **not MRU-ordered**. Ordinary write-back changes only `regs[0]`;
+  explicit repeat-tap or row selection performs a cyclic rotation.
 
 ### 2.5 Config schema
 
 ```jsonc
 "bandStack": {
   "version": 2,
-  "registerCount": 3,
   "perBandDisplay": false,
   "bands": {
-    "40m":   { "cur": 0,
-               "regs": [ { "f": 7030000, "m": 5, "lock": true,  "label": "CW"  },
+    "40m":   { "regs": [ { "f": 7030000, "m": 5, "lock": true,  "label": "CW"  },
                          { "f": 7074000, "m": 4, "lock": false, "label": "FT8" },
-                         { "f": 7130000, "m": 6, "lock": false } ],
+                         null ],
                "display": { "min": -92.0, "max": -20.0, "zoom": 0.35 } },
-    "SW31m": { "cur": 1, "regs": [ /* ... */ ] },
-    "GEN":   { "cur": 0, "regs": [ /* ... */ ] }
+    "SW31m": { "regs": [ /* exactly three entries/nulls; index 0 current */ ] },
+    "GEN":   { "regs": [ /* ... */ ] }
   }
 }
 ```
@@ -530,13 +533,13 @@ Bucket ids are stable, human-readable, and independent of the selected plan.
 
 ### 2.6 Migration — and a constraint that dictates where it runs
 
-`version` absent means the config holds today's `bandMemory` (name → array |
-object). Migration, one shot at load:
+This migration belongs to the later service-owned-catalog release, not to the
+pre-release rotating-stack change on `master`. At that future boundary:
 
-1. For each `bandMemory[<name>]`, for each entry, oldest → newest:
-   `b = bucketOf(entry.freq)`; append to `bands[b].regs` if not a duplicate
-   frequency and `regs.size() < registerCount`.
-2. `bands[b].current = 0`, `haveDisplay = false`.
+1. For each `bandMemory[<stable band_id>]`, map each populated entry to the
+   service-owned band containing it while preserving cyclic array order.
+2. Keep the source top entry at destination index 0; pad missing entries with
+   `null`; set `haveDisplay = false`.
 3. Write `bandStack` with `version: 2`; erase `bandMemory`.
 
 Lossless for every entry that was reachable, and entries that were unreachable
@@ -641,11 +644,8 @@ per-band waterfall calibration feel automatic rather than modal.
 commit():
     if !shadow.valid: return
     S = bands[shadow.band]
-    if S.regs.empty(): S.regs.push_back({}); S.current = 0
-    e = &S.regs[S.current]
+    e = &S.regs[0]                                      // top is always current
     if e->locked: return                                  // Thetis rule
-    for other in S.regs, other != e:
-        if |other.freq - shadow.freq| < 1: return         // m_bIgnoreFrequencyDupes
     if e->freq == shadow.freq && e->mode == currentRadioMode(): return   // no churn
     e->freq = shadow.freq
     e->mode = currentRadioMode()                          // -1 when not a radio
@@ -656,8 +656,8 @@ commit():
 ```
 recall(bucket b, int k, const Band_t* tapped):
     S = bands[b]
-    target = (S.regs.empty() || k < 0) ? defaultFor(b, tapped) : S.regs[clamp(k)]
-    if k >= 0: S.current = clamp(k)
+    if k >= 0: rotate_left(S.regs, clamp(k))              // picked entry becomes 0
+    target = S.regs[0].has_value() ? *S.regs[0] : defaultFor(b, tapped)
     shadow = { b, target.freq, valid, dwell = 0 }          // suppress machine A
     applyDisplayState(b)
     tune(target.freq)                                      // via freqSelect + frequencyChanged
@@ -676,36 +676,21 @@ own default mode.
 
 | Trigger | Action |
 |---|---|
-| Band key tapped, bucket **≠** shadow bucket | `commit()`, then `recall(target, bands[target].current, tapped)` — resume the register the band was left in (Icom's per-band register memory, Thetis's `SelectInitial`) |
-| Band key tapped, bucket **==** shadow bucket (repeat tap) | `commit()`, advance `current` to the next matching slot with wrap, `recall()` — the cycling every surveyed product does (note gap 4) |
+| Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
+| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate left once, then recall the new top when populated |
 | Long-press band key | Open the register list. **No commit yet** — the user may be about to cancel |
-| Register *k* picked from the list | `commit()`, then `recall(target, k, tapped)` |
-| "Store here" on slot *k* | Write the shadow into slot *k*, honouring `locked`; set `current = k` |
-| "Add" in the list | Insert the shadow after `current`, capped at `registerCount`, evicting the oldest **unlocked** entry (Thetis: Ctrl + band button) |
+| Register *k* picked from the list | Validate and overwrite the visible source, rotate *k* to index 0 preserving cyclic order, then recall it when populated |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
-| F-INP dialog opened | `commit()` — the cheap 80 % of Thetis's continuous shadow (note gap 3) |
-| **Shadow dwell exceeds `kAutoCommitDwell`** (proposed 5 s) | `commit()` — see below |
-| Application shutdown | `commit()` before `configManager.disableAutoSave()` (`core.cpp:511`) |
+| F-INP dialog opened or group changed | Resolve visibly inside that group; activate/scroll but do not write |
+| Application shutdown | Resolve inside the last group **and current service only**, then overwrite the top without rotating |
 | Android `APP_CMD_PAUSE` | `commit()` — see 3.7 |
 
-**On the dwell-based auto-commit.** Thetis commits only at transitions and at
-shutdown. That is not sufficient here, for a reason specific to this fork:
-`core.cpp:499–513` wraps the entire shutdown sequence in `#ifndef __ANDROID__`,
-and on Android the process is killed without any shutdown path at all. A
-transition-only design would therefore lose the day's tuning on the platform
-this fork targets hardest. A debounced commit — write the current slot once the
-frequency has been stable for ~5 s — subsumes the shutdown hook, the dialog-open
-hook and the Android problem, and it is semantically identical to
-commit-at-transition because commit is idempotent and in-place: the slot ends up
-holding the same value either way, just written earlier.
-
-It has one real cost, which should be stated rather than hidden: **tuning across
-a band and pausing 5 s inside it writes that band's current register**, where
-commit-at-transition would not. Mitigations, in order: the 5 s dwell means a
-sweep does not trigger it; locks protect curated entries; and if it proves
-annoying in practice, §6.2 records the alternative that removes the trade-off
-entirely. Keep the explicit shutdown and dialog-open commits anyway — they cost
-nothing and make the durability guarantee independent of the timer.
+**No dialog-open or dwell write-back.** Registers change only on an explicit
+band/register transition or at an application persistence boundary. Android
+pause/stop remains such a boundary because the process may be killed without a
+later destruction callback. Its save resolver is restricted to the last group
+and current service, so it can follow manual tuning from 20 m to 40 m but cannot
+silently reclassify Amateur as Broadcast.
 
 ### 3.5 Recall filtering — tapping a segment of a bucket
 
@@ -953,16 +938,18 @@ additive `extraBuckets` if a regional need appears.
 
 ### P1 — correctness (the only part that fixes bugs)
 
-Service extraction, bucket table, migration in the right place, in-place commit,
-the `current` pointer, GEN, poll-based shadow, dwell + dialog-open + shutdown +
-Android-pause commits, the `SET_MODE` guard, `regPopupBand` de-pointering.
+Service extraction, band table, rotating-top registers, scoped visible
+resolution, current-service-locked shutdown/Android-pause commits, the
+`SET_MODE` guard, and `regPopupBand` de-pointering. This pre-release change does
+not migrate earlier development-only `bandMemory` shapes; migration belongs
+only to a later public service-catalog boundary if one is then necessary.
 Closes research gaps 1–3 and findings §1.2 (a)(b)(c), §1.3, §1.4/1,2,6,7.
 
 Verify in a real build:
 
-- [ ] Existing `bandMemory` migrates: the 15 shortwave stacks fan out into
-      distinct `SW*` buckets; `bandMemory` is gone from `config.json`;
-      `bandStack.version == 2`.
+- [ ] A missing, malformed, or earlier development-only `bandMemory` entry is
+      treated as three empty slots; every newly written stable band contains
+      exactly three array positions with `null` for empty slots.
 - [ ] Tune around 20 m for a while, tap 40 m, tap 20 m → back where you were,
       and the other two 20 m registers are **unchanged**.
 - [ ] Tune to 446.05 MHz, tap another band, tap PMR446 → returns to 446.05, and
@@ -985,8 +972,12 @@ Verify in a real build:
 
 ### P2 — the register UI
 
-Repeat-tap cycling with subset filtering (§3.5), and a long-press list with
-pick / store-here / add / lock / label / delete. Closes gaps 4–5.
+Repeat-tap cycling and cyclic long-press row selection are implemented. The
+three fixed optional entries are populated through normal tuning, transitions,
+and lifecycle save; there is no add/store-here action. Lock/label/delete
+metadata remains optional future work. Keeping the selector open after a
+selection is the final optional polish step, after the current behavior is
+verified.
 
 ### P3 — per-band display
 
@@ -1005,24 +996,20 @@ Band up/down shortcut, rigctl band select, waterfall register overlays, snap via
    which dumps all shortwave into `GENE`. Recommended, because this fork has a
    KiwiSDR source and a planned EIBI module, so shortwave listening is a
    first-class use case. Confirm, or take the smaller ~25-row Icom-shaped table.
-2. **`registerCount` default** — 3 for IC-705 parity, or more? The note observes
-   three is a hardware panel constraint and Thetis's stacks are unbounded.
-3. **`kAutoCommitDwell`** — 5 s proposed. Shorter is more durable, longer is
-   safer against pass-through overwrites (§3.4).
-4. **Should the `Ham` grid page be driven from the bucket table** rather than the
+2. **Should the `Ham` grid page be driven from the bucket table** rather than the
    plan's amateur bands? It would give one key per ham band exactly like the
    IC-705 screen, with stable labels across plans and no duplicate-name
    weirdness in the grid — at the cost of ignoring regional allocations there.
-5. **§6.2** — adopt the `last`/`regs` split now, or keep the simpler
+3. **§6.2** — adopt the `last`/`regs` split now, or keep the simpler
    Icom/Thetis model and revisit?
-6. **Aeronautical-HF and maritime-HF buckets.** §2.1 uses these two services to
+4. **Aeronautical-HF and maritime-HF buckets.** §2.1 uses these two services to
    justify multi-range buckets and then §2.2 omits both, so 27 segments in
    france.json alone fall into `GEN`. Adding `AIRHF` and `MARHF` as multi-range
    buckets is the consistent move and costs two rows; the argument against is
    that their segments are narrow and numerous, so the ranges would need
    maintaining. Decide before the table is frozen, because bucket ids are the
    persistence key and adding one later re-homes existing registers.
-7. **A `WWV` bucket.** Part 4 cites Thetis's `_gen` / `_wwv` / `_xvtr` split as
+5. **A `WWV` bucket.** Part 4 cites Thetis's `_gen` / `_wwv` / `_xvtr` split as
    the precedent to copy, but the table has no `WWV`, so the standard-frequency
    channels scatter across four buckets (see the Part 7 note). One bucket owning
    2.5 / 5 / 10 / 15 / 20 / 25 MHz ±5 kHz, ordered before the HF buckets, would
@@ -1327,7 +1314,7 @@ that means `freq_input/bands.cpp` alone, not `frequency_select.cpp`:
 | P1 item | Where it lands |
 |---|---|
 | Bucket table, `bucketOf()` | new file-static table in `band_stack.cpp`; replaces the plan-walk inside `storeCurrentBand()` |
-| `current` pointer, in-place commit | `BandState` members; `recallRegister()` already receives the index it needs to set |
+| Rotating top, in-place commit | `BandState::regs[0]`; `recallRegister()` already receives the index it needs to rotate to the top |
 | Shadow, dwell timer | new private members; new public `update(double dt)` and `commit()` |
 | Poll-based tracking | `gui::bandStack.update(dt)` in `MainWindow::draw()`, beside `autoRange.update()` (`:884`) |
 | Shutdown / Android pause commit | `gui::bandStack.commit()` in `core.cpp:511` and `backend.cpp:155` |

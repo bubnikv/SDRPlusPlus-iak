@@ -117,6 +117,16 @@ namespace freq_input {
         Outcome out;
         const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
 
+        core::configManager.acquire();
+        json& selectorConf = core::configManager.conf;
+        const bool selectorChanged =
+            selectorConf.value("lastMemorySelector", std::string()) !=
+            "spectrum";
+        if (selectorChanged) {
+            selectorConf["lastMemorySelector"] = "spectrum";
+        }
+        core::configManager.release(selectorChanged);
+
         std::size_t rangeCount = 0;
         const SpectrumRange* definitions =
             spectrumRanges(rangeCount);
@@ -153,6 +163,15 @@ namespace freq_input {
         }
         else {
             active = spectrumRangeAtFrequency(currentFrequency);
+        }
+        if (active &&
+            lastRangeId != std::string(active->rangeId))
+        {
+            lastRangeId = std::string(active->rangeId);
+            core::configManager.acquire();
+            core::configManager.conf["spectrumLastRangeId"] =
+                lastRangeId;
+            core::configManager.release(true);
         }
 
         if (ranges.empty()) {

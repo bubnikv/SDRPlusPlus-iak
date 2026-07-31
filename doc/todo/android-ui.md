@@ -107,12 +107,14 @@ on Android; pass content URIs as fds (same pattern as the USB fd path).
   0.5 s motionless hold (`FrequencySelect`, with `hapticTick()`; entry is in
   MHz with IC-705 semantics — '.' first re-enters the current MHz digits, ENT
   zero-fills). The dialog now has a second BAND page (IC-705 band stacking
-  register): category-filtered band grid; a tap tunes to the band's newest
-  stacking register (frequency + mode) or its band-plan default, and a 0.5 s
-  hold on a band key opens that band's register list (up to 3, IC-705 keeps
-  3 per band) to pick an older frequency/mode. Leaving a band pushes its
-  current frequency/mode onto its stack (MRU, deduped, capped at 3, config
-  `bandMemory`). Page/category persisted. Remaining: a generic long-press → context-menu mechanism; the
+  register): category-filtered band grid; a tap tunes to the band's top
+  stacking entry (frequency + mode) or its band-plan default, and a 0.5 s
+  hold on a band key opens its three-entry register list. The stack itself
+  rotates, so entry 0 is always current: leaving updates the top in place,
+  tapping the active band rotates left, and choosing a row rotates it to the
+  top. Page/category persisted. Remaining as a final optional polish step:
+  keep the selector open after a selection. A generic long-press →
+  context-menu mechanism also remains; the
   drag-scroll recognizer's 200 ms hold state
   (`TouchScrollRecognizer::HOLD_TIMEOUT_MS`) could report it centrally.
 - **Toggle switches**: replace on/off checkboxes with Android-style switches.
