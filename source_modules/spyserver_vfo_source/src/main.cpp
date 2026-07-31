@@ -551,16 +551,11 @@ private:
             // the server, bypassing the formula - for calibrating the right
             // boost per IQ BW on a live signal (deep decimation on the R2 in
             // particular over-boosts and clips strong stations under Auto).
-            SmGui::LeftLabel("IQ Digital Gain");
-            if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
-                _this->applyDigitalGain();
-                svfoConfig.acquire();
-                svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
-                svfoConfig.release(true);
-            }
-            // Value actually being sent, shown right after the Auto checkbox on
-            // the same line (small gap) so you can read off what Auto computes
-            // for the current decimation as a hand-tuning starting point.
+            // Line 1:  IQ Digital Gain   <sent> dB               [x] Auto
+            // The sent-value readout sits right after the label (normal gap);
+            // the Auto checkbox is right-aligned to the content-region edge so
+            // it lines up with the right end of the slider below and tracks the
+            // panel width when the control column is resized.
             {
                 int shownDigGain;
                 if (_this->digitalGainAuto && _this->client) {
@@ -570,9 +565,24 @@ private:
                 else {
                     shownDigGain = _this->digitalGainManual;
                 }
-                ImGui::SameLine(0.0f, 4.0f * style::uiScale);
+                SmGui::LeftLabel("IQ Digital Gain");
                 SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%d dB", shownDigGain);
+
+                // Right-align the Auto checkbox to the content edge (= the
+                // slider's right edge on the next line).
+                ImGui::SameLine();
+                float cbWidth = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Auto").x;
+                float targetX = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - cbWidth;
+                if (targetX > ImGui::GetCursorPosX()) { ImGui::SetCursorPosX(targetX); }
+                if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
+                    _this->applyDigitalGain();
+                    svfoConfig.acquire();
+                    svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
+                    svfoConfig.release(true);
+                }
             }
+
+            // Line 2: the manual slider (full width), disabled while Auto is on.
             if (_this->digitalGainAuto) { style::beginDisabled(); }
             SmGui::FillWidth();
             if (SmGui::SliderInt("##spyserver_vfo_source_diggain", &_this->digitalGainManual, 0, 60)) {
