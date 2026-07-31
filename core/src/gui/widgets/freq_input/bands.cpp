@@ -282,7 +282,6 @@ namespace freq_input {
     Outcome Bands::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
         ImVec2 sp = ImGui::GetStyle().ItemSpacing;
-        ImVec2 cancelSz(m.totalWidth, m.keySize.y);
 
         // The plan the waterfall ruler shows, resolved once by bandplanmenu and
         // independent of the bandPlanEnabled display toggle. Resolving it again here
@@ -291,7 +290,6 @@ namespace freq_input {
         const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
         if (!plan) {
             ImGui::TextDisabled("No band plan loaded");
-            if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { out.close = true; }
             return out;
         }
 
@@ -317,7 +315,7 @@ namespace freq_input {
         for (int i = 0; i < (int)cats.size() - 1; i++) {
             if (category == cats[i]) { catIdx = i; }
         }
-        if (doSegmentedControl("##sdrpp_band_category", catIdx, cats.data(), (int)cats.size(), ImVec2(m.totalWidth, 0.0f))) {
+        if (doSegmentedControl("##sdrpp_band_category", catIdx, cats.data(), (int)cats.size(), ImVec2(m.totalWidth, m.rowHeight))) {
             category = cats[catIdx];
             core::configManager.acquire();
             core::configManager.conf["freqEntryCategory"] = category;
@@ -341,23 +339,26 @@ namespace freq_input {
         // its popup ID won't match the BeginPopup below. The long-press detector
         // fires inside the child, so it only sets this flag.
         bool openRegPopup = false;
-        // One band key of the 4-column grid. Declared out here because the
-        // register popup sizes its rows off it too.
-        const float keyW = (m.totalWidth - 3.0f * sp.x) / 4.0f;
+        // One band key. Declared out here because the register popup sizes its
+        // rows off it too. The column count comes from the viewport, so a wide
+        // page trades rows for columns instead of scrolling.
+        const int cols = m.bandCols;
+        const float keyW = (m.gridWidth - (float)(cols - 1) * sp.x) / (float)cols;
         if (shown.empty()) {
             ImGui::TextDisabled("No bands in the tuning range");
         }
         else {
-            // 4-column grid of band keys in a child capped at ~4.5 rows; the half
-            // row hints that the grid scrolls.
-            float keyH = style::dp(52.0f);
-            int rows = ((int)shown.size() + 3) / 4;
-            bool scrolls = rows > 4;
-            float gridH = scrolls ? 4.5f * (keyH + sp.y) : rows * (keyH + sp.y) - sp.y;
-            float childW = m.totalWidth + (scrolls ? ImGui::GetStyle().ScrollbarSize : 0.0f);
+            // Grid of band keys in a child sized to what is left of the page
+            // under the category row; when it cannot hold every row it stops
+            // half a row short, the clipped row being the hint that it scrolls.
+            const float keyH = m.bandKeyHeight;
+            const int rowsNeeded = ((int)shown.size() + cols - 1) / cols;
+            const int rowsFit =
+                Metrics::rowsThatFit(m.pageHeight - m.rowHeight - 2.0f * sp.y, keyH);
+            const float gridH = Metrics::gridHeight(rowsNeeded, rowsFit, keyH);
             ImGuiIO& io = ImGui::GetIO();
             ImVec2 mousePos = ImGui::GetMousePos();
-            ImGui::BeginChild("##sdrpp_band_grid", ImVec2(childW, gridH), false);
+            ImGui::BeginChild("##sdrpp_band_grid", ImVec2(m.totalWidth, gridH), false);
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImU32 mainCol = ImGui::GetColorU32(ImGuiCol_Text);
             ImU32 subCol = ImGui::GetColorU32(ImGuiCol_Text, 0.75f);
@@ -367,7 +368,7 @@ namespace freq_input {
             char id[32];
             for (int i = 0; i < (int)shown.size(); i++) {
                 const bandplan::Band_t& b = *shown[i];
-                ImGui::SetCursorPos(ImVec2((i % 4) * (keyW + sp.x), (i / 4) * (keyH + sp.y)));
+                ImGui::SetCursorPos(ImVec2((i % cols) * (keyW + sp.x), (i / cols) * (keyH + sp.y)));
                 snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
                 const bool active =
                     !activeBandId.empty() && b.bandId == activeBandId;
@@ -396,6 +397,20 @@ namespace freq_input {
                         longPressDone = true;
                         regPopupBandId = b.bandId;
                         openRegPopup = true;
+                        // Anchor the register list to the key. Opened at the
+                        // cursor, as popups are by default, it comes up under
+                        // the hand that opened it and hides its own first row.
+                        const ImGuiViewport* vp = ImGui::GetMainViewport();
+                        const ImVec2 kmin = ImGui::GetItemRectMin();
+                        const ImVec2 kmax = ImGui::GetItemRectMax();
+                        if (kmax.y < vp->Pos.y + vp->Size.y * 0.5f) {
+                            regPopupPos = ImVec2(kmin.x, kmax.y + sp.y);
+                            regPopupPivot = ImVec2(0.0f, 0.0f);
+                        }
+                        else {
+                            regPopupPos = ImVec2(kmin.x, kmin.y - sp.y);
+                            regPopupPivot = ImVec2(0.0f, 1.0f);
+                        }
 #ifdef __ANDROID__
                         backend::hapticTick();
 #endif
@@ -436,7 +451,10 @@ namespace freq_input {
 
         // Register list for a long-pressed band key (IC-705: touch the band key for
         // 1 second to display the Band Stacking Register contents).
-        if (openRegPopup) { ImGui::OpenPopup("##sdrpp_band_registers"); }
+        if (openRegPopup) {
+            ImGui::OpenPopup("##sdrpp_band_registers");
+            ImGui::SetNextWindowPos(regPopupPos, ImGuiCond_Always, regPopupPivot);
+        }
         if (ImGui::BeginPopup("##sdrpp_band_registers")) {
             const bandplan::Band_t* regPopupBand = nullptr;
             for (const CanonicalBandEntry& entry : avail) {
@@ -457,7 +475,10 @@ namespace freq_input {
                 // Rows sized off the band grid rather than a bare dp() constant:
                 // three keys wide, so the list reads as belonging to the key it
                 // was opened from, and tall enough to be the same touch target.
-                const ImVec2 rowSz(3.0f * keyW + 2.0f * sp.x, style::dp(40.0f));
+                // Clamped because the key width now follows the column count.
+                const ImVec2 rowSz(
+                    std::clamp(3.0f * keyW + 2.0f * sp.x, style::dp(200.0f), m.totalWidth),
+                    std::max(style::dp(40.0f), m.rowHeight));
                 ImDrawList* dl = ImGui::GetWindowDrawList();
                 const style::SelectedToggleColors regCols = style::selectedToggleColors();
                 char id[24];
@@ -506,7 +527,6 @@ namespace freq_input {
             ImGui::EndPopup();
         }
 
-        if (ImGui::Button("Cancel##sdrpp_band_cancel", cancelSz)) { out.close = true; }
         return out;
     }
 

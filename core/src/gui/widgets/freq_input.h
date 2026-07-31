@@ -31,14 +31,49 @@ namespace freq_input {
         uint64_t rangeHi() const { return limited ? ((minFreq > maxFreq) ? minFreq : maxFreq) : 0; }
     };
 
-    // Keypad grid geometry, computed once per frame by Dialog. Both pages are
-    // sized from it so the popup keeps one width across pages, and so the dp()
+    // The dialog's layout budget, recomputed each frame by Dialog. Every page
+    // is sized from it, so the popup keeps one width across pages and the dp()
     // constants exist in exactly one place -- the page toggle and the band grid
     // used to re-derive them from the keypad's own, free to drift silently.
+    //
+    // Everything here is a function of the viewport and the style, never of the
+    // content. A width that depended on what the grid holds would resize the
+    // dialog as the user switches category; a height that depended on how much
+    // the keypad has to say would move the keys out from under a finger
+    // mid-entry. Both used to happen.
     struct Metrics {
-        ImVec2 keySize;           // one digit key
-        float funcWidth = 0.0f;   // CE / Cancel / ENT column
-        float totalWidth = 0.0f;  // full page width
+        // Keypad block.
+        ImVec2 keySize;             // one digit key
+        float funcWidth = 0.0f;     // CE / Cancel / ENT column
+        float keypadWidth = 0.0f;   // 3 digit columns + the function column
+        bool wideKeypad = false;    // readout beside the keys, not above them
+
+        // Page.
+        float totalWidth = 0.0f;    // content width, identical on every page
+        float pageHeight = 0.0f;    // height left for a page below the toggle row
+        float toggleHeight = 0.0f;  // page toggle / close row
+        float rowHeight = 0.0f;     // minimum interactive row (48 dp under touch)
+
+        // Grids. The column count follows the width, so a viewport that is
+        // short and wide -- a phone in landscape -- trades rows for columns and
+        // fits instead of overflowing.
+        int bandCols = 4;
+        int spectrumCols = 3;
+        float bandKeyHeight = 0.0f;
+        float spectrumKeyHeight = 0.0f;
+
+        // Width available to grid keys: `totalWidth` less a permanently
+        // reserved scrollbar, so nothing shifts on the frame a grid starts
+        // scrolling and the popup does not change width between pages.
+        float gridWidth = 0.0f;
+
+        // Whole rows of `keyH` that fit in `avail`, never fewer than two.
+        static int rowsThatFit(float avail, float keyH);
+
+        // Child height for a grid of `rowsNeeded` rows: exactly what it needs
+        // when it fits, otherwise half a row short of the budget, the clipped
+        // row being the hint that it scrolls.
+        static float gridHeight(int rowsNeeded, int rowsFit, float keyH);
 
         static Metrics compute();
     };
@@ -86,6 +121,10 @@ namespace freq_input {
         // Stable ID rather than a pointer into the selected plan or the
         // per-frame canonical projection.
         std::string regPopupBandId;
+        // Where that list opens: beside the key it belongs to, above or below
+        // depending on which half of the viewport the key is in.
+        ImVec2 regPopupPos = ImVec2(0.0f, 0.0f);
+        ImVec2 regPopupPivot = ImVec2(0.0f, 0.0f);
     };
 
     // SPECTRUM page: a service-independent, non-overlapping ITU/IEEE range
@@ -114,6 +153,11 @@ namespace freq_input {
     private:
         bool requestOpen = false;
         int page = 2; // 0 = BAND, 1 = SPECTRUM, 2 = F-INP
+        // Re-centre once when the viewport changes size. Android handles
+        // rotation live (configChanges in the manifest), so a dialog open
+        // across one would otherwise be left off-centre or half off-screen.
+        ImVec2 lastViewport = ImVec2(0.0f, 0.0f);
+        bool recenter = false;
         Keypad keypad;
         Bands bands;
         Spectrum spectrum;

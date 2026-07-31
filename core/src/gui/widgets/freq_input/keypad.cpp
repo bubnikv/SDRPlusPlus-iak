@@ -2,6 +2,7 @@
 #include <gui/widgets/popup_dialog.h>
 #include <gui/style.h>
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -41,6 +42,56 @@ namespace freq_input {
         }
 
         return (uint64_t)hz;
+    }
+
+    // Height to reserve for the readout: every line it is able to show in any
+    // state, measured wrapped to `width`. Laying the readout out line by line
+    // instead made the key grid slide down by up to a full key height as the
+    // echo, the out-of-range warning and the source range came and went --
+    // under the finger, mid-entry, because the window is auto-sized and pinned
+    // by its top-left corner.
+    static float readoutHeight(const Context& ctx, float width) {
+        const float sp = ImGui::GetStyle().ItemSpacing.y;
+        const auto lineH = [&](const std::string& text) {
+            return ImGui::CalcTextSize(text.c_str(), NULL, false, width).y;
+        };
+
+        float h = style::bigFont->FontSize; // the entered value
+        int lines = 1;
+
+        // The echo, at its widest: both the raw and the clamped value.
+        h += ctx.limited
+            ? lineH("= " + groupHz(ctx.rangeHi()) + " Hz -> " + groupHz(ctx.rangeHi()) + " Hz")
+            : lineH("= " + groupHz(999999999999ull) + " Hz");
+        lines++;
+
+        if (ctx.limited) {
+            h += std::max(
+                lineH("Below source range: minimum is " + groupHz(ctx.rangeLo()) + " Hz"),
+                lineH("Above source range: maximum is " + groupHz(ctx.rangeHi()) + " Hz"));
+            h += lineH("Range: " + groupHz(ctx.rangeLo()) + " - " + groupHz(ctx.rangeHi()) + " Hz");
+            lines += 2;
+        }
+        return h + (float)(lines - 1) * sp;
+    }
+
+    // The entered value, left-aligned in bigFont, shrunk to fit `width` and
+    // occupying exactly one bigFont line whatever it says. ImGui::Text would
+    // either widen the dialog or, with a wrap position set, break the number at
+    // an arbitrary digit -- bigFont's glyph range is '.' through '9', so it has
+    // no space to break at.
+    static void drawValue(const char* text, float width, ImU32 col) {
+        const float lineH = style::bigFont->FontSize;
+        float size = lineH;
+        ImVec2 ts = style::bigFont->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+        if (ts.x > width && ts.x > 0.0f) {
+            size *= width / ts.x;
+            ts = style::bigFont->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+        }
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddText(
+            style::bigFont, size, ImVec2(pos.x, pos.y + (lineH - ts.y) * 0.5f), col, text);
+        ImGui::Dummy(ImVec2(width, lineH));
     }
 
     void Keypad::onOpen() {
@@ -98,22 +149,34 @@ namespace freq_input {
         }
         const bool outOfRange = belowRange || aboveRange;
 
+        // Readout block: beside the keys where the page is wide enough for a
+        // column next to them (desktop, phone in landscape), above them
+        // otherwise (phone in portrait). Its height is reserved for the worst
+        // case and its text wraps, so neither what is typed nor how long the
+        // source's range prints can move the keys or widen the dialog.
+        const ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+        const float readoutW = m.wideKeypad ? (m.totalWidth - m.keypadWidth - sp.x)
+                                            : m.totalWidth;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::BeginChild("##sdrpp_finp_readout",
+                          ImVec2(readoutW, readoutHeight(ctx, readoutW)),
+                          false,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::PushTextWrapPos(readoutW);
+
         // Entered value in MHz; before any key, the current frequency dimmed.
-        ImGui::PushFont(style::bigFont);
         if (entry.empty()) {
             char cur[32];
             snprintf(cur, sizeof(cur), "%.6f", (double)ctx.frequency / 1e6);
             char* end = cur + strlen(cur) - 1;
             while (*end == '0') { *end-- = 0; }
             if (*end == '.') { *end = 0; }
-            ImGui::TextDisabled("%s", cur);
+            drawValue(cur, readoutW, ImGui::GetColorU32(ImGuiCol_TextDisabled));
         }
         else {
-            if (outOfRange) { ImGui::PushStyleColor(ImGuiCol_Text, errorCol); }
-            ImGui::TextUnformatted(entry.c_str());
-            if (outOfRange) { ImGui::PopStyleColor(); }
+            drawValue(entry.c_str(), readoutW,
+                      ImGui::GetColorU32(outOfRange ? errorCol : ImGui::GetStyleColorVec4(ImGuiCol_Text)));
         }
-        ImGui::PopFont();
 
         if (entry.empty()) {
             ImGui::TextDisabled("Enter frequency in MHz");
@@ -137,13 +200,22 @@ namespace freq_input {
         if (ctx.limited) {
             ImGui::TextDisabled("Range: %s - %s Hz", groupHz(rangeLo).c_str(), groupHz(rangeHi).c_str());
         }
-        ImGui::Spacing();
+
+        ImGui::PopTextWrapPos();
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+        if (m.wideKeypad) { ImGui::SameLine(); }
+        else { ImGui::Spacing(); }
 
         // 4x4 grid, placed explicitly since the double-height ENT would otherwise
         // stretch its row: digit block with the backspace at its bottom-right
         // (Android PIN-pad convention), function column CE / Cancel / tall ENT.
-        ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+        // Centred when the page is wider than the block, which the band grid
+        // can make it.
         ImVec2 origin = ImGui::GetCursorPos();
+        if (!m.wideKeypad) {
+            origin.x += std::max(0.0f, (m.totalWidth - m.keypadWidth) * 0.5f);
+        }
         auto cellPos = [&](int r, int c) {
             return ImVec2(origin.x + c * (m.keySize.x + sp.x), origin.y + r * (m.keySize.y + sp.y));
         };

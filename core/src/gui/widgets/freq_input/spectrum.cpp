@@ -116,7 +116,6 @@ namespace freq_input {
     Outcome Spectrum::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
         const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
-        const ImVec2 cancelSize(m.totalWidth, m.keySize.y);
 
         std::size_t rangeCount = 0;
         const SpectrumRange* definitions =
@@ -160,22 +159,24 @@ namespace freq_input {
             ImGui::TextDisabled("No spectrum ranges in the tuning range");
         }
         else {
-            constexpr int columns = 3;
+            // Columns follow the width, rows what is left of the page under
+            // the heading and above the source-limited note.
+            const int columns = m.spectrumCols;
             const float keyWidth =
-                (m.totalWidth - (columns - 1) * spacing.x) / columns;
-            const float keyHeight = style::dp(54.0f);
-            const int rows =
+                (m.gridWidth - (columns - 1) * spacing.x) / columns;
+            const float keyHeight = m.spectrumKeyHeight;
+            const int rowsNeeded =
                 (static_cast<int>(ranges.size()) + columns - 1) / columns;
-            const bool scrolls = rows > 4;
-            const float gridHeight = scrolls
-                ? 4.5f * (keyHeight + spacing.y)
-                : rows * (keyHeight + spacing.y) - spacing.y;
-            const float childWidth = m.totalWidth +
-                (scrolls ? ImGui::GetStyle().ScrollbarSize : 0.0f);
+            const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
+            const int rowsFit = Metrics::rowsThatFit(
+                m.pageHeight - lineHeight - (hasPartialRange ? lineHeight : 0.0f),
+                keyHeight);
+            const float gridHeight =
+                Metrics::gridHeight(rowsNeeded, rowsFit, keyHeight);
 
             ImGui::BeginChild(
                 "##sdrpp_spectrum_grid",
-                ImVec2(childWidth, gridHeight),
+                ImVec2(m.totalWidth, gridHeight),
                 false);
             const style::SelectedToggleColors selectedColors =
                 style::selectedToggleColors();
@@ -254,12 +255,6 @@ namespace freq_input {
         if (hasPartialRange) {
             ImGui::TextDisabled(
                 "* Source-limited range; canonical ID is unchanged");
-        }
-        if (ImGui::Button(
-                "Cancel##sdrpp_spectrum_cancel",
-                cancelSize))
-        {
-            out.close = true;
         }
         return out;
     }
