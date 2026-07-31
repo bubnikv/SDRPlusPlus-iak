@@ -566,11 +566,19 @@ private:
                     shownDigGain = _this->digitalGainManual;
                 }
                 SmGui::LeftLabel("IQ Digital Gain");
+                // LeftLabel pushes the label down by FramePadding.y (to line up
+                // with a following framed widget) but leaves the cursor at the
+                // row top. Our readout is plain text, so nudge it down by the
+                // same FramePadding.y to sit on the label's baseline.
+                float digRowY = ImGui::GetCursorPosY();
+                ImGui::SetCursorPosY(digRowY + ImGui::GetStyle().FramePadding.y);
                 SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%d dB", shownDigGain);
 
                 // Right-align the Auto checkbox to the content edge (= the
-                // slider's right edge on the next line).
+                // slider's right edge on the next line); back at the row top
+                // since the checkbox is a framed widget.
                 ImGui::SameLine();
+                ImGui::SetCursorPosY(digRowY);
                 float cbWidth = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Auto").x;
                 float targetX = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - cbWidth;
                 if (targetX > ImGui::GetCursorPosX()) { ImGui::SetCursorPosX(targetX); }
@@ -749,16 +757,18 @@ private:
             // The dropdown *label* shows the raw MaximumSampleRate/2^i
             // though, as that's the recognizable "sample rate" figure and
             // reads consistently with the IQ dropdown.
-            // Drop the deepest (narrowest) IQ decimation stage: on both
-            // devices it lands at a useless bandwidth (~3 kHz on the R2,
-            // ~5 kHz on the HF+) whose marginal network saving isn't worth
-            // offering. '<' instead of '<=' stops one stage short of
-            // DecimationStageCount; each device reports its own count, so
-            // this trims the right stage on both. The FFT list below is left
-            // full - a narrow zoomed waterfall stage is still legitimate.
+            // Drop the two deepest (narrowest) IQ decimation stages: they
+            // land at useless bandwidths whose marginal network saving isn't
+            // worth offering AND, being the hardest server-side decimation,
+            // are where strong signals clip (integer output saturates once
+            // the digital-gain restoration pushes past 0 dBFS). Landing the
+            // floor at ~19 kHz on the R2 / ~12 kHz on the HF+. '- 1' stops two
+            // stages short of DecimationStageCount; each device reports its
+            // own count, so this trims the right stages on both. The FFT list
+            // below is left full - a narrow zoomed waterfall stage is fine.
             iqRates.clear();
             iqRatesTxt.clear();
-            for (int i = client->devInfo.MinimumIQDecimation; i < client->devInfo.DecimationStageCount; i++) {
+            for (int i = client->devInfo.MinimumIQDecimation; i < client->devInfo.DecimationStageCount - 1; i++) {
                 double iqSr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
                 iqRates.push_back(iqSr);
                 iqRatesTxt += getBandwdithScaled(iqSr);
