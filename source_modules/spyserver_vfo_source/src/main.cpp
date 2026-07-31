@@ -179,6 +179,24 @@ private:
         client->setSetting(SPYSERVER_SETTING_FFT_DISPLAY_PIXELS, SVFO_FFT_PIXELS);
     }
 
+    // Single decision point for IQ_DIGITAL_GAIN, called from start(), the IQ BW
+    // combo and the RF gain slider. In Auto it uses computeDigitalGain() (the
+    // per-decimation formula, as before). With Auto off it sends the manual
+    // slider value (dB) straight through, bypassing the formula - lets you
+    // A/B the formula against a hand-set value on a live strong signal.
+    void applyDigitalGain() {
+        if (!client) { return; }
+        int gainDb;
+        if (digitalGainAuto) {
+            int srvBits = svfoIqFormatsBitCount[iqType];
+            gainDb = client->computeDigitalGain(srvBits, gain, iqDecimId + client->devInfo.MinimumIQDecimation);
+        }
+        else {
+            gainDb = digitalGainManual;
+        }
+        client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)gainDb);
+    }
+
     static void start(void* ctx) {
         SpyServerVFOSourceModule* _this = (SpyServerVFOSourceModule*)ctx;
         if (_this->running) { return; }
@@ -189,15 +207,11 @@ private:
             if (!_this->client) { return; }
         }
 
-        int srvBits = svfoIqFormatsBitCount[_this->iqType];
-
         // Narrowband IQ, for demodulation only - tuned to the current VFO
         // frequency, same as the original spyserver_source.
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FORMAT, svfoIqFormats[_this->iqType]);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_DECIMATION, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FREQUENCY, _this->freq);
-        _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-        _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
 
         // Wide FFT, for the waterfall only - independently tuned/decimated,
         // but re-centred on the same frequency as the IQ on every retune
@@ -210,7 +224,17 @@ private:
         // an IQ-stream limit that does not apply to the FFT stream.
         _this->client->setSetting(SPYSERVER_SETTING_FFT_DECIMATION, _this->fftDecimId);
 
+        // Set the streaming mode BEFORE gain and digital gain, then send those
+        // two last - exactly the order the original spyserver_source uses.
+        // The server re-stages gain when STREAMING_MODE changes, so a digital
+        // gain sent *before* the mode switch is applied under the wrong mode
+        // and over-drives the IQ in combined FFT_IQ mode (identical gain/BW/
+        // decimation clipped here but not in the original, whose only
+        // difference was this ordering). Gain settings must come after the
+        // mode is established.
         _this->client->setSetting(SPYSERVER_SETTING_STREAMING_MODE, SPYSERVER_STREAM_MODE_FFT_IQ);
+        _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
+        _this->applyDigitalGain();
         _this->client->startStream();
 
         // IQFrontEnd's own IQ->FFT computation is meaningless here (it
@@ -482,9 +506,8 @@ private:
             SmGui::LeftLabel("IQ sample bit depth");
             SmGui::FillWidth();
             if (SmGui::Combo("##spyserver_vfo_source_type", &_this->iqType, svfoIqFormatStr)) {
-                int srvBits = svfoIqFormatsBitCount[_this->iqType];
                 _this->client->setSetting(SPYSERVER_SETTING_IQ_FORMAT, svfoIqFormats[_this->iqType]);
-                _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
+                _this->applyDigitalGain();
                 svfoConfig.acquire();
                 svfoConfig.conf["devices"][_this->devRef]["sampleBitDepthId"] = _this->iqType;
                 svfoConfig.release(true);
@@ -494,9 +517,8 @@ private:
                 SmGui::LeftLabel("Gain");
                 SmGui::FillWidth();
                 if (SmGui::SliderInt("##spyserver_vfo_source_gain", (int*)&_this->gain, 0, _this->client->devInfo.MaximumGainIndex)) {
-                    int srvBits = svfoIqFormatsBitCount[_this->iqType];
                     _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-                    _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation));
+                    _this->applyDigitalGain();
                     svfoConfig.acquire();
                     svfoConfig.conf["devices"][_this->devRef]["gainId"] = _this->gain;
                     svfoConfig.release(true);
@@ -523,6 +545,61 @@ private:
                 svfoConfig.conf["devices"][_this->devRef]["fftDbRange"] = _this->fftDbRange;
                 svfoConfig.release(true);
             }
+
+            // Manual IQ digital gain override. Auto = use the per-decimation
+            // formula (as before). Unchecked = send this dB value straight to
+            // the server, bypassing the formula - for calibrating the right
+            // boost per IQ BW on a live signal (deep decimation on the R2 in
+            // particular over-boosts and clips strong stations under Auto).
+            // Line 1:  IQ Digital Gain   <sent> dB               [x] Auto
+            // The sent-value readout sits right after the label (normal gap);
+            // the Auto checkbox is right-aligned to the content-region edge so
+            // it lines up with the right end of the slider below and tracks the
+            // panel width when the control column is resized.
+            {
+                int shownDigGain;
+                if (_this->digitalGainAuto && _this->client) {
+                    int srvBits = svfoIqFormatsBitCount[_this->iqType];
+                    shownDigGain = _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
+                }
+                else {
+                    shownDigGain = _this->digitalGainManual;
+                }
+                SmGui::LeftLabel("IQ Digital Gain");
+                // LeftLabel pushes the label down by FramePadding.y (to line up
+                // with a following framed widget) but leaves the cursor at the
+                // row top. Our readout is plain text, so nudge it down by the
+                // same FramePadding.y to sit on the label's baseline.
+                float digRowY = ImGui::GetCursorPosY();
+                ImGui::SetCursorPosY(digRowY + ImGui::GetStyle().FramePadding.y);
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%d dB", shownDigGain);
+
+                // Right-align the Auto checkbox to the content edge (= the
+                // slider's right edge on the next line); back at the row top
+                // since the checkbox is a framed widget.
+                ImGui::SameLine();
+                ImGui::SetCursorPosY(digRowY);
+                float cbWidth = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Auto").x;
+                float targetX = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - cbWidth;
+                if (targetX > ImGui::GetCursorPosX()) { ImGui::SetCursorPosX(targetX); }
+                if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
+                    _this->applyDigitalGain();
+                    svfoConfig.acquire();
+                    svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
+                    svfoConfig.release(true);
+                }
+            }
+
+            // Line 2: the manual slider (full width), disabled while Auto is on.
+            if (_this->digitalGainAuto) { style::beginDisabled(); }
+            SmGui::FillWidth();
+            if (SmGui::SliderInt("##spyserver_vfo_source_diggain", &_this->digitalGainManual, 0, 60)) {
+                _this->applyDigitalGain();
+                svfoConfig.acquire();
+                svfoConfig.conf["devices"][_this->devRef]["digitalGainManual"] = _this->digitalGainManual;
+                svfoConfig.release(true);
+            }
+            if (_this->digitalGainAuto) { style::endDisabled(); }
 
             SmGui::Text("Status:");
             SmGui::SameLine();
@@ -635,13 +712,23 @@ private:
                 svfoConfig.conf["devices"][devRef]["gainId"] = 0;
                 svfoConfig.conf["devices"][devRef]["fftDbOffset"] = 0;
                 svfoConfig.conf["devices"][devRef]["fftDbRange"] = 150;
+                svfoConfig.conf["devices"][devRef]["digitalGainAuto"] = true;
+                svfoConfig.conf["devices"][devRef]["digitalGainManual"] = 20;
             }
-            iqDecimId = svfoConfig.conf["devices"][devRef]["iqDecimId"];
-            fftDecimId = svfoConfig.conf["devices"][devRef]["fftDecimId"];
-            iqType = svfoConfig.conf["devices"][devRef]["sampleBitDepthId"];
-            gain = svfoConfig.conf["devices"][devRef]["gainId"];
-            fftDbOffset = svfoConfig.conf["devices"][devRef]["fftDbOffset"];
-            fftDbRange = svfoConfig.conf["devices"][devRef]["fftDbRange"];
+            // Read each key defensively: devices saved by an older build
+            // won't contain the newer keys (the defaults above only run the
+            // first time a device is seen), so a direct read would throw and
+            // abort tryConnect() before the IQ/FFT rate lists are built -
+            // which showed up as the IQ BW / FFT BW combos failing to load.
+            auto& devConf = svfoConfig.conf["devices"][devRef];
+            if (devConf.contains("iqDecimId"))        { iqDecimId = devConf["iqDecimId"]; }
+            if (devConf.contains("fftDecimId"))       { fftDecimId = devConf["fftDecimId"]; }
+            if (devConf.contains("sampleBitDepthId")) { iqType = devConf["sampleBitDepthId"]; }
+            if (devConf.contains("gainId"))           { gain = devConf["gainId"]; }
+            if (devConf.contains("fftDbOffset"))      { fftDbOffset = devConf["fftDbOffset"]; }
+            if (devConf.contains("fftDbRange"))       { fftDbRange = devConf["fftDbRange"]; }
+            if (devConf.contains("digitalGainAuto"))   { digitalGainAuto = devConf["digitalGainAuto"]; }
+            if (devConf.contains("digitalGainManual")) { digitalGainManual = devConf["digitalGainManual"]; }
             svfoConfig.release(true);
 
             gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
@@ -670,9 +757,18 @@ private:
             // The dropdown *label* shows the raw MaximumSampleRate/2^i
             // though, as that's the recognizable "sample rate" figure and
             // reads consistently with the IQ dropdown.
+            // Drop the two deepest (narrowest) IQ decimation stages: they
+            // land at useless bandwidths whose marginal network saving isn't
+            // worth offering AND, being the hardest server-side decimation,
+            // are where strong signals clip (integer output saturates once
+            // the digital-gain restoration pushes past 0 dBFS). Landing the
+            // floor at ~19 kHz on the R2 / ~12 kHz on the HF+. '- 1' stops two
+            // stages short of DecimationStageCount; each device reports its
+            // own count, so this trims the right stages on both. The FFT list
+            // below is left full - a narrow zoomed waterfall stage is fine.
             iqRates.clear();
             iqRatesTxt.clear();
-            for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
+            for (int i = client->devInfo.MinimumIQDecimation; i < client->devInfo.DecimationStageCount - 1; i++) {
                 double iqSr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
                 iqRates.push_back(iqSr);
                 iqRatesTxt += getBandwdithScaled(iqSr);
@@ -736,6 +832,8 @@ private:
 
     int fftDbOffset = 0;
     int fftDbRange = 150;
+    bool digitalGainAuto = true;
+    int digitalGainManual = 20;
 
     // FFT_FREQUENCY: only updated on real device-retune events, set by
     // tune(). IQ_FREQUENCY: continuously tracked from the VFO's live
