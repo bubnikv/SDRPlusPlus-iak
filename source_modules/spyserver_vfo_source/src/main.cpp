@@ -551,7 +551,7 @@ private:
             // the server, bypassing the formula - for calibrating the right
             // boost per IQ BW on a live signal (deep decimation on the R2 in
             // particular over-boosts and clips strong stations under Auto).
-            SmGui::LeftLabel("Digital Gain");
+            SmGui::LeftLabel("IQ Digital Gain");
             if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
                 _this->applyDigitalGain();
                 svfoConfig.acquire();
@@ -739,9 +739,16 @@ private:
             // The dropdown *label* shows the raw MaximumSampleRate/2^i
             // though, as that's the recognizable "sample rate" figure and
             // reads consistently with the IQ dropdown.
+            // Drop the deepest (narrowest) IQ decimation stage: on both
+            // devices it lands at a useless bandwidth (~3 kHz on the R2,
+            // ~5 kHz on the HF+) whose marginal network saving isn't worth
+            // offering. '<' instead of '<=' stops one stage short of
+            // DecimationStageCount; each device reports its own count, so
+            // this trims the right stage on both. The FFT list below is left
+            // full - a narrow zoomed waterfall stage is still legitimate.
             iqRates.clear();
             iqRatesTxt.clear();
-            for (int i = client->devInfo.MinimumIQDecimation; i <= client->devInfo.DecimationStageCount; i++) {
+            for (int i = client->devInfo.MinimumIQDecimation; i < client->devInfo.DecimationStageCount; i++) {
                 double iqSr = (double)client->devInfo.MaximumSampleRate / ((double)(1 << i));
                 iqRates.push_back(iqSr);
                 iqRatesTxt += getBandwdithScaled(iqSr);
