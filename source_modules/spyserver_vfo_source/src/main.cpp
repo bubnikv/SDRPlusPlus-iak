@@ -558,19 +558,9 @@ private:
                 svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
                 svfoConfig.release(true);
             }
-            if (_this->digitalGainAuto) { style::beginDisabled(); }
-            SmGui::FillWidth();
-            if (SmGui::SliderInt("##spyserver_vfo_source_diggain", &_this->digitalGainManual, 0, 60)) {
-                _this->applyDigitalGain();
-                svfoConfig.acquire();
-                svfoConfig.conf["devices"][_this->devRef]["digitalGainManual"] = _this->digitalGainManual;
-                svfoConfig.release(true);
-            }
-            if (_this->digitalGainAuto) { style::endDisabled(); }
-
-            // Show the value actually being sent, so you can read off what Auto
-            // computes for the current decimation and use it as a starting
-            // point when hand-tuning.
+            // Value actually being sent, shown right after the Auto checkbox on
+            // the same line (small gap) so you can read off what Auto computes
+            // for the current decimation as a hand-tuning starting point.
             {
                 int shownDigGain;
                 if (_this->digitalGainAuto && _this->client) {
@@ -580,8 +570,18 @@ private:
                 else {
                     shownDigGain = _this->digitalGainManual;
                 }
-                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "sent: %d dB", shownDigGain);
+                ImGui::SameLine(0.0f, 4.0f * style::uiScale);
+                SmGui::TextColoredF(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%d dB", shownDigGain);
             }
+            if (_this->digitalGainAuto) { style::beginDisabled(); }
+            SmGui::FillWidth();
+            if (SmGui::SliderInt("##spyserver_vfo_source_diggain", &_this->digitalGainManual, 0, 60)) {
+                _this->applyDigitalGain();
+                svfoConfig.acquire();
+                svfoConfig.conf["devices"][_this->devRef]["digitalGainManual"] = _this->digitalGainManual;
+                svfoConfig.release(true);
+            }
+            if (_this->digitalGainAuto) { style::endDisabled(); }
 
             SmGui::Text("Status:");
             SmGui::SameLine();
