@@ -212,8 +212,6 @@ private:
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FORMAT, svfoIqFormats[_this->iqType]);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_DECIMATION, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
         _this->client->setSetting(SPYSERVER_SETTING_IQ_FREQUENCY, _this->freq);
-        _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-        _this->applyDigitalGain();
 
         // Wide FFT, for the waterfall only - independently tuned/decimated,
         // but re-centred on the same frequency as the IQ on every retune
@@ -226,7 +224,17 @@ private:
         // an IQ-stream limit that does not apply to the FFT stream.
         _this->client->setSetting(SPYSERVER_SETTING_FFT_DECIMATION, _this->fftDecimId);
 
+        // Set the streaming mode BEFORE gain and digital gain, then send those
+        // two last - exactly the order the original spyserver_source uses.
+        // The server re-stages gain when STREAMING_MODE changes, so a digital
+        // gain sent *before* the mode switch is applied under the wrong mode
+        // and over-drives the IQ in combined FFT_IQ mode (identical gain/BW/
+        // decimation clipped here but not in the original, whose only
+        // difference was this ordering). Gain settings must come after the
+        // mode is established.
         _this->client->setSetting(SPYSERVER_SETTING_STREAMING_MODE, SPYSERVER_STREAM_MODE_FFT_IQ);
+        _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
+        _this->applyDigitalGain();
         _this->client->startStream();
 
         // IQFrontEnd's own IQ->FFT computation is meaningless here (it
