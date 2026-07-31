@@ -689,14 +689,20 @@ private:
                 svfoConfig.conf["devices"][devRef]["digitalGainAuto"] = true;
                 svfoConfig.conf["devices"][devRef]["digitalGainManual"] = 20;
             }
-            iqDecimId = svfoConfig.conf["devices"][devRef]["iqDecimId"];
-            fftDecimId = svfoConfig.conf["devices"][devRef]["fftDecimId"];
-            iqType = svfoConfig.conf["devices"][devRef]["sampleBitDepthId"];
-            gain = svfoConfig.conf["devices"][devRef]["gainId"];
-            fftDbOffset = svfoConfig.conf["devices"][devRef]["fftDbOffset"];
-            fftDbRange = svfoConfig.conf["devices"][devRef]["fftDbRange"];
-            digitalGainAuto = svfoConfig.conf["devices"][devRef]["digitalGainAuto"];
-            digitalGainManual = svfoConfig.conf["devices"][devRef]["digitalGainManual"];
+            // Read each key defensively: devices saved by an older build
+            // won't contain the newer keys (the defaults above only run the
+            // first time a device is seen), so a direct read would throw and
+            // abort tryConnect() before the IQ/FFT rate lists are built -
+            // which showed up as the IQ BW / FFT BW combos failing to load.
+            auto& devConf = svfoConfig.conf["devices"][devRef];
+            if (devConf.contains("iqDecimId"))        { iqDecimId = devConf["iqDecimId"]; }
+            if (devConf.contains("fftDecimId"))       { fftDecimId = devConf["fftDecimId"]; }
+            if (devConf.contains("sampleBitDepthId")) { iqType = devConf["sampleBitDepthId"]; }
+            if (devConf.contains("gainId"))           { gain = devConf["gainId"]; }
+            if (devConf.contains("fftDbOffset"))      { fftDbOffset = devConf["fftDbOffset"]; }
+            if (devConf.contains("fftDbRange"))       { fftDbRange = devConf["fftDbRange"]; }
+            if (devConf.contains("digitalGainAuto"))   { digitalGainAuto = devConf["digitalGainAuto"]; }
+            if (devConf.contains("digitalGainManual")) { digitalGainManual = devConf["digitalGainManual"]; }
             svfoConfig.release(true);
 
             gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
