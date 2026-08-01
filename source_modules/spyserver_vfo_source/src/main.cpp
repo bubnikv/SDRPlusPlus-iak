@@ -71,7 +71,7 @@ const int svfoIqFormatsBitCount[] = {
 #define SVFO_RAIL_EPS       0.001f // >0.1% samples railed => treat as hard clip
 #define SVFO_RAIL_FULL      0.20f  // railed-fraction at/above which we jump max
 #define SVFO_RAIL_STEP_MIN  3.0    // dB, lightly railed
-#define SVFO_RAIL_STEP_MAX  15.0   // dB, heavily railed (escape deep clip fast)
+#define SVFO_RAIL_STEP_MAX  24.0   // dB, heavily railed (escape deep clip fast; sized so the higher HF+ Uint8 ceiling also clears in ~2 ticks on a retune snap)
 #define SVFO_GAIN_ACT_MS    150    // min ms between servo adjustments (round-trip)
 
 // How many previously used servers to keep in the dropdown.
