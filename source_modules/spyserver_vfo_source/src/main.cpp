@@ -209,6 +209,7 @@ private:
             // preserve the proven STREAMING_MODE->GAIN->digital-gain start order).
             servoCeiling.store((double)gainDb);
             servoReset.store(true);
+            servoSentGain.store(gainDb); // keep the UI readout correct until the servo's first tick
         }
         else {
             gainDb = digitalGainManual;
@@ -453,9 +454,9 @@ private:
                     // (integer rounding is itself a sub-dB dead-band -> no chatter).
                     int wantGain = (int)lround(_this->servoGain);
                     if (wantGain < 0) { wantGain = 0; }
-                    if (forceSend || wantGain != _this->servoSentGain) {
+                    if (forceSend || wantGain != _this->servoSentGain.load()) {
                         _this->client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)wantGain);
-                        _this->servoSentGain = wantGain;
+                        _this->servoSentGain.store(wantGain);
                     }
                 }
             }
@@ -639,7 +640,12 @@ private:
                 int shownDigGain;
                 if (_this->digitalGainAuto && _this->client) {
                     int srvBits = svfoIqFormatsBitCount[_this->iqType];
-                    shownDigGain = _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
+                    int ceilingDb = _this->client->computeDigitalGain(srvBits, _this->gain, _this->iqDecimId + _this->client->devInfo.MinimumIQDecimation);
+                    // While streaming, show what the servo ACTUALLY sent - it sits
+                    // below the formula ceiling whenever it's pulling a strong
+                    // signal out of clipping. When stopped, preview the formula.
+                    int live = _this->servoSentGain.load();
+                    shownDigGain = (_this->running && live >= 0) ? live : ceilingDb;
                 }
                 else {
                     shownDigGain = _this->digitalGainManual;
@@ -915,12 +921,13 @@ private:
     int digitalGainManual = 20;
 
     // Auto headroom-servo state. servoCeiling/servoReset are written from the
-    // GUI thread (applyDigitalGain/tune) and read in the poll thread; servoGain
-    // and servoSentGain are touched ONLY by the poll thread.
+    // GUI thread (applyDigitalGain/tune) and read in the poll thread. servoGain
+    // is poll-thread-only. servoSentGain is written by the poll thread (and
+    // seeded by applyDigitalGain) and read by the UI readout - hence atomic.
     std::atomic<double> servoCeiling{0.0}; // formula value = max allowed gain (dB)
     std::atomic<bool>   servoReset{true};  // snap to ceiling (start / retune / param change)
     double servoGain = 0.0;                // live gain, dB (float so sub-dB steps accumulate)
-    int    servoSentGain = -1;             // last integer dB actually sent
+    std::atomic<int> servoSentGain{-1};    // last integer dB actually sent (also read by the UI readout)
 
     // FFT_FREQUENCY: only updated on real device-retune events, set by
     // tune(). IQ_FREQUENCY: continuously tracked from the VFO's live
