@@ -7,12 +7,27 @@
 using nlohmann::json;
 
 namespace bandplan {
-    struct ConvertedBandData_t {
-        std::string bandId;
-        freq_input::BandService service = freq_input::BandService::Other;
-        freq_input::BandFamily family = freq_input::BandFamily::Unknown;
-        freq_input::LegacyEntityKind entityKind =
-            freq_input::LegacyEntityKind::Band;
+    struct ResolvedBandData_t {
+        // BandMapping registries have static application lifetime. A null
+        // mapping denotes a classified legacy row without stable identity.
+        const freq_input::BandMapping* mapping = nullptr;
+        freq_input::LegacyBandClassification legacy;
+
+        std::string_view bandId() const {
+            return mapping ? mapping->bandId : std::string_view{};
+        }
+
+        freq_input::BandService service() const {
+            return mapping ? mapping->service : legacy.service;
+        }
+
+        freq_input::BandFamily family() const {
+            return mapping ? mapping->family : legacy.family;
+        }
+
+        freq_input::LegacyEntityKind entityKind() const {
+            return legacy.entityKind;
+        }
     };
 
     struct Band_t {
@@ -20,10 +35,9 @@ namespace bandplan {
         std::string type;
         double start;
         double end;
-        // Stable identity may be supplied by JSON or inferred while loading.
-        // Service, family, and entity kind are runtime-only legacy
-        // classifications. Different services may overlap.
-        ConvertedBandData_t converted;
+        // Static stable identity plus the runtime classification of this
+        // particular legacy row. Different services may overlap.
+        ResolvedBandData_t resolved;
         // Optional tuning defaults (0 / empty = absent), sparse KiwiSDR-derived
         // enrichment; see scripts/enrich_bandplans.py.
         double defFreq = 0;

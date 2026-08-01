@@ -57,22 +57,22 @@ namespace {
         return value;
     }
 
-    std::string formatFrequency(double hz) {
+    std::string formatFrequency(double frequencyHz) {
         std::ostringstream out;
         out << std::fixed;
-        if (hz < 1000.0) {
-            out << std::setprecision(0) << hz;
+        if (frequencyHz < 1000.0) {
+            out << std::setprecision(0) << frequencyHz;
             return out.str() + " Hz";
         }
-        if (hz < 1000000.0) {
-            out << std::setprecision(3) << (hz / 1000.0);
+        if (frequencyHz < 1000000.0) {
+            out << std::setprecision(3) << (frequencyHz / 1000.0);
             return trimDecimal(out.str()) + " kHz";
         }
-        if (hz < 1000000000.0) {
-            out << std::setprecision(6) << (hz / 1000000.0);
+        if (frequencyHz < 1000000000.0) {
+            out << std::setprecision(6) << (frequencyHz / 1000000.0);
             return trimDecimal(out.str()) + " MHz";
         }
-        out << std::setprecision(6) << (hz / 1000000000.0);
+        out << std::setprecision(6) << (frequencyHz / 1000000000.0);
         return trimDecimal(out.str()) + " GHz";
     }
 

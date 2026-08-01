@@ -138,6 +138,7 @@ namespace freq_input {
         if (doSegmentedControl("##sdrpp_finp_page", page, pageLabels, 3,
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
+            if (page == 0) { bands.onOpen(); }
             core::configManager.acquire();
             core::configManager.conf["freqEntryPage"] =
                 (page == 0) ? "band" :

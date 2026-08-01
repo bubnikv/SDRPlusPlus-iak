@@ -21,6 +21,11 @@ namespace freq_input {
         class Cache;
     }
 
+    namespace band_state {
+        class ActiveCache;
+        class RegisterCache;
+    }
+
     // The tuning situation a page works against: where the radio is now, and
     // what the source will accept. This is the (limitFreq, minFreq, maxFreq)
     // argument tail that every keypad helper used to thread through by hand.
@@ -122,6 +127,11 @@ namespace freq_input {
         // Expensive canonical projection of the immutable selected plan,
         // rebuilt only when the plan revision or source tuning limits change.
         std::unique_ptr<canonical_bands::Cache> canonicalCache;
+
+        // Resolution and register data are event/change driven. Neither config
+        // access nor whole-plan validation belongs in the steady draw path.
+        std::unique_ptr<band_state::ActiveCache> activeCache;
+        std::unique_ptr<band_state::RegisterCache> registerCache;
 
         // Selected presentation group ("Ham", ..., "All"), restored exactly
         // from config on open.

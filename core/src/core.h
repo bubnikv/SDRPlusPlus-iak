@@ -13,6 +13,11 @@ namespace core {
 
     void setInputSampleRate(double samplerate);
 
+    // Commit live UI state that is not continuously persisted, then force the
+    // application configuration to disk. Used by lifecycle events where the
+    // process may be terminated before the auto-save interval expires.
+    SDRPP_CPP_EXPORT void saveState();
+
     // Effective resource paths. Returns the value from configManager.conf,
     // except under AppImage builds (BUILD_APPIMAGE) on Linux when $APPDIR
     // is set — in which case the bundled paths inside the AppImage mount

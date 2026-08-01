@@ -43,6 +43,11 @@ namespace core {
     ModuleComManager modComManager;
     CommandArgsParser args;
 
+    void saveState() {
+        gui::bandStack.commitCurrent();
+        configManager.save();
+    }
+
     void setInputSampleRate(double samplerate) {
         // Forward this to the server
         if (args["server"].b()) { server::setInputSampleRate(samplerate); return; }

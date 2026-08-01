@@ -41,8 +41,33 @@ namespace freq_input {
             BandService service;
             BandFamily family;
             std::string_view name;
+            std::string_view selectorLabel;
+            std::string_view selectorDetail;
             std::string_view bandId;
             std::array<std::int64_t, ProbeCount> probesHz;
+        };
+
+        // A string literal remains the concise common case: it is both the
+        // descriptive and selector label. Individual mappings can instead
+        // provide independently reviewable selector text and an optional
+        // second line without changing the registry builder.
+        struct BandText {
+            std::string_view name;
+            std::string_view selectorLabel;
+            std::string_view selectorDetail;
+
+            constexpr BandText(const char* label)
+                : name(label), selectorLabel(label), selectorDetail()
+            {}
+
+            constexpr BandText(
+                std::string_view descriptiveName,
+                std::string_view label,
+                std::string_view detail = {})
+                : name(descriptiveName),
+                  selectorLabel(label),
+                  selectorDetail(detail)
+            {}
         };
 
         template <std::size_t MappingCount, std::size_t ProbeCount>
@@ -79,6 +104,8 @@ namespace freq_input {
                     definition.service,
                     definition.family,
                     definition.name,
+                    definition.selectorLabel,
+                    definition.selectorDetail,
                     definition.bandId,
                     static_cast<std::uint16_t>(probeOffset),
                     static_cast<std::uint8_t>(definition.probesHz.size())
@@ -95,70 +122,72 @@ namespace freq_input {
         constexpr auto makeBand(
             BandService service,
             BandFamily family,
-            std::string_view name,
+            BandText text,
             std::string_view bandId,
             Frequencies... probesHz)
         {
             return BandDefinition<sizeof...(Frequencies)>{
                 service,
                 family,
-                name,
+                text.name,
+                text.selectorLabel,
+                text.selectorDetail,
                 bandId,
                 { static_cast<std::int64_t>(probesHz)... }
             };
         }
 
         template <typename... Frequencies>
-        constexpr auto hamBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Amateur, BandFamily::Amateur, name, bandId, probesHz...); }
+        constexpr auto hamBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Amateur, BandFamily::Amateur, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto broadcastBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Broadcast, BandFamily::SoundBroadcast, name, bandId, probesHz...); }
+        constexpr auto broadcastBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Broadcast, BandFamily::SoundBroadcast, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto televisionBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Broadcast, BandFamily::TelevisionBroadcast, name, bandId, probesHz...); }
+        constexpr auto televisionBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Broadcast, BandFamily::TelevisionBroadcast, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto weatherBroadcastBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Broadcast, BandFamily::WeatherBroadcast, name, bandId, probesHz...); }
+        constexpr auto weatherBroadcastBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Broadcast, BandFamily::WeatherBroadcast, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto aviationBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Aviation, BandFamily::AviationCommunication, name, bandId, probesHz...); }
+        constexpr auto aviationBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Aviation, BandFamily::AviationCommunication, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto aviationSurveillanceBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Aviation, BandFamily::AviationSurveillance, name, bandId, probesHz...); }
+        constexpr auto aviationSurveillanceBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Aviation, BandFamily::AviationSurveillance, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto maritimeBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Maritime, BandFamily::Maritime, name, bandId, probesHz...); }
+        constexpr auto maritimeBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Maritime, BandFamily::Maritime, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto personalRadioBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::PersonalRadio, BandFamily::PersonalRadio, name, bandId, probesHz...); }
+        constexpr auto personalRadioBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::PersonalRadio, BandFamily::PersonalRadio, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto ismBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Ism, BandFamily::IndustrialScientificMedical, name, bandId, probesHz...); }
+        constexpr auto ismBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Ism, BandFamily::IndustrialScientificMedical, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto rlanBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Rlan, BandFamily::Rlan, name, bandId, probesHz...); }
+        constexpr auto rlanBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Rlan, BandFamily::Rlan, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto satelliteBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Satellite, BandFamily::Satellite, name, bandId, probesHz...); }
+        constexpr auto satelliteBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Satellite, BandFamily::Satellite, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto navigationBand(std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Navigation, BandFamily::Navigation, name, bandId, probesHz...); }
+        constexpr auto navigationBand(BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Navigation, BandFamily::Navigation, text, bandId, probesHz...); }
 
         template <typename... Frequencies>
-        constexpr auto cellularBand(BandFamily family, std::string_view name, std::string_view bandId, Frequencies... probesHz)
-        { return makeBand(BandService::Cellular, family, name, bandId, probesHz...); }
+        constexpr auto cellularBand(BandFamily family, BandText text, std::string_view bandId, Frequencies... probesHz)
+        { return makeBand(BandService::Cellular, family, text, bandId, probesHz...); }
 
         // Generated as an interval-hitting set over the genuine amateur and
         // amateur1 entries in root/res/bandplans/*.json. Every recognized
@@ -594,7 +623,7 @@ namespace freq_input {
             //   L: 5 row(s), 3 plan(s); all names/spans: legacy audit section `broadcast:TV:VHF-low`.
             //   P: 60 MHz, 82 MHz; hits all 5 assigned rows; unique-row coverage 3/2.
             televisionBand(
-                "Television VHF low",
+                BandText{"Television VHF low", "TV VHF Low"},
                 "broadcast:TV:VHF-low",
                 60000000LL, 82000000LL),
             // Source map for broadcast:TV:VHF-high
@@ -603,7 +632,7 @@ namespace freq_input {
             //   L: 7 row(s), 6 plan(s); all names/spans: legacy audit section `broadcast:TV:VHF-high`.
             //   P: 190 MHz, 220 MHz; hits all 7 assigned rows; unique-row coverage 5/1.
             televisionBand(
-                "Television VHF high",
+                BandText{"Television VHF high", "TV VHF High"},
                 "broadcast:TV:VHF-high",
                 190000000LL, 220000000LL),
             // Source map for broadcast:TV:UHF
@@ -612,7 +641,7 @@ namespace freq_input {
             //   L: 15 row(s), 11 plan(s); all names/spans: legacy audit section `broadcast:TV:UHF`.
             //   P: 500 MHz, 550 MHz, 650 MHz, 750 MHz; hits all 15 assigned rows; unique-row coverage 1/1/1/0.
             televisionBand(
-                "Television UHF",
+                BandText{"Television UHF", "TV UHF"},
                 "broadcast:TV:UHF",
                 500000000LL, 550000000LL, 650000000LL, 750000000LL),
 
@@ -624,7 +653,7 @@ namespace freq_input {
             //   L: 3 row(s), 3 plan(s); all names/spans: legacy audit section `broadcast:weather-radio`.
             //   P: 162.5 MHz; hits all 3 assigned rows; unique-row coverage 3.
             weatherBroadcastBand(
-                "Weather radio",
+                BandText{"Weather radio", "Weather"},
                 "broadcast:weather-radio",
                 162500000LL)
         );
@@ -1176,7 +1205,9 @@ namespace freq_input {
             //   O: none.
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `navigation:ILS-glide-path`.
             //   P: 332 MHz; hits all 2 assigned rows; unique-row coverage 2.
-            navigationBand("ILS glide path", "navigation:ILS-glide-path",
+            navigationBand(
+                BandText{"ILS glide path", "ILS Glide"},
+                "navigation:ILS-glide-path",
                 332000000LL)
         );
 
@@ -1241,6 +1272,33 @@ namespace freq_input {
 
     BandMappingTable bandMappings(BandService service) {
         return mappings(service);
+    }
+
+    const BandMapping* findBandMappingById(std::string_view bandId) {
+        if (bandId.empty()) { return nullptr; }
+        static constexpr std::array<BandService, 10> mappedServices = {
+            BandService::Amateur,
+            BandService::Broadcast,
+            BandService::Aviation,
+            BandService::Maritime,
+            BandService::PersonalRadio,
+            BandService::Ism,
+            BandService::Satellite,
+            BandService::Navigation,
+            BandService::Cellular,
+            BandService::Rlan
+        };
+        const BandMapping* result = nullptr;
+        for (BandService service : mappedServices) {
+            const BandMappingTable table = mappings(service);
+            for (std::size_t i = 0; i < table.mappingCount; i++) {
+                if (table.mappings[i].bandId != bandId) { continue; }
+                // Duplicate stable IDs would make persistence ambiguous.
+                if (result) { return nullptr; }
+                result = &table.mappings[i];
+            }
+        }
+        return result;
     }
 
     const BandMapping* findBandMapping(

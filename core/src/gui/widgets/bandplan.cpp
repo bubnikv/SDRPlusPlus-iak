@@ -24,11 +24,14 @@ namespace bandplan {
     }
 
     void from_json(const json& j, Band_t& b) {
+        // Parsing only loads source fields. Stable identity and legacy
+        // classification are resolved by loadBandPlan() after the complete
+        // source row is available.
+        b.resolved = {};
         j.at("name").get_to(b.name);
         j.at("type").get_to(b.type);
         j.at("start").get_to(b.start);
         j.at("end").get_to(b.end);
-        b.converted.bandId = j.value("band_id", "");
         b.defFreq = j.value("def_freq", 0.0);
         b.defMode = j.value("def_mode", "");
         b.chan = j.value("chan", 0.0);
@@ -65,7 +68,12 @@ namespace bandplan {
 
         BandPlan_t plan = data.get<BandPlan_t>();
         plan.revision = nextBandPlanRevision++;
-        for (Band_t& band : plan.bands) {
+        const json& sourceBands = data.at("bands");
+        for (std::size_t bandIndex = 0;
+             bandIndex < plan.bands.size();
+             bandIndex++)
+        {
+            Band_t& band = plan.bands[bandIndex];
             const freq_input::LegacyBandClassification classification =
                 freq_input::classifyLegacyBand(
                     band.type,
@@ -73,18 +81,29 @@ namespace bandplan {
                     band.start,
                     band.end);
 
-            band.converted.service = classification.service;
-            band.converted.family = classification.family;
-            band.converted.entityKind = classification.entityKind;
+            band.resolved.legacy = classification;
 
-            if (!band.converted.bandId.empty()) { continue; }
+            const std::string suppliedBandId =
+                sourceBands.at(bandIndex).value("band_id", "");
+            if (!suppliedBandId.empty()) {
+                band.resolved.mapping =
+                    freq_input::findBandMappingById(suppliedBandId);
+                if (!band.resolved.mapping) {
+                    flog::warn(
+                        "Band '{}' in plan '{}' has unknown band_id '{}'; "
+                        "stable band features are disabled for this row",
+                        band.name,
+                        plan.name,
+                        suppliedBandId);
+                }
+                continue;
+            }
 
-            const freq_input::BandMapping* mapping =
+            band.resolved.mapping =
                 freq_input::findLegacyBandMapping(
                     classification,
                     band.start,
                     band.end);
-            if (mapping) { band.converted.bandId = mapping->bandId; }
         }
         if (bandplans.find(plan.name) != bandplans.end()) {
             flog::error("Duplicate band plan name ({0}), not loading.", plan.name);

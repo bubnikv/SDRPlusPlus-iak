@@ -11,8 +11,8 @@
 namespace freq_input {
 
     // Format a frequency in Hz with '.' group separators, matching the widget.
-    static std::string groupHz(uint64_t hz) {
-        std::string s = std::to_string(hz);
+    static std::string groupHz(uint64_t frequencyHz) {
+        std::string s = std::to_string(frequencyHz);
         for (int pos = (int)s.size() - 3; pos > 0; pos -= 3) {
             s.insert(pos, ".");
         }
@@ -33,15 +33,20 @@ namespace freq_input {
         return std::min(6, digitCount(ctx.rangeHi() / 1000000));
     }
 
-    static uint64_t clampHz(double hz, const Context& ctx) {
-        if (!std::isfinite(hz) || hz < 0.0) { hz = 0.0; }
-        hz = std::min(hz, 999999999999.0);
+    static uint64_t clampHz(double frequencyHz, const Context& ctx) {
+        if (!std::isfinite(frequencyHz) || frequencyHz < 0.0) {
+            frequencyHz = 0.0;
+        }
+        frequencyHz = std::min(frequencyHz, 999999999999.0);
 
         if (ctx.limited) {
-            hz = std::clamp(hz, (double)ctx.rangeLo(), (double)ctx.rangeHi());
+            frequencyHz = std::clamp(
+                frequencyHz,
+                (double)ctx.rangeLo(),
+                (double)ctx.rangeHi());
         }
 
-        return (uint64_t)hz;
+        return (uint64_t)frequencyHz;
     }
 
     // Height to reserve for the readout: every line it is able to show in any

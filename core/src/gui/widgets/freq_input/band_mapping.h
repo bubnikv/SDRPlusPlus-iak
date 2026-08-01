@@ -92,7 +92,12 @@ namespace freq_input {
     struct BandMapping {
         BandService service;
         BandFamily family;
+        // Canonical descriptive name and explicit band-selector presentation.
+        // Selector text is metadata belonging to the stable identity; it must
+        // never be inferred from a regional segment edge or parsed from name.
         std::string_view name;
+        std::string_view selectorLabel;
+        std::string_view selectorDetail;
         // Canonical, case-sensitive identity. Acronyms and SI symbols retain
         // their official capitalization; callers must not case-fold it.
         std::string_view bandId;
@@ -117,6 +122,10 @@ namespace freq_input {
     // Static canonical mappings and their packed probe pool for one service,
     // ordered by frequency. Mapping probe offsets are relative to this table.
     BandMappingTable bandMappings(BandService service);
+
+    // Exact, case-sensitive stable-ID lookup across the static registries.
+    // Returned pointers remain valid for the application lifetime.
+    const BandMapping* findBandMappingById(std::string_view bandId);
 
     // Family-qualified lookup used by legacy conversion. It never searches
     // another family belonging to the same service.
