@@ -196,25 +196,35 @@ private:
     // per-decimation formula, as before). With Auto off it sends the manual
     // slider value (dB) straight through, bypassing the formula - lets you
     // A/B the formula against a hand-set value on a live strong signal.
-    void applyDigitalGain() {
+    // reset=true snaps the Auto servo up to the formula ceiling and sends it now
+    // (a fresh stream start, or the user just re-enabled Auto). reset=false only
+    // UPDATES the ceiling and lets the poll-thread servo re-clamp/track from its
+    // current level - no snap, no immediate send. That distinction is what stops
+    // the RF-gain slider (and format/IQ-BW changes) from causing an audible
+    // re-limit burst: nudging the slider while the servo is holding a strong
+    // signal down must not fling the gain back up to the ceiling.
+    void applyDigitalGain(bool reset = false) {
         if (!client) { return; }
-        int gainDb;
         if (digitalGainAuto) {
             int srvBits = svfoIqFormatsBitCount[iqType];
-            gainDb = client->computeDigitalGain(srvBits, gain, iqDecimId + client->devInfo.MinimumIQDecimation);
-            // In Auto the formula value is the servo CEILING, not a fixed target.
-            // Publish it and ask the poll-thread servo to snap up to it, then let
-            // it pull back down if a strong signal is actually clipping. Send it
-            // now too so a sane gain exists before the servo's first tick (and to
-            // preserve the proven STREAMING_MODE->GAIN->digital-gain start order).
-            servoCeiling.store((double)gainDb);
-            servoReset.store(true);
-            servoSentGain.store(gainDb); // keep the UI readout correct until the servo's first tick
+            int gainDb = client->computeDigitalGain(srvBits, gain, iqDecimId + client->devInfo.MinimumIQDecimation);
+            servoCeiling.store((double)gainDb); // new upper bound for the servo
+            if (reset) {
+                // Snap to ceiling and send immediately (preserves the proven
+                // STREAMING_MODE->GAIN->digital-gain start order); the poll thread
+                // pulls it back down if the signal is strong.
+                servoReset.store(true);
+                servoSentGain.store(gainDb);     // keep the readout right until the first tick
+                client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)gainDb);
+            }
+            // else: ceiling only. The poll thread re-clamps to it and sends
+            // smoothly on its next tick, so an incidental slider/format change
+            // tracks the real level change instead of snapping.
         }
         else {
-            gainDb = digitalGainManual;
+            // Manual: the servo is idle; the slider value goes straight through.
+            client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)digitalGainManual);
         }
-        client->setSetting(SPYSERVER_SETTING_IQ_DIGITAL_GAIN, (uint32_t)gainDb);
     }
 
     static void start(void* ctx) {
@@ -254,7 +264,7 @@ private:
         // mode is established.
         _this->client->setSetting(SPYSERVER_SETTING_STREAMING_MODE, SPYSERVER_STREAM_MODE_FFT_IQ);
         _this->client->setSetting(SPYSERVER_SETTING_GAIN, _this->gain);
-        _this->applyDigitalGain();
+        _this->applyDigitalGain(true);
         _this->client->startStream();
 
         // IQFrontEnd's own IQ->FFT computation is meaningless here (it
@@ -420,9 +430,11 @@ private:
                     float mp, mf;
 
                     if (_this->servoReset.exchange(false)) {
-                        // Start / retune / param change: snap to ceiling now
-                        // (don't wait out the slow release), drop stale metering,
+                        // Start / retune / Auto just re-enabled: snap to ceiling
+                        // now (don't wait out the slow release), drop stale metering,
                         // and force the send so a retune's snap-up reaches the server.
+                        // NB: an RF-gain / format / IQ-BW change does NOT come here -
+                        // it only updates the ceiling, handled by the clamp below.
                         _this->servoGain = ceiling;
                         _this->client->readIqMeter(mp, mf);
                         lastGainAct = now;
@@ -445,10 +457,16 @@ private:
                             double a = (errDb > 0.0) ? SVFO_ALPHA_DOWN : SVFO_ALPHA_UP;
                             _this->servoGain -= a * errDb;
                         }
-                        if (_this->servoGain > ceiling) { _this->servoGain = ceiling; }
-                        if (_this->servoGain < 0.0)     { _this->servoGain = 0.0; }
                         lastGainAct = now;
                     }
+
+                    // Clamp to the CURRENT ceiling every tick (not just when the
+                    // servo acts), so a ceiling that changed via a slider/format
+                    // change - e.g. the R2 RF-gain slider, where lowering analog
+                    // gain RAISES the digital ceiling and vice-versa - is honoured
+                    // right away without a snap-to-ceiling burst.
+                    if (_this->servoGain > ceiling) { _this->servoGain = ceiling; }
+                    if (_this->servoGain < 0.0)     { _this->servoGain = 0.0; }
 
                     // Send only when the integer we'd transmit actually changes
                     // (integer rounding is itself a sub-dB dead-band -> no chatter).
@@ -668,7 +686,7 @@ private:
                 float targetX = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - cbWidth;
                 if (targetX > ImGui::GetCursorPosX()) { ImGui::SetCursorPosX(targetX); }
                 if (SmGui::Checkbox("Auto##spyserver_vfo_source_digauto", &_this->digitalGainAuto)) {
-                    _this->applyDigitalGain();
+                    _this->applyDigitalGain(true);
                     svfoConfig.acquire();
                     svfoConfig.conf["devices"][_this->devRef]["digitalGainAuto"] = _this->digitalGainAuto;
                     svfoConfig.release(true);
