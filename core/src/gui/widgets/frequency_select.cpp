@@ -383,6 +383,7 @@ void FrequencySelect::draw() {
     // the two consumers of InputQueueCharacters can't both fire in one frame.
     freq_input::Outcome result = dialog.draw(inputContext());
     if (result.commit) {
+        //FIXME set mode if the band stack did not store the mode yet
         setFrequency((int64_t)result.frequency);
         frequencyChanged = true;
     }

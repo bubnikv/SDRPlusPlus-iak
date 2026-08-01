@@ -7,18 +7,23 @@
 using nlohmann::json;
 
 namespace bandplan {
-    struct Band_t {
-        std::string name;
-        std::string type;
-        double start;
-        double end;
-        // Stable identity and normalized radio service derived while loading
-        // legacy plans. Different services may define overlapping bands.
+    struct ConvertedBandData_t {
         std::string bandId;
         freq_input::BandService service = freq_input::BandService::Other;
         freq_input::BandFamily family = freq_input::BandFamily::Unknown;
         freq_input::LegacyEntityKind entityKind =
             freq_input::LegacyEntityKind::Band;
+    };
+
+    struct Band_t {
+        std::string name;
+        std::string type;
+        double start;
+        double end;
+        // Stable identity may be supplied by JSON or inferred while loading.
+        // Service, family, and entity kind are runtime-only legacy
+        // classifications. Different services may overlap.
+        ConvertedBandData_t converted;
         // Optional tuning defaults (0 / empty = absent), sparse KiwiSDR-derived
         // enrichment; see scripts/enrich_bandplans.py.
         double defFreq = 0;
@@ -26,7 +31,6 @@ namespace bandplan {
         double chan = 0;
     };
 
-    void to_json(json& j, const Band_t& b);
     void from_json(const json& j, Band_t& b);
 
     struct BandPlan_t {
@@ -36,9 +40,12 @@ namespace bandplan {
         std::string authorName;
         std::string authorURL;
         std::vector<Band_t> bands;
+        // Runtime content identity for caches holding pointers into `bands`.
+        // A newly loaded plan receives a new revision even if its map address,
+        // name, row count, and vector allocation happen to be reused.
+        uint64_t revision = 0;
     };
 
-    void to_json(json& j, const BandPlan_t& b);
     void from_json(const json& j, BandPlan_t& b);
 
     struct BandPlanColor_t {
@@ -46,7 +53,6 @@ namespace bandplan {
         uint32_t transColorValue;
     };
 
-    void to_json(json& j, const BandPlanColor_t& ct);
     void from_json(const json& j, BandPlanColor_t& ct);
 
     void loadBandPlan(std::string path);

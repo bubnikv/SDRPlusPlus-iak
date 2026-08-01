@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -48,15 +47,14 @@ namespace freq_input {
     };
 
     // What a legacy plan row represents. Only Band and Segment rows are
-    // eligible for stable band IDs. Channels/bookmarks belong inside a band,
-    // while generic L/S/C/X rows are service-independent spectrum ranges.
+    // eligible for stable band IDs. Individual frequency assignments belong
+    // inside a band, while generic L/S/C/X rows are service-independent
+    // spectrum ranges.
     enum class LegacyEntityKind {
         Band,
         Segment,
         Channel,
-        Bookmark,
-        SpectrumRange,
-        ServiceEnvelope
+        SpectrumRange
     };
 
     // A service may contain several independently mapped band families. This
@@ -91,37 +89,34 @@ namespace freq_input {
         LegacyEntityKind entityKind = LegacyEntityKind::Band;
     };
 
-    // The largest probe set currently required by a canonical band.
-    // Probes identify legacy plan segments; they are not default tuning
-    // frequencies and may intentionally sit on an inclusive segment boundary.
-    constexpr std::size_t MAX_BAND_PROBES = 14;
-
     struct BandMapping {
         BandService service;
         BandFamily family;
         std::string_view name;
+        // Canonical, case-sensitive identity. Acronyms and SI symbols retain
+        // their official capitalization; callers must not case-fold it.
         std::string_view bandId;
-        std::array<std::int64_t, MAX_BAND_PROBES> probesHz;
-        std::size_t probeCount;
+        // Probe storage is packed once per service. These fields select this
+        // mapping's exact-size slice from BandMappingTable::probesHz.
+        std::uint16_t probeOffset;
+        std::uint8_t probeCount;
+    };
+
+    struct BandMappingTable {
+        const BandMapping* mappings = nullptr;
+        std::size_t mappingCount = 0;
+        const std::int64_t* probesHz = nullptr;
+        std::size_t probeCount = 0;
     };
 
     std::string_view bandServiceKey(BandService service);
     BandService bandServiceFromKey(std::string_view key);
     std::string_view bandFamilyKey(BandFamily family);
-    BandFamily bandFamilyFromKey(std::string_view key);
     std::string_view legacyEntityKindKey(LegacyEntityKind kind);
-    LegacyEntityKind legacyEntityKindFromKey(std::string_view key);
 
-    // Static canonical mappings for one service, ordered by frequency.
-    const BandMapping* bandMappings(BandService service, std::size_t& count);
-
-    // Finds the one canonical band in `service` having a probe in the inclusive
-    // legacy segment [startHz, endHz]. Returns null for invalid, unmatched, or
-    // same-service ambiguous spans. It never searches across services.
-    const BandMapping* findBandMapping(
-        BandService service,
-        double startHz,
-        double endHz);
+    // Static canonical mappings and their packed probe pool for one service,
+    // ordered by frequency. Mapping probe offsets are relative to this table.
+    BandMappingTable bandMappings(BandService service);
 
     // Family-qualified lookup used by legacy conversion. It never searches
     // another family belonging to the same service.
@@ -140,14 +135,9 @@ namespace freq_input {
         double startHz,
         double endHz);
 
-    // Compatibility helper for callers interested only in the service.
-    BandService classifyLegacyBandService(
-        std::string_view type,
-        std::string_view name);
-
     // Resolve an eligible legacy band/segment through its service and family.
-    // Channels, bookmarks, generic spectrum ranges, and service envelopes
-    // never manufacture a band ID.
+    // Individual frequency assignments and generic spectrum ranges never
+    // manufacture a band ID.
     const BandMapping* findLegacyBandMapping(
         const LegacyBandClassification& classification,
         double startHz,

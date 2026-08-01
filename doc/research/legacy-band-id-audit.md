@@ -4,17 +4,18 @@ Generated from `root/res/bandplans/*.json` using the current `classifyLegacyBand
 
 - Legacy files: 21
 - Legacy rows: 1654
-- Rows assigned a stable band ID: 1163
-- Rows without a stable band ID: 491
+- Rows assigned a stable band ID: 1158
+- Rows without a stable band ID: 496
 
 ## Deliberate mapping revisions
 
-- Removed `band:time-standard:lf`: it grouped isolated 20 and 77.5 kHz channels rather than an enclosing band.
-- Removed `band:time-standard:hf`: it grouped isolated channels from 2.5 through 25 MHz with dissimilar propagation.
-- Removed `band:navigation:marker-75mhz`: the legacy rows describe the 75 MHz marker channel/window, not a channelized navigation band.
-- Replaced `band:aviation:adsb-dme-tacan` with `band:aviation:l-band`; its probes identify the enclosing L-band and deliberately do not turn narrow ADS-B channel rows into bands.
-- Split `band:aviation:hf:3mhz` into the distinct `band:aviation:hf:3.4mhz` and `band:aviation:hf:3.8mhz` bands.
-- Removed generic 5 GHz ISM IDs: neither the compared KiwiSDR / OpenWebRX+ band tables nor the legacy rows define those broad ranges as ISM bands. Legacy Wi-Fi ranges remain classified under their narrower RLAN IDs.
+- Removed `time-standard:LF`: it grouped isolated 20 and 77.5 kHz channels rather than an enclosing band.
+- Removed `time-standard:HF`: it grouped isolated channels from 2.5 through 25 MHz with dissimilar propagation.
+- Removed `navigation:marker-75MHz`: the legacy rows describe the 75 MHz marker channel/window, not a channelized navigation band.
+- Replaced `aviation:ADS-B-DME-TACAN` with `aviation:L-band`; its probes identify the enclosing L-band and deliberately do not turn narrow ADS-B channel rows into bands.
+- Split `aviation:HF:3MHz` into the distinct `aviation:HF:3.4MHz` and `aviation:HF:3.8MHz` bands.
+- Removed generic 5 GHz ISM IDs: neither the compared KiwiSDR / OpenWebRX+ band tables nor the legacy rows define those broad ranges as ISM bands. Wi-Fi remains classified as RLAN.
+- Replaced the non-standard 5 GHz RLAN lower/middle/upper labels with explicit 5150-5250, 5250-5350, 5470-5725, and 5725-5850 MHz sub-band IDs. Composite legacy envelopes remain unassigned.
 - Classified television/DVB separately from sound broadcasting and added VHF-low, VHF-high, and UHF television band IDs.
 - Classified Wi-Fi as RLAN rather than ISM, while retaining ISM as the shared-spectrum allocation family.
 - Classified GSM and LTE into technology-qualified cellular families so overlapping operating bands do not resolve against each other.
@@ -28,14 +29,14 @@ Generated from `root/res/bandplans/*.json` using the current `classifyLegacyBand
 | `aviation` | 89 | 31 |
 | `broadcast` | 269 | 16 |
 | `cellular` | 33 | 78 |
-| `ism` | 17 | 3 |
+| `ISM` | 17 | 3 |
 | `land-mobile` | 0 | 133 |
 | `maritime` | 51 | 61 |
 | `meteorological` | 0 | 3 |
 | `navigation` | 18 | 6 |
 | `other` | 0 | 81 |
 | `personal-radio` | 34 | 0 |
-| `rlan` | 10 | 2 |
+| `RLAN` | 5 | 7 |
 | `satellite` | 12 | 45 |
 | `time-standard` | 0 | 24 |
 
@@ -46,16 +47,16 @@ Generated from `root/res/bandplans/*.json` using the current `classifyLegacyBand
 | `amateur` | 630 | 8 |
 | `aviation-communication` | 88 | 29 |
 | `aviation-surveillance` | 1 | 2 |
-| `cellular-gsm` | 17 | 2 |
-| `cellular-lte` | 16 | 6 |
+| `cellular-GSM` | 17 | 2 |
+| `cellular-LTE` | 16 | 6 |
 | `cellular-other` | 0 | 70 |
-| `ism` | 17 | 3 |
+| `ISM` | 17 | 3 |
 | `land-mobile` | 0 | 133 |
 | `maritime` | 51 | 61 |
 | `meteorological` | 0 | 3 |
 | `navigation` | 18 | 6 |
 | `personal-radio` | 34 | 0 |
-| `rlan` | 10 | 2 |
+| `RLAN` | 5 | 7 |
 | `satellite` | 12 | 45 |
 | `sound-broadcast` | 239 | 16 |
 | `spectrum` | 0 | 19 |
@@ -68,11 +69,11 @@ Generated from `root/res/bandplans/*.json` using the current `classifyLegacyBand
 
 | Reason | Rows |
 |---|---:|
-| composite span crosses multiple stable bands | 2 |
+| composite span crosses multiple stable bands | 6 |
 | individual channel or narrow channel window; not a band | 1 |
-| individual channel/bookmark; not a band | 27 |
+| individual frequency assignment; not a band | 27 |
 | invalid reversed frequency span | 13 |
-| no stable band mapping | 239 |
+| no stable band mapping | 240 |
 | service has no stable frequency-band catalog | 191 |
 | service-independent spectrum range; not a service band | 18 |
 
@@ -80,7 +81,7 @@ Generated from `root/res/bandplans/*.json` using the current `classifyLegacyBand
 
 This is the exhaustive legacy-side provenance for the canonical decisions in `band_mapping.cpp`. Re-run this audit whenever a probe or classifier changes.
 
-### `band:amateur:10m`
+### `amateur:10m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -149,7 +150,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 10m Ham Band | `amateur` | 28 MHz - 29.7 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 10m Ham Band | `amateur` | 28 MHz - 29.7 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:125cm`
+### `amateur:1.25m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -159,7 +160,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `usa.json` | 1.25m Band (lower) | `amateur` | 219 MHz - 220 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 1.25m Band (upper) | `amateur` | 222 MHz - 225 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:12m`
+### `amateur:12m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -188,7 +189,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 12m Ham Band | `amateur` | 24.89 MHz - 24.99 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 12m Ham Band | `amateur` | 24.89 MHz - 24.99 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:12mm`
+### `amateur:1.2cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -203,7 +204,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | 1.2cm | `amateur` | 24.05 GHz - 24.25 GHz | `band` | `amateur` | `amateur` |
 | `turkey.json` | 24GHz | `amateur` | 24 GHz - 24.05 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:13cm`
+### `amateur:13cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -231,7 +232,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `usa.json` | 13cm Ham Band | `amateur` | 2.3 GHz - 2.31 GHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 13cm Ham Band | `amateur` | 2.39 GHz - 2.45 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:15m`
+### `amateur:15m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -263,7 +264,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 15m Ham Band | `amateur` | 21 MHz - 21.45 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 15m Ham Band | `amateur` | 21 MHz - 21.45 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:160m`
+### `amateur:160m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -293,7 +294,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 160m Ham Band | `amateur` | 1.81 MHz - 2 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 160m Ham Band | `amateur` | 1.8 MHz - 2 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:17m`
+### `amateur:17m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -322,7 +323,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 17m Ham Band | `amateur` | 18.068 MHz - 18.168 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 17m Ham Band | `amateur` | 18.068 MHz - 18.168 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:1mm`
+### `amateur:1mm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -334,7 +335,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | Radio Ham 1 mm band | `amateur` | 241 GHz - 250 GHz | `band` | `amateur` | `amateur` |
 | `russia.json` | 1mm | `amateur` | 241 GHz - 250 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:20m`
+### `amateur:20m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -374,7 +375,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 20m Ham Band | `amateur` | 14 MHz - 14.35 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 20m Ham Band | `amateur` | 14 MHz - 14.35 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:2200m`
+### `amateur:2200m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -398,7 +399,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 2200m Ham Band | `amateur` | 135.7 kHz - 137.8 kHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 2200m Band | `amateur` | 135.7 kHz - 137.8 kHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:23cm`
+### `amateur:23cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -429,7 +430,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 23cm Ham Band | `amateur` | 1.24 GHz - 1.325 GHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 23cm Ham Band | `amateur` | 1.24 GHz - 1.3 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:25mm`
+### `amateur:2.5mm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -441,7 +442,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | Radio Ham 2.5 mm band | `amateur` | 122.25 GHz - 123 GHz | `band` | `amateur` | `amateur` |
 | `russia.json` | 2.5mm | `amateur` | 122.251 GHz - 123 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:2m`
+### `amateur:2m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -507,7 +508,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 2m Ham Band | `amateur` | 144 MHz - 146 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 2m Ham Band | `amateur` | 144 MHz - 148 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:2mm`
+### `amateur:2mm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -521,7 +522,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | 2mm | `amateur` | 134.001 GHz - 141 GHz | `band` | `amateur` | `amateur` |
 | `turkey.json` | 134GHz | `amateur` | 134 GHz - 142 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:30m`
+### `amateur:30m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -548,7 +549,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 30m Ham Band | `amateur` | 10.1 MHz - 10.15 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 30m Ham Band | `amateur` | 10.1 MHz - 10.15 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:33cm`
+### `amateur:33cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -557,7 +558,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `general.json` | 33cm Ham Band | `amateur` | 902 MHz - 928 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 33cm Ham Band | `amateur` | 902 MHz - 928 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:3cm`
+### `amateur:3cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -584,7 +585,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | 3cm / X-Band | `amateur` | 10.37 GHz - 10.45 GHz | `band` | `amateur` | `amateur` |
 | `russia.json` | 3cm SAT / X-Band | `amateur` | 10.45 GHz - 10.5 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:40m`
+### `amateur:40m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -618,7 +619,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 40m Ham Band | `amateur` | 7 MHz - 7.2 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 40m Ham Band | `amateur` | 7 MHz - 7.3 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:4m`
+### `amateur:4m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -629,7 +630,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | 4m Ham Band (not NL) | `amateur` | 70 MHz - 70.5 MHz | `band` | `amateur` | `amateur` |
 | `united-kingdom.json` | 4m Ham Band | `amateur` | 70 MHz - 70.5 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:4mm`
+### `amateur:4mm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -641,7 +642,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | Radio Ham 4 mm band | `amateur` | 76.5 GHz - 81.5 GHz | `band` | `amateur` | `amateur` |
 | `russia.json` | 4mm | `amateur` | 76 GHz - 78 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:5cm`
+### `amateur:5cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -663,13 +664,13 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `turkey.json` | 5GHz | `amateur` | 5.65 GHz - 5.67 GHz | `band` | `amateur` | `amateur` |
 | `turkey.json` | 5GHz | `amateur` | 5.82 GHz - 5.85 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:600m`
+### `amateur:600m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `belgium.json` | 600m - Amateur | `amateur` | 501 kHz - 504 kHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:60m`
+### `amateur:60m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -700,7 +701,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 60m Ham Band | `amateur` | 5.2585 MHz - 5.4065 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 60m Ham Band | `amateur` | 5.3305 MHz - 5.4065 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:630m`
+### `amateur:630m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -718,7 +719,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `turkey.json` | 630m | `amateur` | 472 kHz - 479 kHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 630m Band | `amateur` | 472 kHz - 479 kHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:6m`
+### `amateur:6m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -740,7 +741,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 6m Ham Band | `amateur` | 50 MHz - 52 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 6m Ham Band | `amateur` | 50 MHz - 54 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:6mm`
+### `amateur:6mm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -754,7 +755,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | 6mm | `amateur` | 47.002 GHz - 47.2 GHz | `band` | `amateur` | `amateur` |
 | `turkey.json` | 47GHz | `amateur` | 47 GHz - 47.2 GHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:70cm`
+### `amateur:70cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -807,7 +808,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 70cm Ham Band | `amateur` | 430 MHz - 440 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 70cm Ham Band | `amateur` | 420 MHz - 450 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:80m`
+### `amateur:80m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -847,13 +848,13 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 80m Ham Band | `amateur` | 3.5 MHz - 3.8 MHz | `band` | `amateur` | `amateur` |
 | `usa.json` | 80m Ham Band | `amateur` | 3.5 MHz - 4 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:8m`
+### `amateur:8m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `belgium.json` | 8m - Amateur | `amateur` | 40.66 MHz - 40.69 MHz | `band` | `amateur` | `amateur` |
 
-### `band:amateur:9cm`
+### `amateur:9cm`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -865,7 +866,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `germany.json` | 9cm-Amateur | `amateur` | 3.4 GHz - 3.475 GHz | `band` | `amateur` | `amateur` |
 | `netherlands.json` | Radio Ham 9 cm band | `amateur` | 3.4 GHz - 3.475 GHz | `band` | `amateur` | `amateur` |
 
-### `band:aviation:hf:10mhz`
+### `aviation:HF:10MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -875,7 +876,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | Aeronautical | `aviation` | 10.005 MHz - 10.1 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 10.005 MHz - 10.1 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:11mhz`
+### `aviation:HF:11MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -886,7 +887,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile | `aviation` | 10.15 MHz - 11.6 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 11.175 MHz - 11.4 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:13mhz`
+### `aviation:HF:13MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -897,7 +898,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile | `aviation` | 13.26 MHz - 13.36 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 13.2 MHz - 13.36 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:15mhz`
+### `aviation:HF:15MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -908,7 +909,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile | `aviation` | 15.01 MHz - 15.1 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 15.01 MHz - 15.1 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:17mhz`
+### `aviation:HF:17MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -917,7 +918,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | (Transoceanic Flights) Aeronautical | `aviation` | 17.9 MHz - 18.068 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 17.9 MHz - 18.03 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:22mhz`
+### `aviation:HF:22MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -927,7 +928,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | Aeronautical Mobile | `aviation` | 21.85 MHz - 22 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 21.87 MHz - 22 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:23mhz`
+### `aviation:HF:23MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -936,7 +937,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `italy.json` | Mobile aeronautico | `aviation` | 23.2 MHz - 23.35 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 23.2 MHz - 23.35 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:2mhz`
+### `aviation:HF:2MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -948,7 +949,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile OR | `aviation` | 3.025 MHz - 3.155 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 2.85 MHz - 3.155 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:3.4mhz`
+### `aviation:HF:3.4MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -959,13 +960,13 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile R | `aviation` | 3.4 MHz - 3.5 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 3.4 MHz - 3.5 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:3.8mhz`
+### `aviation:HF:3.8MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `netherlands.json` | Aeronautical Mobile Service | `aviation` | 3.8 MHz - 3.95 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:4mhz`
+### `aviation:HF:4MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -975,7 +976,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Aviation Mobile R | `aviation` | 4.65 MHz - 4.85 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 4.65 MHz - 4.75 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:5mhz`
+### `aviation:HF:5MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -986,7 +987,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Search Rescue | `aviation` | 5.48 MHz - 5.73 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 5.45 MHz - 5.73 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:6mhz`
+### `aviation:HF:6MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -995,7 +996,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | (Transoceanic Flights) Aeronautical and (Ship/Shore) Maritime | `aviation` | 6.3425 MHz - 6.765 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 6.525 MHz - 6.765 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:hf:8mhz`
+### `aviation:HF:8MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1005,13 +1006,13 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | (Transoceanic Flights) Aeronautical and (Ship/Shore) Maritime | `marine1` | 8.68 MHz - 9.108 MHz | `band` | `aviation` | `aviation-communication` |
 | `united-kingdom.json` | Aeronautical Mobile | `aviation` | 8.815 MHz - 9.04 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:aviation:l-band`
+### `aviation:L-band`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `italy.json` | ADS-B, DME, TACAN | `aviation` | 960 MHz - 1.164 GHz | `band` | `aviation` | `aviation-surveillance` |
 
-### `band:aviation:vhf-voice`
+### `aviation:VHF-COM`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1034,7 +1035,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | Air Band Voice | `aviation` | 117.975 MHz - 137 MHz | `band` | `aviation` | `aviation-communication` |
 | `usa.json` | Air Band Voice | `aviation` | 118 MHz - 137 MHz | `band` | `aviation` | `aviation-communication` |
 
-### `band:broadcast:11m`
+### `broadcast:11m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1052,7 +1053,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | SW 11m | `broadcast` | 25.65 MHz - 26.1 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 25.67 MHz - 26.1 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:120m`
+### `broadcast:120m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1068,7 +1069,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 120m Broadcast | `broadcast` | 2.3 MHz - 2.495 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 2.3 MHz - 2.468 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:13m`
+### `broadcast:13m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1087,7 +1088,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 13m Broadcast | `broadcast` | 21.45 MHz - 21.85 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 21.45 MHz - 21.85 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:15m`
+### `broadcast:15m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1104,7 +1105,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 15m Broadcast | `broadcast` | 18.9 MHz - 19.02 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 18.9 MHz - 19.02 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:16m`
+### `broadcast:16m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1122,7 +1123,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 16m Broadcast | `broadcast` | 17.48 MHz - 17.9 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 17.48 MHz - 17.9 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:19m`
+### `broadcast:19m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1143,7 +1144,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 19m Broadcast | `broadcast` | 15.1 MHz - 15.8 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 15.1 MHz - 15.8 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:22m`
+### `broadcast:22m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1164,7 +1165,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 22m Broadcast | `broadcast` | 13.57 MHz - 13.87 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 13.57 MHz - 13.87 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:25m`
+### `broadcast:25m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1185,7 +1186,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 25m Broadcast | `broadcast` | 11.6 MHz - 12.23 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 11.6 MHz - 12.1 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:31m`
+### `broadcast:31m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1205,7 +1206,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 31m Broadcast | `broadcast` | 9.4 MHz - 9.9 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 9.4 MHz - 9.9 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:41m`
+### `broadcast:41m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1223,7 +1224,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 41m Broadcast | `broadcast` | 7.2 MHz - 7.45 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 7.3 MHz - 7.45 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:49m`
+### `broadcast:49m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1243,7 +1244,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 49m Broadcast | `broadcast` | 5.9 MHz - 6.2 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 5.9 MHz - 6.2 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:60m`
+### `broadcast:60m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1267,7 +1268,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `usa.json` | Shortwave Broadcast | `broadcast` | 4.75 MHz - 4.995 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 5.005 MHz - 5.06 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:75m`
+### `broadcast:75m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1283,7 +1284,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `russia.json` | SW 75m | `broadcast` | 3.9 MHz - 4 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `united-kingdom.json` | 75m Broadcast | `broadcast` | 3.9 MHz - 4 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:90m`
+### `broadcast:90m`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1300,7 +1301,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | 90m Broadcast | `broadcast` | 3.2 MHz - 3.4 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Shortwave Broadcast | `broadcast` | 3.2 MHz - 3.4 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:fm`
+### `broadcast:FM`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1325,7 +1326,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | FM Broadcast | `broadcast` | 87.5 MHz - 108 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | FM Broadcast | `broadcast` | 87.5 MHz - 108 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:longwave`
+### `broadcast:LW`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1339,7 +1340,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | Long Wave | `broadcast` | 148.5 kHz - 283.5 kHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Long Wave | `broadcast` | 148.5 kHz - 519 kHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:mediumwave`
+### `broadcast:MW`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1358,7 +1359,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | Medium Wave (AM Broadcast) | `broadcast` | 526.5 kHz - 1.6065 MHz | `band` | `broadcast` | `sound-broadcast` |
 | `usa.json` | Medium Wave (AM Broadcast) | `broadcast` | 525 kHz - 1.705 MHz | `band` | `broadcast` | `sound-broadcast` |
 
-### `band:broadcast:television:uhf`
+### `broadcast:TV:UHF`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1378,7 +1379,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `usa.json` | TV Channels 21-36 | `broadcast` | 512 MHz - 608 MHz | `band` | `broadcast` | `television-broadcast` |
 | `usa.json` | TV Broadcasting | `broadcast` | 614 MHz - 698 MHz | `band` | `broadcast` | `television-broadcast` |
 
-### `band:broadcast:television:vhf-high`
+### `broadcast:TV:VHF-high`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1390,7 +1391,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `turkey.json` | DVB-T | `broadcast` | 174 MHz - 216 MHz | `band` | `broadcast` | `television-broadcast` |
 | `usa.json` | TV Channels 7-13 | `broadcast` | 174 MHz - 216 MHz | `band` | `broadcast` | `television-broadcast` |
 
-### `band:broadcast:television:vhf-low`
+### `broadcast:TV:VHF-low`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1400,7 +1401,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `usa.json` | TV Channels 2-4 | `broadcast` | 54 MHz - 72 MHz | `band` | `broadcast` | `television-broadcast` |
 | `usa.json` | TV Channels 5-6 | `broadcast` | 76 MHz - 88 MHz | `band` | `broadcast` | `television-broadcast` |
 
-### `band:broadcast:weather-radio`
+### `broadcast:weather-radio`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1408,162 +1409,162 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `france.json` | NOAA Weather Radio | `broadcast` | 162.3625 MHz - 162.5875 MHz | `band` | `broadcast` | `weather-broadcast` |
 | `usa.json` | NOAA Weather Radio | `broadcast` | 162.3625 MHz - 162.5875 MHz | `band` | `broadcast` | `weather-broadcast` |
 
-### `band:cellular:dcs-1800`
+### `cellular:DCS-1800`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `italy.json` | GSM, IMT, MCA, MCV | `cellular` | 1.715 GHz - 1.785 GHz | `band` | `cellular` | `cellular-gsm` |
-| `italy.json` | GSM, IMT, MCA, MCV | `cellular` | 1.805 GHz - 1.88 GHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM | `utility` | 1.71 GHz - 1.785 GHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM | `utility` | 1.805 GHz - 1.88 GHz | `band` | `cellular` | `cellular-gsm` |
-| `russia.json` | DCS-1800 Uplink / L-Band | `broadcast` | 1.71 GHz - 1.785 GHz | `segment` | `cellular` | `cellular-gsm` |
-| `russia.json` | DCS-1800 Downlink / L-Band | `broadcast` | 1.805 GHz - 1.88 GHz | `segment` | `cellular` | `cellular-gsm` |
+| `italy.json` | GSM, IMT, MCA, MCV | `cellular` | 1.715 GHz - 1.785 GHz | `band` | `cellular` | `cellular-GSM` |
+| `italy.json` | GSM, IMT, MCA, MCV | `cellular` | 1.805 GHz - 1.88 GHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM | `utility` | 1.71 GHz - 1.785 GHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM | `utility` | 1.805 GHz - 1.88 GHz | `band` | `cellular` | `cellular-GSM` |
+| `russia.json` | DCS-1800 Uplink / L-Band | `broadcast` | 1.71 GHz - 1.785 GHz | `segment` | `cellular` | `cellular-GSM` |
+| `russia.json` | DCS-1800 Downlink / L-Band | `broadcast` | 1.805 GHz - 1.88 GHz | `segment` | `cellular` | `cellular-GSM` |
 
-### `band:cellular:eutran:1`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 1 (IMT) FDD uplink | `LTE.FDD.uplink` | 1.92 GHz - 1.98 GHz | `segment` | `cellular` | `cellular-lte` |
-| `germany-mobile-lte-bands.json` | LTE band 1 (IMT) FDD downlink | `LTE.FDD.downlink` | 2.11 GHz - 2.17 GHz | `segment` | `cellular` | `cellular-lte` |
-
-### `band:cellular:eutran:20`
+### `cellular:E-UTRA:1`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 20 (Digital Dividend) FDD uplink | `LTE.FDD.uplink` | 832 MHz - 862 MHz | `segment` | `cellular` | `cellular-lte` |
-| `italy.json` | LTE | `broadcast` | 791 MHz - 862 MHz | `band` | `cellular` | `cellular-lte` |
-| `russia.json` | LTE-800-FDD Downlink | `broadcast` | 791 MHz - 821 MHz | `segment` | `cellular` | `cellular-lte` |
-| `russia.json` | LTE-800-FDD Uplink | `broadcast` | 832 MHz - 862 MHz | `segment` | `cellular` | `cellular-lte` |
+| `germany-mobile-lte-bands.json` | LTE band 1 (IMT) FDD uplink | `LTE.FDD.uplink` | 1.92 GHz - 1.98 GHz | `segment` | `cellular` | `cellular-LTE` |
+| `germany-mobile-lte-bands.json` | LTE band 1 (IMT) FDD downlink | `LTE.FDD.downlink` | 2.11 GHz - 2.17 GHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:cellular:eutran:28`
+### `cellular:E-UTRA:20`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 28 (APT) FDD uplink | `LTE.FDD.uplink` | 703 MHz - 748 MHz | `segment` | `cellular` | `cellular-lte` |
+| `germany-mobile-lte-bands.json` | LTE band 20 (Digital Dividend) FDD uplink | `LTE.FDD.uplink` | 832 MHz - 862 MHz | `segment` | `cellular` | `cellular-LTE` |
+| `italy.json` | LTE | `broadcast` | 791 MHz - 862 MHz | `band` | `cellular` | `cellular-LTE` |
+| `russia.json` | LTE-800-FDD Downlink | `broadcast` | 791 MHz - 821 MHz | `segment` | `cellular` | `cellular-LTE` |
+| `russia.json` | LTE-800-FDD Uplink | `broadcast` | 832 MHz - 862 MHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:cellular:eutran:3`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 3 (DCS) FDD uplink | `LTE.FDD.uplink` | 1.71 GHz - 1.785 GHz | `segment` | `cellular` | `cellular-lte` |
-| `germany-mobile-lte-bands.json` | LTE band 3 (DCS) FDD downlink | `LTE.FDD.downlink` | 1.805 GHz - 1.88 GHz | `segment` | `cellular` | `cellular-lte` |
-
-### `band:cellular:eutran:32`
+### `cellular:E-UTRA:28`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `united-kingdom.json` | Band 32 Cell phone | `cellular` | 1.452 GHz - 1.492 GHz | `band` | `cellular` | `cellular-lte` |
+| `germany-mobile-lte-bands.json` | LTE band 28 (APT) FDD uplink | `LTE.FDD.uplink` | 703 MHz - 748 MHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:cellular:eutran:38`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `russia.json` | LTE-TDD / S-Band | `broadcast` | 2.57 GHz - 2.62 GHz | `band` | `cellular` | `cellular-lte` |
-
-### `band:cellular:eutran:7`
+### `cellular:E-UTRA:3`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 7 (IMT-E) FDD uplink | `LTE.FDD.uplink` | 2.5 GHz - 2.57 GHz | `segment` | `cellular` | `cellular-lte` |
-| `germany-mobile-lte-bands.json` | LTE band 7 (IMT-E) FDD downlink | `LTE.FDD.downlink` | 2.62 GHz - 2.69 GHz | `segment` | `cellular` | `cellular-lte` |
-| `russia.json` | LTE-FDD Uplink / S-Band | `broadcast` | 2.5 GHz - 2.57 GHz | `segment` | `cellular` | `cellular-lte` |
-| `russia.json` | LTE-FDD Downlink / S-Band | `broadcast` | 2.62 GHz - 2.69 GHz | `segment` | `cellular` | `cellular-lte` |
+| `germany-mobile-lte-bands.json` | LTE band 3 (DCS) FDD uplink | `LTE.FDD.uplink` | 1.71 GHz - 1.785 GHz | `segment` | `cellular` | `cellular-LTE` |
+| `germany-mobile-lte-bands.json` | LTE band 3 (DCS) FDD downlink | `LTE.FDD.downlink` | 1.805 GHz - 1.88 GHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:cellular:eutran:8`
+### `cellular:E-UTRA:32`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `germany-mobile-lte-bands.json` | LTE band 8 (Extended GSM) FDD uplink | `LTE.FDD.uplink` | 880 MHz - 915 MHz | `segment` | `cellular` | `cellular-lte` |
+| `united-kingdom.json` | Band 32 Cell phone | `cellular` | 1.452 GHz - 1.492 GHz | `band` | `cellular` | `cellular-LTE` |
 
-### `band:cellular:gsm-900`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `italy.json` | GSM | `cellular` | 880 MHz - 915 MHz | `band` | `cellular` | `cellular-gsm` |
-| `italy.json` | GSM | `cellular` | 925 MHz - 960 MHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM | `utility` | 880 MHz - 915 MHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM | `utility` | 925 MHz - 960 MHz | `band` | `cellular` | `cellular-gsm` |
-| `russia.json` | GSM-900 Uplink | `broadcast` | 880 MHz - 915 MHz | `segment` | `cellular` | `cellular-gsm` |
-| `russia.json` | GSM-900 Downlink | `broadcast` | 925 MHz - 960 MHz | `segment` | `cellular` | `cellular-gsm` |
-
-### `band:cellular:gsm-r-900`
+### `cellular:E-UTRA:38`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `germany-mobile-networks.json` | GSM-R FDD uplink | `mobile.gsm-r` | 873.1 MHz - 880 MHz | `segment` | `cellular` | `cellular-gsm` |
-| `germany-mobile-networks.json` | GSM-R FDD downlink | `mobile.gsm-r` | 918.1 MHz - 925 MHz | `segment` | `cellular` | `cellular-gsm` |
-| `italy.json` | GSM-R | `cellular` | 876 MHz - 880 MHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM-R (Train) | `utility1` | 876 MHz - 880 MHz | `band` | `cellular` | `cellular-gsm` |
-| `netherlands.json` | GSM-R (Train) | `utility1` | 921 MHz - 925 MHz | `band` | `cellular` | `cellular-gsm` |
+| `russia.json` | LTE-TDD / S-Band | `broadcast` | 2.57 GHz - 2.62 GHz | `band` | `cellular` | `cellular-LTE` |
 
-### `band:ism:122ghz`
+### `cellular:E-UTRA:7`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `italy.json` | ISM | `ism` | 120.2 GHz - 122.25 GHz | `band` | `ism` | `ism` |
-| `netherlands.json` | ISM | `utility` | 120.2 GHz - 122.25 GHz | `band` | `ism` | `ism` |
+| `germany-mobile-lte-bands.json` | LTE band 7 (IMT-E) FDD uplink | `LTE.FDD.uplink` | 2.5 GHz - 2.57 GHz | `segment` | `cellular` | `cellular-LTE` |
+| `germany-mobile-lte-bands.json` | LTE band 7 (IMT-E) FDD downlink | `LTE.FDD.downlink` | 2.62 GHz - 2.69 GHz | `segment` | `cellular` | `cellular-LTE` |
+| `russia.json` | LTE-FDD Uplink / S-Band | `broadcast` | 2.5 GHz - 2.57 GHz | `segment` | `cellular` | `cellular-LTE` |
+| `russia.json` | LTE-FDD Downlink / S-Band | `broadcast` | 2.62 GHz - 2.69 GHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:ism:24ghz`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `italy.json` | ISM, SRD e LPR | `ism` | 24.05 GHz - 24.45 GHz | `band` | `ism` | `ism` |
-| `netherlands.json` | ISM, SRD and LPR | `utility` | 24 GHz - 24.45 GHz | `band` | `ism` | `ism` |
-
-### `band:ism:27mhz`
+### `cellular:E-UTRA:8`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `netherlands.json` | 10m ISM | `utility` | 26.957 MHz - 27.283 MHz | `band` | `ism` | `ism` |
+| `germany-mobile-lte-bands.json` | LTE band 8 (Extended GSM) FDD uplink | `LTE.FDD.uplink` | 880 MHz - 915 MHz | `segment` | `cellular` | `cellular-LTE` |
 
-### `band:ism:2ghz`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `netherlands.json` | ISM Band (13cm) | `utility` | 2.4 GHz - 2.5 GHz | `band` | `ism` | `ism` |
-
-### `band:ism:40mhz`
+### `cellular:GSM-900`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `netherlands.json` | 8m ISM | `utility` | 40.66 MHz - 40.7 MHz | `band` | `ism` | `ism` |
+| `italy.json` | GSM | `cellular` | 880 MHz - 915 MHz | `band` | `cellular` | `cellular-GSM` |
+| `italy.json` | GSM | `cellular` | 925 MHz - 960 MHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM | `utility` | 880 MHz - 915 MHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM | `utility` | 925 MHz - 960 MHz | `band` | `cellular` | `cellular-GSM` |
+| `russia.json` | GSM-900 Uplink | `broadcast` | 880 MHz - 915 MHz | `segment` | `cellular` | `cellular-GSM` |
+| `russia.json` | GSM-900 Downlink | `broadcast` | 925 MHz - 960 MHz | `segment` | `cellular` | `cellular-GSM` |
 
-### `band:ism:433mhz`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `netherlands.json` | Shared 70cm Ham and 70cm ISM | `utility` | 433.05 MHz - 434.79 MHz | `band` | `ism` | `ism` |
-
-### `band:ism:61ghz`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `italy.json` | ISM | `ism` | 61 GHz - 64 GHz | `band` | `ism` | `ism` |
-| `netherlands.json` | ISM | `utility` | 61 GHz - 64 GHz | `band` | `ism` | `ism` |
-
-### `band:ism:6mhz`
+### `cellular:GSM-R-900`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `netherlands.json` | ISM Band (50m) | `utility` | 6.765 MHz - 6.795 MHz | `band` | `ism` | `ism` |
+| `germany-mobile-networks.json` | GSM-R FDD uplink | `mobile.gsm-r` | 873.1 MHz - 880 MHz | `segment` | `cellular` | `cellular-GSM` |
+| `germany-mobile-networks.json` | GSM-R FDD downlink | `mobile.gsm-r` | 918.1 MHz - 925 MHz | `segment` | `cellular` | `cellular-GSM` |
+| `italy.json` | GSM-R | `cellular` | 876 MHz - 880 MHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM-R (Train) | `utility1` | 876 MHz - 880 MHz | `band` | `cellular` | `cellular-GSM` |
+| `netherlands.json` | GSM-R (Train) | `utility1` | 921 MHz - 925 MHz | `band` | `cellular` | `cellular-GSM` |
 
-### `band:ism:868mhz`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `germany.json` | 868 MHz ISM-Devices | `other` | 866.5 MHz - 871 MHz | `band` | `ism` | `ism` |
-| `italy.json` | ISM e RFID | `ism` | 862 MHz - 876 MHz | `band` | `ism` | `ism` |
-| `netherlands.json` | ISM Europe | `utility1` | 862 MHz - 870 MHz | `band` | `ism` | `ism` |
-| `turkey.json` | RFID | `other` | 865 MHz - 868 MHz | `band` | `ism` | `ism` |
-
-### `band:ism:915mhz`
+### `ISM:122.5GHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `australia.json` | ISM Band | `other` | 915 MHz - 928 MHz | `band` | `ism` | `ism` |
-| `turkey.json` | RFID | `other` | 916.1 MHz - 918.9 MHz | `band` | `ism` | `ism` |
+| `italy.json` | ISM | `ism` | 120.2 GHz - 122.25 GHz | `band` | `ISM` | `ISM` |
+| `netherlands.json` | ISM | `utility` | 120.2 GHz - 122.25 GHz | `band` | `ISM` | `ISM` |
 
-### `band:maritime:hf:12mhz`
+### `ISM:24.125GHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `italy.json` | ISM, SRD e LPR | `ism` | 24.05 GHz - 24.45 GHz | `band` | `ISM` | `ISM` |
+| `netherlands.json` | ISM, SRD and LPR | `utility` | 24 GHz - 24.45 GHz | `band` | `ISM` | `ISM` |
+
+### `ISM:27.12MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `netherlands.json` | 10m ISM | `utility` | 26.957 MHz - 27.283 MHz | `band` | `ISM` | `ISM` |
+
+### `ISM:2.45GHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `netherlands.json` | ISM Band (13cm) | `utility` | 2.4 GHz - 2.5 GHz | `band` | `ISM` | `ISM` |
+
+### `ISM:40.68MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `netherlands.json` | 8m ISM | `utility` | 40.66 MHz - 40.7 MHz | `band` | `ISM` | `ISM` |
+
+### `ISM:433.92MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `netherlands.json` | Shared 70cm Ham and 70cm ISM | `utility` | 433.05 MHz - 434.79 MHz | `band` | `ISM` | `ISM` |
+
+### `ISM:61.25GHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `italy.json` | ISM | `ism` | 61 GHz - 64 GHz | `band` | `ISM` | `ISM` |
+| `netherlands.json` | ISM | `utility` | 61 GHz - 64 GHz | `band` | `ISM` | `ISM` |
+
+### `ISM:6.78MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `netherlands.json` | ISM Band (50m) | `utility` | 6.765 MHz - 6.795 MHz | `band` | `ISM` | `ISM` |
+
+### `ISM:868MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `germany.json` | 868 MHz ISM-Devices | `other` | 866.5 MHz - 871 MHz | `band` | `ISM` | `ISM` |
+| `italy.json` | ISM e RFID | `ism` | 862 MHz - 876 MHz | `band` | `ISM` | `ISM` |
+| `netherlands.json` | ISM Europe | `utility1` | 862 MHz - 870 MHz | `band` | `ISM` | `ISM` |
+| `turkey.json` | RFID | `other` | 865 MHz - 868 MHz | `band` | `ISM` | `ISM` |
+
+### `ISM:915MHz`
+
+| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
+|---|---|---|---|---|---|---|
+| `australia.json` | ISM Band | `other` | 915 MHz - 928 MHz | `band` | `ISM` | `ISM` |
+| `turkey.json` | RFID | `other` | 916.1 MHz - 918.9 MHz | `band` | `ISM` | `ISM` |
+
+### `maritime:HF:12MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1572,7 +1573,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `italy.json` | Mobile marittimo | `marine` | 12.23 MHz - 13.2 MHz | `band` | `maritime` | `maritime` |
 | `united-kingdom.json` | Maritime | `marine` | 12.23 MHz - 13.2 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:22mhz`
+### `maritime:HF:22MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1580,7 +1581,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `italy.json` | Mobile marittimo | `marine` | 22 MHz - 22.855 MHz | `band` | `maritime` | `maritime` |
 | `netherlands.json` | (Ship/Shore) Maritime | `marine` | 22 MHz - 24.89 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:25mhz`
+### `maritime:HF:25MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1588,7 +1589,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `italy.json` | Mobile marittimo | `marine` | 25.07 MHz - 25.21 MHz | `band` | `maritime` | `maritime` |
 | `netherlands.json` | Maritime | `marine` | 25.005 MHz - 25.55 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:2mhz`
+### `maritime:HF:2MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1596,7 +1597,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `italy.json` | Mobile marittimo | `marine` | 1.85 MHz - 2.3 MHz | `band` | `maritime` | `maritime` |
 | `united-kingdom.json` | Maritime | `marine` | 2.045 MHz - 2.3 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:4mhz`
+### `maritime:HF:4MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1612,7 +1613,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `republic-of-korea.json` | Ship Station A1A Morse Code Communication | `marine` | 4.18675 MHz - 4.20225 MHz | `band` | `maritime` | `maritime` |
 | `united-kingdom.json` | Maritime | `marine` | 4.063 MHz - 4.438 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:6mhz`
+### `maritime:HF:6MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1623,7 +1624,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | (Ship TX) Maritime | `marine` | 6.21625 MHz - 6.3425 MHz | `band` | `maritime` | `maritime` |
 | `united-kingdom.json` | Maritime | `marine` | 6.2 MHz - 6.525 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:hf:8mhz`
+### `maritime:HF:8MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1634,14 +1635,14 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `netherlands.json` | (Ship/Shore) Maritime | `marine` | 8.29225 MHz - 8.68 MHz | `band` | `maritime` | `maritime` |
 | `united-kingdom.json` | Maritime | `marine` | 8.195 MHz - 8.815 MHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:mf`
+### `maritime:MF`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `italy.json` | Mobile marittimo, NAVTEX | `marine` | 435 kHz - 520 kHz | `band` | `maritime` | `maritime` |
 | `republic-of-korea.json` | Maritime Telegraph | `marine` | 505 kHz - 526.5 kHz | `band` | `maritime` | `maritime` |
 
-### `band:maritime:vhf`
+### `maritime:VHF`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1659,21 +1660,21 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | Marine - coast tx | `marine` | 160.65 MHz - 162.025 MHz | `band` | `maritime` | `maritime` |
 | `usa.json` | Marine | `marine` | 156 MHz - 162.025 MHz | `band` | `maritime` | `maritime` |
 
-### `band:navigation:ils-glide-path`
+### `navigation:ILS-glide-path`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `netherlands.json` | ILS Glide path | `aviation` | 328.6 MHz - 335.4 MHz | `band` | `navigation` | `navigation` |
 | `turkey.json` | ILS-Glide Path | `aviation` | 328.6 MHz - 335.4 MHz | `band` | `navigation` | `navigation` |
 
-### `band:navigation:ndb`
+### `navigation:NDB`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `italy.json` | Radiofari e NDB | `aviation` | 283.5 kHz - 405 kHz | `band` | `navigation` | `navigation` |
 | `netherlands.json` | Aeronautical Radionavigation / Maritime | `aviation` | 283.5 kHz - 472 kHz | `band` | `navigation` | `navigation` |
 
-### `band:navigation:vor-ils`
+### `navigation:VOR-ILS`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1692,7 +1693,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | Air Band TACAN/ILS | `aviation` | 108 MHz - 117.975 MHz | `band` | `navigation` | `navigation` |
 | `usa.json` | Air Band VOR/ILS | `aviation` | 108 MHz - 118 MHz | `band` | `navigation` | `navigation` |
 
-### `band:personal-radio:cb`
+### `personal-radio:CB`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1712,28 +1713,28 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | CB | `amateur` | 27.6 MHz - 28 MHz | `band` | `personal-radio` | `personal-radio` |
 | `usa.json` | CB | `amateur` | 26.96 MHz - 27.41 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:personal-radio:freenet`
+### `personal-radio:FreeNet`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `austria.json` | Freenet | `other` | 149.025 MHz - 149.115625 MHz | `band` | `personal-radio` | `personal-radio` |
 | `germany.json` | Freenet | `other` | 149.025 MHz - 149.115625 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:personal-radio:frs-gmrs`
+### `personal-radio:FRS-GMRS`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `usa.json` | FRS | `amateur` | 462.55 MHz - 462.725 MHz | `band` | `personal-radio` | `personal-radio` |
 | `usa.json` | FRS - GMRS | `amateur` | 467.55 MHz - 467.725 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:personal-radio:murs`
+### `personal-radio:MURS`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `usa.json` | MURS (lower) | `amateur` | 151.82 MHz - 151.94 MHz | `band` | `personal-radio` | `personal-radio` |
 | `usa.json` | MURS (upper) | `amateur` | 154.57 MHz - 154.6 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:personal-radio:pmr446`
+### `personal-radio:PMR446`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1750,43 +1751,28 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | `united-kingdom.json` | PMR446 | `PMR` | 446 MHz - 446.2 MHz | `band` | `personal-radio` | `personal-radio` |
 | `usa.json` | PMR446 | `amateur` | 446 MHz - 446.2 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:personal-radio:uhf-cb`
+### `personal-radio:UHF-CB`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
 | `australia.json` | UHF CB | `amateur` | 476.425 MHz - 477.4125 MHz | `band` | `personal-radio` | `personal-radio` |
 
-### `band:rlan:2ghz`
+### `RLAN:2.4GHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `australia.json` | 2.4GHz WiFi (ISM Band) | `other` | 2.4 GHz - 2.4835 GHz | `band` | `rlan` | `rlan` |
-| `italy.json` | ISM, SAP/SAB, 802.11 | `ism` | 2.4 GHz - 2.5 GHz | `band` | `rlan` | `rlan` |
-| `russia.json` | 2.4GHz WiFi / S-Band | `broadcast` | 2.45 GHz - 2.4835 GHz | `band` | `rlan` | `rlan` |
-| `united-kingdom.json` | ISM - wifi and bluettoth | `ISM` | 2.4 GHz - 2.483 GHz | `band` | `rlan` | `rlan` |
+| `australia.json` | 2.4GHz WiFi (ISM Band) | `other` | 2.4 GHz - 2.4835 GHz | `band` | `RLAN` | `RLAN` |
+| `italy.json` | ISM, SAP/SAB, 802.11 | `ism` | 2.4 GHz - 2.5 GHz | `band` | `RLAN` | `RLAN` |
+| `russia.json` | 2.4GHz WiFi / S-Band | `broadcast` | 2.45 GHz - 2.4835 GHz | `band` | `RLAN` | `RLAN` |
+| `united-kingdom.json` | ISM - wifi and bluettoth | `ISM` | 2.4 GHz - 2.483 GHz | `band` | `RLAN` | `RLAN` |
 
-### `band:rlan:5ghz-lower`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `australia.json` | 5GHz WiFi (ISM Band) | `other` | 5.15 GHz - 5.59 GHz | `band` | `rlan` | `rlan` |
-| `italy.json` | Reti numeriche e 802.11 | `comms` | 5.25 GHz - 5.65 GHz | `band` | `rlan` | `rlan` |
-| `netherlands.json` | Digital networks and 802.11 | `utility` | 5.25 GHz - 5.65 GHz | `band` | `rlan` | `rlan` |
-| `russia.json` | 5GHz WiFi / C-Band | `broadcast` | 5.15 GHz - 5.35 GHz | `band` | `rlan` | `rlan` |
-
-### `band:rlan:5ghz-middle`
+### `RLAN:5470-5725MHz`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
-| `russia.json` | 5GHz WiFi / C-Band | `broadcast` | 5.67 GHz - 5.725 GHz | `band` | `rlan` | `rlan` |
+| `russia.json` | 5GHz WiFi / C-Band | `broadcast` | 5.67 GHz - 5.725 GHz | `band` | `RLAN` | `RLAN` |
 
-### `band:rlan:5ghz-upper`
-
-| Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
-|---|---|---|---|---|---|---|
-| `russia.json` | C-Band / 5GHz WiFi | `broadcast` | 5.76 GHz - 5.762 GHz | `band` | `rlan` | `rlan` |
-
-### `band:satellite:weather-vhf`
+### `satellite:weather-VHF`
 
 | Plan file | Legacy name | Type | Frequency span | Kind | Service | Family |
 |---|---|---|---|---|---|---|
@@ -1812,7 +1798,8 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 |---:|---|---|---|---|---|---|---|
 | 1 | 27MHz Marine Band | `marine` | 27.68 MHz - 27.98 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 2 | Digital Radio Broadcast (DAB+) | `broadcast` | 195 MHz - 209 MHz | `band` | `broadcast` | `sound-broadcast` | no stable band mapping |
-| 3 | 5GHz WiFi (ISM Band) | `other` | 5.65 GHz - 5.835 GHz | `band` | `rlan` | `rlan` | composite span crosses multiple stable bands |
+| 3 | 5GHz WiFi (ISM Band) | `other` | 5.15 GHz - 5.59 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
+| 4 | 5GHz WiFi (ISM Band) | `other` | 5.65 GHz - 5.835 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
 
 ### Belgium (`belgium.json`)
 
@@ -1830,7 +1817,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 
 | # | Legacy name | Type | Frequency span | Kind | Service | Family | Reason |
 |---:|---|---|---|---|---|---|---|
-| 1 | Frequency and Time Standards | `broadcast` | 24.99 MHz - 25.01 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 1 | Frequency and Time Standards | `broadcast` | 24.99 MHz - 25.01 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 
 ### France (`france.json`)
 
@@ -1861,10 +1848,10 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 
 | # | Legacy name | Type | Frequency span | Kind | Service | Family | Reason |
 |---:|---|---|---|---|---|---|---|
-| 1 | LTE band 28 (APT) FDD downlink | `LTE.FDD.downlink` | 7.58 GHz - 8.03 GHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
-| 2 | LTE band 20 (Digital Dividend) FDD downlink | `LTE.FDD.downlink` | 7.91 GHz - 8.21 GHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
-| 3 | LTE band 8 (Extended GSM) FDD downlink | `LTE.FDD.downlink` | 9.25 GHz - 9.6 GHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
-| 4 | LTE band 32 (L-Band (EU)) SDL downlink | `LTE.SDL` | 14.52 GHz - 14.96 GHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
+| 1 | LTE band 28 (APT) FDD downlink | `LTE.FDD.downlink` | 7.58 GHz - 8.03 GHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
+| 2 | LTE band 20 (Digital Dividend) FDD downlink | `LTE.FDD.downlink` | 7.91 GHz - 8.21 GHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
+| 3 | LTE band 8 (Extended GSM) FDD downlink | `LTE.FDD.downlink` | 9.25 GHz - 9.6 GHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
+| 4 | LTE band 32 (L-Band (EU)) SDL downlink | `LTE.SDL` | 14.52 GHz - 14.96 GHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
 
 ### German Mobile Networks (`germany-mobile-networks.json`)
 
@@ -1940,7 +1927,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 
 | # | Legacy name | Type | Frequency span | Kind | Service | Family | Reason |
 |---:|---|---|---|---|---|---|---|
-| 1 | ADS-B | `aviation` | 1.089 GHz - 1.091 GHz | `channel` | `aviation` | `aviation-surveillance` | individual channel/bookmark; not a band |
+| 1 | ADS-B | `aviation` | 1.089 GHz - 1.091 GHz | `channel` | `aviation` | `aviation-surveillance` | individual frequency assignment; not a band |
 
 ### Italy (`italy.json`)
 
@@ -1950,29 +1937,29 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 2 | Radionavigazione | `marine` | 11.3 kHz - 148.5 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 3 | Radiogoniometria | `marine` | 405 kHz - 415 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 4 | Mobile marittimo | `marine` | 1.6065 MHz - 1.83 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 5 | Segnali orari | `utility` | 2.501 MHz - 2.502 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 5 | Segnali orari | `utility` | 2.501 MHz - 2.502 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 6 | Mobile marittimo | `marine` | 2.502 MHz - 2.85 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 7 | Mobile marittimo | `marine` | 3.155 MHz - 3.2 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 8 | Mobile marittimo | `marine` | 3.5 MHz - 3.6 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 9 | ISM, reti fisse pubbliche | `utility` | 6.525 MHz - 6.765 MHz | `band` | `ism` | `ism` | no stable band mapping |
-| 10 | Segnali orari | `utility` | 14.99 MHz - 15.01 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 9 | ISM, reti fisse pubbliche | `utility` | 6.525 MHz - 6.765 MHz | `band` | `ISM` | `ISM` | no stable band mapping |
+| 10 | Segnali orari | `utility` | 14.99 MHz - 15.01 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 11 | Mobile marittimo | `marine` | 16.36 MHz - 17.41 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 12 | Mobile marittimo | `marine` | 18.78 MHz - 18.9 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 13 | Mobile marittimo | `marine` | 19.68 MHz - 19.8 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 14 | Segnali orari | `utility` | 19.99 MHz - 20.01 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 15 | Segnali orari | `utility` | 24.99 MHz - 25.01 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 14 | Segnali orari | `utility` | 19.99 MHz - 20.01 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 15 | Segnali orari | `utility` | 24.99 MHz - 25.01 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 16 | Radioastronomia | `utility` | 25.55 MHz - 25.67 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 17 | Mobile marittimo | `military` | 26.1 MHz - 26.175 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 18 | Wind profiler | `military` | 45 MHz - 47 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 19 | Wind profiler | `military` | 52.5 MHz - 68 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 20 | Soccorso alpino | `military` | 68 MHz - 74.8 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 21 | Radiofari 75MHz | `aviation` | 74.8 MHz - 75.2 MHz | `channel` | `navigation` | `navigation` | individual channel/bookmark; not a band |
+| 21 | Radiofari 75MHz | `aviation` | 74.8 MHz - 75.2 MHz | `channel` | `navigation` | `navigation` | individual frequency assignment; not a band |
 | 22 | Telefonia satellitare | `satellite` | 148 MHz - 150.05 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
 | 23 | Mobile aeronautico militare | `military` | 225 MHz - 240 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 24 | Satelliti militari | `military` | 240 MHz - 270 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 25 | Mobile aeronautico militare | `military` | 270 MHz - 399.9 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 26 | Telefonia satellitare | `satellite` | 399.9 MHz - 400.05 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 27 | Segnali orari via satellite | `satellite` | 400.05 MHz - 400.15 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 27 | Segnali orari via satellite | `satellite` | 400.05 MHz - 400.15 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 28 | Radiosonde | `satellite` | 400.15 MHz - 406 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
 | 29 | EPIRB e PLB | `satellite` | 406 MHz - 406.1 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
 | 30 | Satelliti militari | `military` | 406.1 MHz - 410 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
@@ -1981,7 +1968,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 33 | Fisso militare | `military` | 434 MHz - 435 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 34 | Mobile o fisso privato | `comms` | 438 MHz - 446 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 35 | Mobile o fisso privato | `utility` | 446.2 MHz - 470 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 36 | GSM-R | `cellular` | 9.21 GHz - 925 MHz | `band` | `cellular` | `cellular-gsm` | invalid reversed frequency span |
+| 36 | GSM-R | `cellular` | 9.21 GHz - 925 MHz | `band` | `cellular` | `cellular-GSM` | invalid reversed frequency span |
 | 37 | Radiolocalizzazione GNSS | `utility` | 1.164 GHz - 124 MHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
 | 38 | Wind profiler | `military` | 1.27 GHz - 129.8 MHz | `band` | `other` | `unknown` | invalid reversed frequency span |
 | 39 | Radiolocalizzazione | `military` | 1.298 GHz - 130 MHz | `band` | `other` | `unknown` | invalid reversed frequency span |
@@ -1995,7 +1982,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 47 | MCA, MCV | `utility` | 1.71 GHz - 1.715 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 48 | Radiomicrofoni | `utility` | 1.785 GHz - 1.805 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 49 | DECT | `utility` | 1.88 GHz - 1.9 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 50 | GSM, IMT, MCA, MCV | `cellular` | 1.88 GHz - 1.9 GHz | `band` | `cellular` | `cellular-gsm` | no stable band mapping |
+| 50 | GSM, IMT, MCA, MCV | `cellular` | 1.88 GHz - 1.9 GHz | `band` | `cellular` | `cellular-GSM` | no stable band mapping |
 | 51 | IMT, MCA, MCV | `utility` | 1.9 GHz - 1.98 GHz | `band` | `cellular` | `cellular-other` | no stable band mapping |
 | 52 | MSS 2 GHz | `satellite` | 1.98 GHz - 201 MHz | `band` | `satellite` | `satellite` | invalid reversed frequency span |
 | 53 | SAP/SAB, IMT, PMSE | `utility` | 2.01 GHz - 2.025 GHz | `band` | `cellular` | `cellular-other` | no stable band mapping |
@@ -2012,47 +1999,48 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 64 | Reti numeriche | `comms` | 3.475 GHz - 4.2 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 65 | Radioaltimetri | `aviation` | 4.2 GHz - 4.4 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 66 | Feeder link | `satellite` | 5.15 GHz - 5.25 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 67 | Reti numeriche e LPR | `comms` | 5.925 GHz - 7.75 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 68 | LPR | `comms` | 7.75 GHz - 7.975 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 69 | Telerilevamento | `utility` | 7.975 GHz - 8.215 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 70 | TLPR e SRD | `comms` | 8.215 GHz - 8.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 71 | Radar Doppler | `aircraft` | 8.65 GHz - 8.85 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
-| 72 | Radar marittimi | `marine` | 8.85 GHz - 9 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 73 | Radar e transponder SART | `marine` | 9 GHz - 9.5 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 74 | TLPR e SRD | `utility` | 9.5 GHz - 10 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 75 | Reti punto-punto televisive | `comms` | 10.5 GHz - 10.68 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 76 | Reti fisse numeriche | `comms` | 10.68 GHz - 11.7 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 77 | Satelliti televisivi | `satellite` | 11.7 GHz - 12.5 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 78 | Reti fisse numeriche | `comms` | 12.5 GHz - 13.25 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 79 | Uplink satellitari | `satellite` | 14 GHz - 14.5 GHz | `segment` | `satellite` | `satellite` | no stable band mapping |
-| 80 | Rete fisse numeriche | `comms` | 14.5 GHz - 14.62 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 81 | Rete fisse numeriche | `comms` | 15.23 GHz - 15.35 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 82 | Reti numeriche punto-punto | `comms` | 17.1 GHz - 19.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 83 | Feeder link | `satellite` | 19.3 GHz - 19.7 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 84 | HEST, LEST, ESIM, ESOMP | `satellite` | 19.7 GHz - 20.2 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 85 | Reti fisse numeriche | `comms` | 22 GHz - 22.33 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 86 | Reti fisse numeriche | `comms` | 22.67475 GHz - 2.28335 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
-| 87 | Reti fisse numeriche, SAP/SAB | `comms` | 22.92675 GHz - 23.15 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 88 | Reti fisse numeriche | `comms` | 23.15 GHz - 23.338 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 89 | Reti punto-punto e punto-multipunto | `comms` | 24.45 GHz - 25.109 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 90 | LPR, SRD e SRR | `utility` | 25.109 GHz - 2.5445 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
-| 91 | Reti punto-punto e punto-multipunto | `comms` | 2.5445 GHz - 2.6117 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 92 | LPR, SRD e SRR | `utility` | 2.6117 GHz - 2.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 93 | Comunicazioni elettroniche terrestri | `comms` | 26.5 GHz - 27.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 94 | Reti punto-punto e punto-multipunto | `comms` | 27.5 GHz - 29.1 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 95 | Reti punto-punto e punto-multipunto | `comms` | 29.1 GHz - 29.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 96 | Reti punto-punto e punto-multipunto | `comms` | 31 GHz - 31.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 97 | Reti fisse numeriche ad alta densità | `comms` | 31.983 GHz - 32.599 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 98 | Reti fisse numeriche ad alta densità | `comms` | 32.795 GHz - 33.4 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 99 | Reti fisse numeriche ad alta densità | `comms` | 37.338 GHz - 38.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 100 | Reti fisse numeriche ad alta densità | `comms` | 38.59 GHz - 39.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 101 | Sistemi fissi via radio FWS | `utility` | 40.5 GHz - 43.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 102 | Reti fisse numeriche ad alta densità | `comms` | 51.4 GHz - 52.6 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 103 | Reti fisse numeriche ad alta densità | `comms` | 55.78 GHz - 61 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 104 | Reti fisse numeriche ad alta densità | `comms` | 64 GHz - 66 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 105 | Collegamenti fissi ad alta capacità | `comms` | 71 GHz - 74 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 106 | LPR, SRD, SRR, TLPR, radar veicoli | `utility` | 74 GHz - 76.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 107 | Collegamenti fissi ad alta capacità | `comms` | 84 GHz - 86 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 67 | Reti numeriche e 802.11 | `comms` | 5.25 GHz - 5.65 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
+| 68 | Reti numeriche e LPR | `comms` | 5.925 GHz - 7.75 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 69 | LPR | `comms` | 7.75 GHz - 7.975 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 70 | Telerilevamento | `utility` | 7.975 GHz - 8.215 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 71 | TLPR e SRD | `comms` | 8.215 GHz - 8.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 72 | Radar Doppler | `aircraft` | 8.65 GHz - 8.85 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
+| 73 | Radar marittimi | `marine` | 8.85 GHz - 9 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
+| 74 | Radar e transponder SART | `marine` | 9 GHz - 9.5 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
+| 75 | TLPR e SRD | `utility` | 9.5 GHz - 10 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 76 | Reti punto-punto televisive | `comms` | 10.5 GHz - 10.68 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 77 | Reti fisse numeriche | `comms` | 10.68 GHz - 11.7 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 78 | Satelliti televisivi | `satellite` | 11.7 GHz - 12.5 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 79 | Reti fisse numeriche | `comms` | 12.5 GHz - 13.25 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 80 | Uplink satellitari | `satellite` | 14 GHz - 14.5 GHz | `segment` | `satellite` | `satellite` | no stable band mapping |
+| 81 | Rete fisse numeriche | `comms` | 14.5 GHz - 14.62 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 82 | Rete fisse numeriche | `comms` | 15.23 GHz - 15.35 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 83 | Reti numeriche punto-punto | `comms` | 17.1 GHz - 19.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 84 | Feeder link | `satellite` | 19.3 GHz - 19.7 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 85 | HEST, LEST, ESIM, ESOMP | `satellite` | 19.7 GHz - 20.2 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 86 | Reti fisse numeriche | `comms` | 22 GHz - 22.33 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 87 | Reti fisse numeriche | `comms` | 22.67475 GHz - 2.28335 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
+| 88 | Reti fisse numeriche, SAP/SAB | `comms` | 22.92675 GHz - 23.15 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 89 | Reti fisse numeriche | `comms` | 23.15 GHz - 23.338 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 90 | Reti punto-punto e punto-multipunto | `comms` | 24.45 GHz - 25.109 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 91 | LPR, SRD e SRR | `utility` | 25.109 GHz - 2.5445 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
+| 92 | Reti punto-punto e punto-multipunto | `comms` | 2.5445 GHz - 2.6117 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 93 | LPR, SRD e SRR | `utility` | 2.6117 GHz - 2.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 94 | Comunicazioni elettroniche terrestri | `comms` | 26.5 GHz - 27.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 95 | Reti punto-punto e punto-multipunto | `comms` | 27.5 GHz - 29.1 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 96 | Reti punto-punto e punto-multipunto | `comms` | 29.1 GHz - 29.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 97 | Reti punto-punto e punto-multipunto | `comms` | 31 GHz - 31.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 98 | Reti fisse numeriche ad alta densità | `comms` | 31.983 GHz - 32.599 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 99 | Reti fisse numeriche ad alta densità | `comms` | 32.795 GHz - 33.4 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 100 | Reti fisse numeriche ad alta densità | `comms` | 37.338 GHz - 38.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 101 | Reti fisse numeriche ad alta densità | `comms` | 38.59 GHz - 39.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 102 | Sistemi fissi via radio FWS | `utility` | 40.5 GHz - 43.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 103 | Reti fisse numeriche ad alta densità | `comms` | 51.4 GHz - 52.6 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 104 | Reti fisse numeriche ad alta densità | `comms` | 55.78 GHz - 61 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 105 | Reti fisse numeriche ad alta densità | `comms` | 64 GHz - 66 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 106 | Collegamenti fissi ad alta capacità | `comms` | 71 GHz - 74 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 107 | LPR, SRD, SRR, TLPR, radar veicoli | `utility` | 74 GHz - 76.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 108 | Collegamenti fissi ad alta capacità | `comms` | 84 GHz - 86 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 
 ### Netherlands (`netherlands.json`)
 
@@ -2063,11 +2051,11 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 3 | Radionavigation / Weather (LDS) | `utility` | 9 kHz - 11.3 kHz | `band` | `navigation` | `navigation` | no stable band mapping |
 | 4 | Radionavigation | `marine` | 11.3 kHz - 14 kHz | `band` | `navigation` | `navigation` | no stable band mapping |
 | 5 | Maritime Mobile Service | `marine` | 14 kHz - 19.95 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 6 | 20KHz Time Signal | `utility` | 19.95 kHz - 20.05 kHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 6 | 20KHz Time Signal | `utility` | 19.95 kHz - 20.05 kHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 7 | Maritime Mobile Service | `marine` | 20.05 kHz - 76.85 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 8 | DCF77 (DE) | `utility` | 76.85 kHz - 78.15 kHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 9 | Maritime Mobile Service | `marine` | 78.15 kHz - 123.6 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 10 | RFID (LF) | `utility` | 123.6 kHz - 135.7 kHz | `band` | `ism` | `ism` | no stable band mapping |
+| 10 | RFID (LF) | `utility` | 123.6 kHz - 135.7 kHz | `band` | `ISM` | `ISM` | no stable band mapping |
 | 11 | Maritime Mobile Service | `marine` | 137.8 kHz - 148.5 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 12 | Long Wave / Aeronautical Radionavigation | `broadcast` | 255 kHz - 283.5 kHz | `band` | `navigation` | `navigation` | no stable band mapping |
 | 13 | Aeronautical Radionavigation / Maritime | `aviation` | 479 kHz - 526.5 kHz | `band` | `navigation` | `navigation` | no stable band mapping |
@@ -2083,14 +2071,14 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 23 | Distress and Calling for Maritime and Aeronautical | `aviation` | 2.1735 MHz - 2.1905 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 24 | Maritime Mobile | `marine` | 2.1905 MHz - 2.194 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 25 | Aeronautical Mobile | `aviation` | 2.194 MHz - 2.3 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
-| 26 | Standard Frequency and Time Signal | `utility` | 2.498 MHz - 2.501 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 27 | Standard Frequency and Time Signal / Spatial research | `utility` | 2.501 MHz - 2.502 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 26 | Standard Frequency and Time Signal | `utility` | 2.498 MHz - 2.501 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 27 | Standard Frequency and Time Signal / Spatial research | `utility` | 2.501 MHz - 2.502 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 28 | Aeronautical Mobile Service | `aviation` | 2.502 MHz - 2.625 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 29 | Maritime Mobile Service | `marine` | 2.625 MHz - 2.65 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 30 | Aeronautical Mobile Service | `aviation` | 2.65 MHz - 2.85 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 31 | Maritime Mobile | `marine` | 3.155 MHz - 3.2 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 32 | Standard Frequency and Time Signal | `utility` | 4.995 MHz - 5.003 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 33 | Standard Frequency and Time Signal / Spatial research | `utility` | 5.003 MHz - 5.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 32 | Standard Frequency and Time Signal | `utility` | 4.995 MHz - 5.003 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 33 | Standard Frequency and Time Signal / Spatial research | `utility` | 5.003 MHz - 5.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 34 | Maritime Mobile/ Private Land Mobile | `aviation` | 5.06 MHz - 5.3305 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 35 | Distress | `aviation` | 6.21375 MHz - 6.21625 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 36 | Long Distance Communications | `aviation` | 6.795 MHz - 7 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
@@ -2100,8 +2088,8 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 40 | (Ship/Shore) Maritime | `marine` | 7.85 MHz - 8.28975 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 41 | Maritime Mobile/ Private Land Mobile | `marine` | 9.108 MHz - 9.4 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 42 | Private Land Mobile | `utility` | 9.9 MHz - 9.995 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 43 | Standard Frequency and Time Signal | `utility` | 9.995 MHz - 10.003 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 44 | Standard Frequency and Time Signal / Spatial research | `utility` | 10.003 MHz - 10.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 43 | Standard Frequency and Time Signal | `utility` | 9.995 MHz - 10.003 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 44 | Standard Frequency and Time Signal / Spatial research | `utility` | 10.003 MHz - 10.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 45 | MARS | `marine` | 11.407 MHz - 11.41 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 46 | Aeronautical | `aviation` | 11.41 MHz - 11.6 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 47 | (Ship/Shore) Maritime | `aviation` | 12.1 MHz - 12.28875 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
@@ -2110,17 +2098,17 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 50 | Radio Astronomy | `utility` | 13.36 MHz - 13.41 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 51 | (Ship/Shore) Maritime | `aviation` | 13.41 MHz - 13.553 MHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 52 | 22m (HiFER) Band and 22m ISM | `amateur` | 13.553 MHz - 13.567 MHz | `band` | `amateur` | `amateur` | no stable band mapping |
-| 53 | 22m ISM Band | `utility` | 13.567 MHz - 13.57 MHz | `band` | `ism` | `ism` | no stable band mapping |
+| 53 | 22m ISM Band | `utility` | 13.567 MHz - 13.57 MHz | `band` | `ISM` | `ISM` | no stable band mapping |
 | 54 | Fixed and Aero mobile | `utility` | 13.87 MHz - 14 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 55 | Private Land Mobile | `utility` | 14.35 MHz - 14.995 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 56 | Standard Frequency and Time Signal | `utility` | 14.995 MHz - 15.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 56 | Standard Frequency and Time Signal | `utility` | 14.995 MHz - 15.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 57 | (Ship/Shore) Maritime | `marine` | 15.8 MHz - 17.48 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 58 | (Ship/Shore) Maritime/ Fixed Service | `marine` | 18.168 MHz - 18.9 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 59 | (Ship/Shore) Maritime | `marine` | 19.02 MHz - 19.995 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 60 | Standard Frequency and Time Signal | `utility` | 19.995 MHz - 20.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 60 | Standard Frequency and Time Signal | `utility` | 19.995 MHz - 20.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 61 | Private Land Mobile | `utility` | 20.005 MHz - 21 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 62 | Maritime | `marine` | 24.99 MHz - 24.995 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 63 | Standard Frequency and Time Signal | `utility` | 24.995 MHz - 25.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 63 | Standard Frequency and Time Signal | `utility` | 24.995 MHz - 25.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 64 | Radio Astronomy | `utility` | 25.55 MHz - 25.67 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 65 | Maritime | `marine` | 26.1 MHz - 26.957 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 66 | Maritime | `marine` | 27.283 MHz - 27.41 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
@@ -2144,7 +2132,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 84 | Radio Astronomy / Defence | `utility` | 322 MHz - 328.6 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 85 | Defence Systems, PMR/PMAR/PPDR | `military` | 335.4 MHz - 399.9 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 86 | MSS Earth stations | `satellite` | 399.9 MHz - 400.05 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 87 | Standard Frequency and Time Signal-Satellite Service | `satellite` | 400.05 MHz - 400.15 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 87 | Standard Frequency and Time Signal-Satellite Service | `satellite` | 400.05 MHz - 400.15 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 88 | (NVNG)/ Mobile Satellite Service (MSS) | `satellite` | 400.15 MHz - 401 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
 | 89 | Earth Exploration Satellite | `satellite1` | 401 MHz - 403 MHz | `band` | `satellite` | `satellite` | no stable band mapping |
 | 90 | Meteorological and Medical Aids | `utility` | 403 MHz - 406 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
@@ -2191,47 +2179,48 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 131 | Digital Networks | `utility` | 3.475 GHz - 4.2 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 132 | Altimeters | `aviation` | 4.2 GHz - 4.4 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 133 | Feeder link | `satellite` | 5.15 GHz - 5.25 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 134 | Digital Networks and LPR | `utility` | 5.925 GHz - 7.75 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 135 | LPR | `utility` | 7.75 GHz - 7.975 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 136 | Remote sensing | `utility` | 7.975 GHz - 8.215 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 137 | TLPR and SRD | `utility` | 8.215 GHz - 8.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 138 | Radar Doppler | `aviation` | 8.65 GHz - 8.85 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
-| 139 | Maritime Radar | `marine` | 8.85 GHz - 9 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 140 | Radar and transponder SART | `marine` | 9 GHz - 9.5 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 141 | TLPR and SRD | `utility` | 9.5 GHz - 10 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 142 | Point to point TV networks | `utility` | 10.5 GHz - 10.68 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 143 | Digital network (fixed) | `utility` | 10.68 GHz - 11.7 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 144 | TV satellite | `satellite` | 11.7 GHz - 12.5 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 145 | Digital network (fixed) | `utility` | 12.5 GHz - 13.25 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 146 | Satellite Uplink | `satellite` | 14 GHz - 14.5 GHz | `segment` | `satellite` | `satellite` | no stable band mapping |
-| 147 | Digital network (fixed) | `utility` | 14.5 GHz - 14.62 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 148 | Digital network (fixed) | `utility` | 15.23 GHz - 15.35 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 149 | Digital network (poit to point) | `utility` | 17.1 GHz - 19.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 150 | Feeder link | `satellite` | 19.3 GHz - 19.7 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 151 | HEST, LEST, ESIM, ESOMP | `satellite` | 19.7 GHz - 20.2 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
-| 152 | Digital network (fixed) | `utility` | 22 GHz - 22.33 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 153 | Digital network (fixed) | `utility` | 22.67475 GHz - 2.28335 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
-| 154 | Digital network (fixed), SAP/SAB | `utility` | 22.92675 GHz - 23.15 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 155 | Digital network (fixed) | `utility` | 23.15 GHz - 23.338 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 156 | Digital network (point to point, multipoint) | `utility` | 24.45 GHz - 25.109 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 157 | LPR, SRD and SRR | `utility` | 25.109 GHz - 2.5445 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
-| 158 | Network (point to point, multipoint) | `utility` | 2.5445 GHz - 2.6117 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 159 | LPR, SRD and SRR | `utility` | 2.6117 GHz - 2.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 160 | Terrestrial electric utility | `utility` | 26.5 GHz - 27.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 161 | Network (point to point, multipoint) | `utility` | 27.5 GHz - 29.1 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 162 | Network (point to point, multipoint) | `utility` | 29.1 GHz - 29.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 163 | Network (point to point, multipoint) | `utility` | 31 GHz - 31.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 164 | Network (high density, fixed) | `utility` | 31.983 GHz - 32.599 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 165 | Network (high density, fixed) | `utility` | 32.795 GHz - 33.4 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 166 | Network (high density, fixed) | `utility` | 37.338 GHz - 38.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 167 | Network (high density, fixed) | `utility` | 38.59 GHz - 39.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 168 | FWS systems (fixed) | `utility` | 40.5 GHz - 43.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 169 | Network (high density, fixed) | `utility` | 51.4 GHz - 52.6 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 170 | Network (high density, fixed) | `utility` | 55.78 GHz - 61 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 171 | Network (high density, fixed) | `utility` | 64 GHz - 66 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 172 | Links (high density, fixed) | `utility` | 71 GHz - 74 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 173 | LPR, SRD, SRR, TLPR, vehichle radar | `utility` | 74 GHz - 76.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
-| 174 | Links (high density, fixed) | `utility` | 84 GHz - 86 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 134 | Digital networks and 802.11 | `utility` | 5.25 GHz - 5.65 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
+| 135 | Digital Networks and LPR | `utility` | 5.925 GHz - 7.75 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 136 | LPR | `utility` | 7.75 GHz - 7.975 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 137 | Remote sensing | `utility` | 7.975 GHz - 8.215 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 138 | TLPR and SRD | `utility` | 8.215 GHz - 8.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 139 | Radar Doppler | `aviation` | 8.65 GHz - 8.85 GHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
+| 140 | Maritime Radar | `marine` | 8.85 GHz - 9 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
+| 141 | Radar and transponder SART | `marine` | 9 GHz - 9.5 GHz | `band` | `maritime` | `maritime` | no stable band mapping |
+| 142 | TLPR and SRD | `utility` | 9.5 GHz - 10 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 143 | Point to point TV networks | `utility` | 10.5 GHz - 10.68 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 144 | Digital network (fixed) | `utility` | 10.68 GHz - 11.7 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 145 | TV satellite | `satellite` | 11.7 GHz - 12.5 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 146 | Digital network (fixed) | `utility` | 12.5 GHz - 13.25 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 147 | Satellite Uplink | `satellite` | 14 GHz - 14.5 GHz | `segment` | `satellite` | `satellite` | no stable band mapping |
+| 148 | Digital network (fixed) | `utility` | 14.5 GHz - 14.62 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 149 | Digital network (fixed) | `utility` | 15.23 GHz - 15.35 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 150 | Digital network (poit to point) | `utility` | 17.1 GHz - 19.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 151 | Feeder link | `satellite` | 19.3 GHz - 19.7 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 152 | HEST, LEST, ESIM, ESOMP | `satellite` | 19.7 GHz - 20.2 GHz | `band` | `satellite` | `satellite` | no stable band mapping |
+| 153 | Digital network (fixed) | `utility` | 22 GHz - 22.33 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 154 | Digital network (fixed) | `utility` | 22.67475 GHz - 2.28335 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
+| 155 | Digital network (fixed), SAP/SAB | `utility` | 22.92675 GHz - 23.15 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 156 | Digital network (fixed) | `utility` | 23.15 GHz - 23.338 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 157 | Digital network (point to point, multipoint) | `utility` | 24.45 GHz - 25.109 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 158 | LPR, SRD and SRR | `utility` | 25.109 GHz - 2.5445 GHz | `band` | `land-mobile` | `land-mobile` | invalid reversed frequency span |
+| 159 | Network (point to point, multipoint) | `utility` | 2.5445 GHz - 2.6117 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 160 | LPR, SRD and SRR | `utility` | 2.6117 GHz - 2.65 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 161 | Terrestrial electric utility | `utility` | 26.5 GHz - 27.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 162 | Network (point to point, multipoint) | `utility` | 27.5 GHz - 29.1 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 163 | Network (point to point, multipoint) | `utility` | 29.1 GHz - 29.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 164 | Network (point to point, multipoint) | `utility` | 31 GHz - 31.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 165 | Network (high density, fixed) | `utility` | 31.983 GHz - 32.599 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 166 | Network (high density, fixed) | `utility` | 32.795 GHz - 33.4 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 167 | Network (high density, fixed) | `utility` | 37.338 GHz - 38.3 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 168 | Network (high density, fixed) | `utility` | 38.59 GHz - 39.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 169 | FWS systems (fixed) | `utility` | 40.5 GHz - 43.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 170 | Network (high density, fixed) | `utility` | 51.4 GHz - 52.6 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 171 | Network (high density, fixed) | `utility` | 55.78 GHz - 61 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 172 | Network (high density, fixed) | `utility` | 64 GHz - 66 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 173 | Links (high density, fixed) | `utility` | 71 GHz - 74 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 174 | LPR, SRD, SRR, TLPR, vehichle radar | `utility` | 74 GHz - 76.5 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
+| 175 | Links (high density, fixed) | `utility` | 84 GHz - 86 GHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 
 ### QO-100 (`qo-100.json`)
 
@@ -2247,7 +2236,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 |---:|---|---|---|---|---|---|---|
 | 1 | Radio Navigation | `aviation` | 8.3 kHz - 14 kHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
 | 2 | Coastal Telegraph | `marine` | 14 kHz - 19.95 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
-| 3 | Standard Frequency Time Signal | `utility` | 19.95 kHz - 20.25 kHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 3 | Standard Frequency Time Signal | `utility` | 19.95 kHz - 20.25 kHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 4 | Coastal Telegraph | `marine` | 20.25 kHz - 70 kHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 5 | Radio Navigation | `navigation` | 70 kHz - 160 kHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 6 | Aviation Radio Navigation | `aviation` | 160 kHz - 285 kHz | `band` | `aviation` | `aviation-communication` | no stable band mapping |
@@ -2260,18 +2249,18 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 13 | Distress Call | `marine` | 2.065 MHz - 2.107 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 14 | International Distress Search and Rescue | `mobile` | 2.1735 MHz - 2.1905 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 15 | Road Management | `fixed` | 2.194 MHz - 2.495 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 16 | Standard Frequency Time Signal | `utility` | 2.495 MHz - 2.505 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 16 | Standard Frequency Time Signal | `utility` | 2.495 MHz - 2.505 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 17 | Ship Station Telephone | `fixed` | 2.505 MHz - 2.85 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 18 | Experimental Station | `fixed` | 3.55 MHz - 3.79 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 19 | Standard Frequency Time Signal | `utility` | 3.995 MHz - 4.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 19 | Standard Frequency Time Signal | `utility` | 3.995 MHz - 4.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 20 | Ship Station Telephone | `marine` | 4.005 MHz - 4.063 MHz | `band` | `maritime` | `maritime` | no stable band mapping |
 | 21 | Radiolocation | `radiolocation` | 4.438 MHz - 4.488 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 22 | Calling Response | `fixed` | 4.488 MHz - 4.65 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 23 | Standard Frequency Time Signal | `utility` | 4.995 MHz - 5.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 24 | Standard Frequency Time Signal | `utility` | 7.995 MHz - 8.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
-| 25 | Standard Frequency Time Signal | `utility` | 9.995 MHz - 10.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 23 | Standard Frequency Time Signal | `utility` | 4.995 MHz - 5.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 24 | Standard Frequency Time Signal | `utility` | 7.995 MHz - 8.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
+| 25 | Standard Frequency Time Signal | `utility` | 9.995 MHz - 10.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 26 | Radio Astronomy | `astronomy` | 13.36 MHz - 13.41 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 27 | Standard Frequency Time Signal | `utility` | 15.995 MHz - 16.005 MHz | `channel` | `time-standard` | `time-standard` | individual channel/bookmark; not a band |
+| 27 | Standard Frequency Time Signal | `utility` | 15.995 MHz - 16.005 MHz | `channel` | `time-standard` | `time-standard` | individual frequency assignment; not a band |
 | 28 | Flood Warning | `broadcast` | 72 MHz - 74.8 MHz | `band` | `land-mobile` | `land-mobile` | service has no stable frequency-band catalog |
 | 29 | General Communication | `fixed` | 146 MHz - 148 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 30 | Low Power Device | `fixed` | 162.0375 MHz - 174 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
@@ -2291,10 +2280,10 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 2 | Military Air | `military` | 225 MHz - 240 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 3 | Military Sat / Military Air | `military` | 240 MHz - 270 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
 | 4 | Military Air | `military` | 270 MHz - 380 MHz | `band` | `other` | `unknown` | service has no stable frequency-band catalog |
-| 5 | LTE-FDD-450 Uplink | `broadcast` | 451 MHz - 456 MHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
-| 6 | LTE-FDD-450 Downlink | `broadcast` | 461 MHz - 466 MHz | `segment` | `cellular` | `cellular-lte` | no stable band mapping |
+| 5 | LTE-FDD-450 Uplink | `broadcast` | 451 MHz - 456 MHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
+| 6 | LTE-FDD-450 Downlink | `broadcast` | 461 MHz - 466 MHz | `segment` | `cellular` | `cellular-LTE` | no stable band mapping |
 | 7 | L-Band | `broadcast` | 1 GHz - 1.089998 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
-| 8 | ADS-B / L-Band | `broadcast` | 1.089998 GHz - 1.090002 GHz | `channel` | `aviation` | `aviation-surveillance` | individual channel/bookmark; not a band |
+| 8 | ADS-B / L-Band | `broadcast` | 1.089998 GHz - 1.090002 GHz | `channel` | `aviation` | `aviation-surveillance` | individual frequency assignment; not a band |
 | 9 | L-Band | `broadcast` | 1.090002 GHz - 1.26 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
 | 10 | L-Band | `broadcast` | 1.3 GHz - 1.71 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
 | 11 | L-Band | `broadcast` | 1.785 GHz - 1.805 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
@@ -2311,11 +2300,13 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 22 | S-Band | `broadcast` | 2.4835 GHz - 2.5 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
 | 23 | S-Band | `broadcast` | 2.69 GHz - 4 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
 | 24 | C-Band | `broadcast` | 4 GHz - 5.15 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
-| 25 | C-Band | `broadcast` | 5.35 GHz - 5.65 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
-| 26 | C-Band | `broadcast` | 5.85 GHz - 5.65 GHz | `spectrum-range` | `other` | `spectrum` | invalid reversed frequency span |
-| 27 | C-Band | `broadcast` | 5.85 GHz - 8 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
-| 28 | X-Band | `broadcast` | 8 GHz - 10 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
-| 29 | X-Band | `broadcast` | 10.5 GHz - 12 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
+| 25 | 5GHz WiFi / C-Band | `broadcast` | 5.15 GHz - 5.35 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
+| 26 | C-Band | `broadcast` | 5.35 GHz - 5.65 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
+| 27 | C-Band / 5GHz WiFi | `broadcast` | 5.76 GHz - 5.762 GHz | `band` | `RLAN` | `RLAN` | no stable band mapping |
+| 28 | C-Band | `broadcast` | 5.85 GHz - 5.65 GHz | `spectrum-range` | `other` | `spectrum` | invalid reversed frequency span |
+| 29 | C-Band | `broadcast` | 5.85 GHz - 8 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
+| 30 | X-Band | `broadcast` | 8 GHz - 10 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
+| 31 | X-Band | `broadcast` | 10.5 GHz - 12 GHz | `spectrum-range` | `other` | `spectrum` | service-independent spectrum range; not a service band |
 
 ### Turkey (`turkey.json`)
 
@@ -2378,7 +2369,7 @@ This is the exhaustive legacy-side provenance for the canonical decisions in `ba
 | 39 | Band 1 Cell phone downlink | `cellular` | 2.1103 GHz - 2.1697 GHz | `segment` | `cellular` | `cellular-other` | no stable band mapping |
 | 40 | Band 38 Cell phones | `cellular` | 2.5 GHz - 269 MHz | `band` | `cellular` | `cellular-other` | invalid reversed frequency span |
 | 41 | Band 42 5G Cell phones | `cellular` | 3.41 GHz - 3.72 GHz | `band` | `cellular` | `cellular-other` | no stable band mapping |
-| 42 | ISM - wifi | `ISM` | 5.15 GHz - 5.85 GHz | `band` | `rlan` | `rlan` | composite span crosses multiple stable bands |
+| 42 | ISM - wifi | `ISM` | 5.15 GHz - 5.85 GHz | `band` | `RLAN` | `RLAN` | composite span crosses multiple stable bands |
 
 ### USA (`usa.json`)
 

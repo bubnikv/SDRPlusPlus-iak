@@ -18,107 +18,92 @@ namespace freq_input {
         // being confused with ITU UHF (300 MHz-3 GHz).
         static constexpr auto SPECTRUM_RANGES = std::array{
             SpectrumRange{
-                SpectrumRangeScheme::Itu,
                 "VLF",
-                "spectrum:itu:vlf",
+                "ITU:VLF",
                 3'000LL,
                 30'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Itu,
                 "LF",
-                "spectrum:itu:lf",
+                "ITU:LF",
                 30'000LL,
                 300'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Itu,
                 "MF",
-                "spectrum:itu:mf",
+                "ITU:MF",
                 300'000LL,
                 3'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Itu,
                 "HF",
-                "spectrum:itu:hf",
+                "ITU:HF",
                 3'000'000LL,
                 30'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Itu,
                 "VHF",
-                "spectrum:itu:vhf",
+                "ITU:VHF",
                 30'000'000LL,
                 300'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "UHF",
-                "spectrum:ieee521-2026:uhf",
+                "IEEE-521-2026:UHF",
                 300'000'000LL,
                 1'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "L",
-                "spectrum:ieee521-2026:l",
+                "IEEE-521-2026:L",
                 1'000'000'000LL,
                 2'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "S",
-                "spectrum:ieee521-2026:s",
+                "IEEE-521-2026:S",
                 2'000'000'000LL,
                 4'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "C",
-                "spectrum:ieee521-2026:c",
+                "IEEE-521-2026:C",
                 4'000'000'000LL,
                 8'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "X",
-                "spectrum:ieee521-2026:x",
+                "IEEE-521-2026:X",
                 8'000'000'000LL,
                 12'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "Ku",
-                "spectrum:ieee521-2026:ku",
+                "IEEE-521-2026:Ku",
                 12'000'000'000LL,
                 18'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "K",
-                "spectrum:ieee521-2026:k",
+                "IEEE-521-2026:K",
                 18'000'000'000LL,
                 27'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "Ka",
-                "spectrum:ieee521-2026:ka",
+                "IEEE-521-2026:Ka",
                 27'000'000'000LL,
                 40'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "V",
-                "spectrum:ieee521-2026:v",
+                "IEEE-521-2026:V",
                 40'000'000'000LL,
                 75'000'000'000LL
             },
             SpectrumRange{
-                SpectrumRangeScheme::Ieee521,
                 "W",
-                "spectrum:ieee521-2026:w",
+                "IEEE-521-2026:W",
                 75'000'000'000LL,
                 110'000'000'000LL
             }
@@ -151,14 +136,6 @@ namespace freq_input {
             "Spectrum navigation ranges must be valid, continuous, "
             "non-overlapping, and uniquely identified");
 
-    }
-
-    std::string_view spectrumRangeSchemeKey(SpectrumRangeScheme scheme) {
-        switch (scheme) {
-            case SpectrumRangeScheme::Itu: return "itu";
-            case SpectrumRangeScheme::Ieee521: return "ieee521-2026";
-        }
-        return "itu";
     }
 
     const SpectrumRange* spectrumRanges(std::size_t& count) {

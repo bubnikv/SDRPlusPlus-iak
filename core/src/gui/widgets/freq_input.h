@@ -1,6 +1,7 @@
 #pragma once
 #include <imgui.h>
 #include <stdint.h>
+#include <memory>
 #include <string>
 
 namespace bandplan {
@@ -16,12 +17,17 @@ namespace bandplan {
 // keypad page returns in its Outcome.
 namespace freq_input {
 
+    namespace canonical_bands {
+        class Cache;
+    }
+
     // The tuning situation a page works against: where the radio is now, and
     // what the source will accept. This is the (limitFreq, minFreq, maxFreq)
     // argument tail that every keypad helper used to thread through by hand.
     struct Context {
         uint64_t frequency = 0; // current display frequency, Hz
         bool limited = false;   // the source imposes a tuning range
+        //FIXME fill in where the minFreq/maxFreq come from, what they mean.
         uint64_t minFreq = 0;
         uint64_t maxFreq = 0;
 
@@ -106,10 +112,17 @@ namespace freq_input {
     // gui::bandStack. See bands.cpp.
     class Bands {
     public:
+        Bands();
+        ~Bands();
+
         void onOpen();
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:
+        // Expensive canonical projection of the immutable selected plan,
+        // rebuilt only when the plan revision or source tuning limits change.
+        std::unique_ptr<canonical_bands::Cache> canonicalCache;
+
         // Selected presentation group ("Ham", ..., "All"), restored exactly
         // from config on open.
         std::string category;

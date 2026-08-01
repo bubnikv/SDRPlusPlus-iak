@@ -78,8 +78,12 @@ namespace bandplanmenu {
             core::configManager.release(true);
         }
 
-        bandplan::BandPlan_t plan = bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
+        const bandplan::BandPlan_t& plan =
+            bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
         ImGui::Text("Country: %s (%s)", plan.countryName.c_str(), plan.countryCode.c_str());
         ImGui::Text("Author: %s", plan.authorName.c_str());
+        if (!plan.authorURL.empty() && plan.authorURL != "none") {
+            ImGui::TextWrapped("Author URL: %s", plan.authorURL.c_str());
+        }
     }
 };

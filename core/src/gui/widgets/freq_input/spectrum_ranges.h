@@ -6,20 +6,13 @@
 
 namespace freq_input {
 
-    // Nomenclature owning a range's public name and stable ID. The selector
-    // deliberately combines the globally useful ITU names at lower
-    // frequencies with the more familiar IEEE microwave names.
-    enum class SpectrumRangeScheme {
-        Itu,
-        Ieee521
-    };
-
     // A service-independent, continuous RF navigation range. Unlike a radio
     // service band, these ranges never overlap and do not participate in band
     // stacking.
     struct SpectrumRange {
-        SpectrumRangeScheme scheme;
         std::string_view name;
+        // Canonical, case-sensitive identity. Standard names and band letters
+        // retain their official capitalization; callers must not case-fold it.
         std::string_view rangeId;
         std::int64_t startHz;
         std::int64_t endHz;
@@ -33,8 +26,6 @@ namespace freq_input {
         std::int64_t endHz = 0;
         bool partial = false;
     };
-
-    std::string_view spectrumRangeSchemeKey(SpectrumRangeScheme scheme);
 
     // The default continuous ITU/IEEE analyzer-navigation table, ordered by
     // frequency. Ranges use [startHz, endHz) containment so exact boundaries

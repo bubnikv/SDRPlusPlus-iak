@@ -93,22 +93,22 @@ namespace {
         double start,
         double end)
     {
-        std::size_t mappingCount = 0;
-        const freq_input::BandMapping* mappings =
-            freq_input::bandMappings(service, mappingCount);
+        const freq_input::BandMappingTable table =
+            freq_input::bandMappings(service);
         std::size_t matches = 0;
         for (std::size_t mappingIndex = 0;
-             mappingIndex < mappingCount;
+             mappingIndex < table.mappingCount;
              mappingIndex++)
         {
-            const freq_input::BandMapping& mapping = mappings[mappingIndex];
+            const freq_input::BandMapping& mapping =
+                table.mappings[mappingIndex];
             if (mapping.family != family) { continue; }
             for (std::size_t probeIndex = 0;
                  probeIndex < mapping.probeCount;
                  probeIndex++)
             {
-                const double probe =
-                    static_cast<double>(mapping.probesHz[probeIndex]);
+                const double probe = static_cast<double>(
+                    table.probesHz[mapping.probeOffset + probeIndex]);
                 if (probe >= start && probe <= end) {
                     matches++;
                     break;
@@ -125,13 +125,8 @@ namespace {
         if (row.entityKind == freq_input::LegacyEntityKind::SpectrumRange) {
             return "service-independent spectrum range; not a service band";
         }
-        if (row.entityKind == freq_input::LegacyEntityKind::Channel ||
-            row.entityKind == freq_input::LegacyEntityKind::Bookmark)
-        {
-            return "individual channel/bookmark; not a band";
-        }
-        if (row.entityKind == freq_input::LegacyEntityKind::ServiceEnvelope) {
-            return "broad service envelope; not one stable band";
+        if (row.entityKind == freq_input::LegacyEntityKind::Channel) {
+            return "individual frequency assignment; not a band";
         }
         if (row.service == freq_input::BandService::TimeStandard) {
             return "isolated time/frequency channel data; not a band";
@@ -218,31 +213,14 @@ int main(int argc, char** argv) {
                         row.name,
                         row.start,
                         row.end);
-                if (value.contains("service")) {
-                    row.service = freq_input::bandServiceFromKey(
-                        value.at("service").get<std::string>());
-                }
-                else {
-                    row.service = classification.service;
-                }
-                row.family = value.contains("family")
-                    ? freq_input::bandFamilyFromKey(
-                        value.at("family").get<std::string>())
-                    : classification.family;
-                row.entityKind = value.contains("entity_kind")
-                    ? freq_input::legacyEntityKindFromKey(
-                        value.at("entity_kind").get<std::string>())
-                    : classification.entityKind;
+                row.service = classification.service;
+                row.family = classification.family;
+                row.entityKind = classification.entityKind;
 
                 if (row.bandId.empty()) {
-                    const freq_input::LegacyBandClassification resolved{
-                        row.service,
-                        row.family,
-                        row.entityKind
-                    };
                     const freq_input::BandMapping* mapping =
                         freq_input::findLegacyBandMapping(
-                            resolved,
+                            classification,
                             row.start,
                             row.end);
                     if (mapping) { row.bandId = std::string(mapping->bandId); }
@@ -280,25 +258,29 @@ int main(int argc, char** argv) {
                 << unassigned.size() << "\n\n";
 
         *output << "## Deliberate mapping revisions\n\n";
-        *output << "- Removed `band:time-standard:lf`: it grouped isolated "
+        *output << "- Removed `time-standard:LF`: it grouped isolated "
                    "20 and 77.5 kHz channels rather than an enclosing band.\n";
-        *output << "- Removed `band:time-standard:hf`: it grouped isolated "
+        *output << "- Removed `time-standard:HF`: it grouped isolated "
                    "channels from 2.5 through 25 MHz with dissimilar "
                    "propagation.\n";
-        *output << "- Removed `band:navigation:marker-75mhz`: the legacy rows "
+        *output << "- Removed `navigation:marker-75MHz`: the legacy rows "
                    "describe the 75 MHz marker channel/window, not a "
                    "channelized navigation band.\n";
-        *output << "- Replaced `band:aviation:adsb-dme-tacan` with "
-                   "`band:aviation:l-band`; its probes identify the enclosing "
+        *output << "- Replaced `aviation:ADS-B-DME-TACAN` with "
+                   "`aviation:L-band`; its probes identify the enclosing "
                    "L-band and deliberately do not turn narrow ADS-B channel "
                    "rows into bands.\n";
-        *output << "- Split `band:aviation:hf:3mhz` into the distinct "
-                   "`band:aviation:hf:3.4mhz` and "
-                   "`band:aviation:hf:3.8mhz` bands.\n";
+        *output << "- Split `aviation:HF:3MHz` into the distinct "
+                   "`aviation:HF:3.4MHz` and "
+                   "`aviation:HF:3.8MHz` bands.\n";
         *output << "- Removed generic 5 GHz ISM IDs: neither the compared "
                    "KiwiSDR / OpenWebRX+ band tables nor the legacy rows define "
-                   "those broad ranges as ISM bands. Legacy Wi-Fi ranges remain "
-                   "classified under their narrower RLAN IDs.\n";
+                   "those broad ranges as ISM bands. Wi-Fi remains classified "
+                   "as RLAN.\n";
+        *output << "- Replaced the non-standard 5 GHz RLAN "
+                   "lower/middle/upper labels with explicit 5150-5250, "
+                   "5250-5350, 5470-5725, and 5725-5850 MHz sub-band IDs. "
+                   "Composite legacy envelopes remain unassigned.\n";
         *output << "- Classified television/DVB separately from sound "
                    "broadcasting and added VHF-low, VHF-high, and UHF "
                    "television band IDs.\n";
