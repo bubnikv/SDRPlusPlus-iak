@@ -30,6 +30,14 @@ namespace spyservervfo {
 
         int computeDigitalGain(int serverBits, int deviceGain, int decimationId);
 
+        // Reads and RESETS the accumulated raw-IQ level metrics for the Auto
+        // digital-gain servo (main.cpp poll thread). 'peak' is the per-component
+        // maximum as a fraction of full scale (0..1), 'railedFrac' the fraction
+        // of components sitting on the integer rail (0..1). Returns false when no
+        // integer IQ has been measured since the last read (Float32 stream or
+        // idle) - the servo then leaves the gain untouched.
+        bool readIqMeter(float& peak, float& railedFrac);
+
         SpyServerDeviceInfo devInfo;
         uint32_t canControl = 1;
 
@@ -66,6 +74,15 @@ namespace spyservervfo {
         FFTHandler fftHandlerCb;
         void* fftHandlerCtx;
         std::vector<float> fftConvBuf; // scratch buffer for FFT dB conversion
+
+        // Raw-IQ level meter, filled per IQ message on the network thread and
+        // drained by the poll thread via readIqMeter(). Only UInt8/Int16 update
+        // it; Float32 never does (nothing clips there).
+        void updateIqMeter(float peak, uint64_t railed, uint64_t total);
+        std::mutex meterMtx;
+        float    meterPeak = 0.0f;
+        uint64_t meterRailed = 0;
+        uint64_t meterTotal = 0;
     };
 
     typedef std::unique_ptr<SpyServerVFOClientClass> SpyServerVFOClient;
