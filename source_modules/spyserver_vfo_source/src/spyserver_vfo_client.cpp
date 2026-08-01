@@ -64,6 +64,22 @@ namespace spyservervfo {
         }
     }
 
+    void SpyServerVFOClientClass::updateIqMeter(float peak, uint64_t railed, uint64_t total) {
+        std::lock_guard<std::mutex> lck(meterMtx);
+        if (peak > meterPeak) { meterPeak = peak; }
+        meterRailed += railed;
+        meterTotal  += total;
+    }
+
+    bool SpyServerVFOClientClass::readIqMeter(float& peak, float& railedFrac) {
+        std::lock_guard<std::mutex> lck(meterMtx);
+        if (meterTotal == 0) { return false; }
+        peak       = meterPeak;
+        railedFrac = (float)meterRailed / (float)meterTotal;
+        meterPeak = 0.0f; meterRailed = 0; meterTotal = 0;
+        return true;
+    }
+
     bool SpyServerVFOClientClass::waitForDevInfo(int timeoutMS) {
         std::unique_lock lck(deviceInfoMtx);
         auto now = std::chrono::system_clock::now();
@@ -177,15 +193,40 @@ namespace spyservervfo {
             int sampCount = _this->receivedHeader.BodySize / (sizeof(uint8_t) * 2);
             float gain = pow(10, (double)mflags / 20.0);
             float scale = 1.0f / (gain * 128.0f);
+            float mPeak = 0.0f; uint64_t mRailed = 0;
             for (int i = 0; i < sampCount; i++) {
-                _this->iqOutput->writeBuf[i].re = ((float)_this->readBuf[(2 * i)] - 128.0f) * scale;
-                _this->iqOutput->writeBuf[i].im = ((float)_this->readBuf[(2 * i) + 1] - 128.0f) * scale;
+                uint8_t rawI = _this->readBuf[(2 * i)];
+                uint8_t rawQ = _this->readBuf[(2 * i) + 1];
+                // Level meter on the RAW bytes, before the mflags renormalization
+                // above hides how close they sit to the rail. Zero is at 128, the
+                // rails are bytes 0 and 255 (per-component - each saturates alone).
+                float aI = fabsf((float)rawI - 128.0f) / 128.0f;
+                float aQ = fabsf((float)rawQ - 128.0f) / 128.0f;
+                if (aI > mPeak) { mPeak = aI; }
+                if (aQ > mPeak) { mPeak = aQ; }
+                if (rawI == 0 || rawI == 255) { mRailed++; }
+                if (rawQ == 0 || rawQ == 255) { mRailed++; }
+                _this->iqOutput->writeBuf[i].re = ((float)rawI - 128.0f) * scale;
+                _this->iqOutput->writeBuf[i].im = ((float)rawQ - 128.0f) * scale;
             }
+            _this->updateIqMeter(mPeak, mRailed, (uint64_t)sampCount * 2);
             _this->iqOutput->swap(sampCount);
         }
         else if (mtype == SPYSERVER_MSG_TYPE_INT16_IQ) {
             int sampCount = _this->receivedHeader.BodySize / (sizeof(int16_t) * 2);
             float gain = pow(10, (double)mflags / 20.0);
+            // Level meter on the RAW int16s, before the volk convert renormalizes.
+            // Rails are +32767 / -32768 (per-component).
+            int16_t* raw16 = (int16_t*)_this->readBuf;
+            float mPeak = 0.0f; uint64_t mRailed = 0;
+            for (int i = 0; i < sampCount * 2; i++) {
+                int16_t s16 = raw16[i];
+                int a = (s16 < 0) ? -(int)s16 : (int)s16;
+                float m = (float)a / 32768.0f;
+                if (m > mPeak) { mPeak = m; }
+                if (s16 >= 32767 || s16 <= -32768) { mRailed++; }
+            }
+            _this->updateIqMeter(mPeak, mRailed, (uint64_t)sampCount * 2);
             volk_16i_s32f_convert_32f((float*)_this->iqOutput->writeBuf, (int16_t*)_this->readBuf, 32768.0 * gain, sampCount * 2);
             _this->iqOutput->swap(sampCount);
         }
