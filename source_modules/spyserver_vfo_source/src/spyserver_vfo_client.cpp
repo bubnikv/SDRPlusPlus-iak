@@ -48,11 +48,31 @@ namespace spyservervfo {
         return client->isOpen();
     }
 
+    // Extra baseline gain (dB) for the Airspy HF+ ceiling. The HF+'s huge analog
+    // dynamic range leaves its IQ sitting far below digital full scale, and the
+    // per-stage decimation term (decimationId*3.01) alone doesn't lift it: e.g.
+    // ~18 dB at the deepest stage. That's fine for Int16 (96 dB range, still well
+    // above the 16-bit floor) but drops BELOW the Uint8 floor (~48 dB range) ->
+    // silence. This baseline lifts the ceiling near full scale; the Auto servo
+    // pulls it back down on strong signals, so a generous ceiling is safe (it was
+    // NOT safe in the static original module - that's why Uint8 was dead there).
+    // Empirical: ~32 puts the deepest HF+ stage near the ~50 dB he measured.
+    #define SVFO_HFP_GAIN_BASE 32.0f
     int SpyServerVFOClientClass::computeDigitalGain(int serverBits, int deviceGain, int decimationId) {
         if (devInfo.DeviceType == SPYSERVER_DEVICE_AIRSPY_ONE) {
             return (devInfo.MaximumGainIndex - deviceGain) + (decimationId * 3.01f);
         }
         else if (devInfo.DeviceType == SPYSERVER_DEVICE_AIRSPY_HF) {
+            // Only the low-range Uint8 format needs the extra baseline: at the
+            // default ~18 dB the HF+'s naturally-low IQ sits below the 8-bit floor
+            // and goes silent. Int16 (96 dB) and Float32 have ample range at the
+            // plain formula and already work, so leave them on it - raising their
+            // ceiling would only add a retune-snap transient and louder empty-band
+            // hiss for no real gain. (serverBits is trustworthy on the HF+, which
+            // honours the requested format, unlike the R2's ForcedIQFormat.)
+            if (serverBits <= 8) {
+                return SVFO_HFP_GAIN_BASE + decimationId * 3.01f;
+            }
             return decimationId * 3.01f;
         }
         else if (devInfo.DeviceType == SPYSERVER_DEVICE_RTLSDR) {
