@@ -84,7 +84,7 @@ namespace demod {
             }
             ImGui::LeftLabel("Threshold");
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-            if (ImGui::SliderFloat(("##_radio_am_agc_thresh_" + name).c_str(), &agcThreshold, 0.0f, 90.0f, "%.0f dB")) {
+            if (ImGui::SliderFloat(("##_radio_am_agc_thresh_" + name).c_str(), &agcThreshold, 0.0f, 100.0f, "%.0f dB")) {
                 demod.setAGCMaxGain(powf(10.0f, agcThreshold / 20.0f));
                 saveConf("agcThreshold", agcThreshold);
             }
@@ -124,6 +124,6 @@ namespace demod {
         float agcGain = 0.0f;
         float agcAttack = 50.0f;
         float agcDecay = 5.0f;
-        float agcThreshold = 50.0f;
+        float agcThreshold = 80.0f;
     };
 }
