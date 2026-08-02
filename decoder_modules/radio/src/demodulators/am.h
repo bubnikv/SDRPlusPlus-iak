@@ -31,11 +31,13 @@ namespace demod {
             loadConf(cfg, "agcGain", agcGain);
             loadConf(cfg, "agcAttack", agcAttack);
             loadConf(cfg, "agcDecay", agcDecay);
+            loadConf(cfg, "agcThreshold", agcThreshold);
             config->release();
 
             // Define structure
             demod.init(input, (dsp::demod::AM<dsp::stereo_t>::AGCMode)agcMode, bandwidth, agcAttack / getIFSampleRate(), agcDecay / getIFSampleRate(), 100.0 / getIFSampleRate(), getIFSampleRate());
             demod.setAGCGain(powf(10.0f, agcGain / 20.0f));
+            demod.setAGCMaxGain(powf(10.0f, agcThreshold / 20.0f));
         }
 
         void start() { demod.start(); }
@@ -80,6 +82,12 @@ namespace demod {
                 demod.setAGCDecay(agcDecay / getIFSampleRate());
                 saveConf("agcDecay", agcDecay);
             }
+            ImGui::LeftLabel("Threshold");
+            ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
+            if (ImGui::SliderFloat(("##_radio_am_agc_thresh_" + name).c_str(), &agcThreshold, 0.0f, 100.0f, "%.0f dB")) {
+                demod.setAGCMaxGain(powf(10.0f, agcThreshold / 20.0f));
+                saveConf("agcThreshold", agcThreshold);
+            }
             if (!agcEnabled) { ImGui::EndDisabled(); }
         }
 
@@ -116,5 +124,6 @@ namespace demod {
         float agcGain = 0.0f;
         float agcAttack = 50.0f;
         float agcDecay = 5.0f;
+        float agcThreshold = 80.0f;
     };
 }
