@@ -91,6 +91,12 @@ namespace dsp::demod {
             agc.setDecay(decay);
         }
 
+        void setAGCMaxGain(float maxGain) {
+            assert(base_type::_block_init);
+            std::lock_guard<std::recursive_mutex> lck(base_type::ctrlMtx);
+            agc.setMaxGain(maxGain);
+        }
+
         int process(int count, const complex_t* in, T* out) {
             // Move back sideband
             xlator.process(count, in, xlator.out.writeBuf);
