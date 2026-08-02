@@ -64,6 +64,12 @@ namespace dsp::demod {
             agc.setDecay(decay);
         }
 
+        void setAGCMaxGain(float maxGain) {
+            assert(base_type::_block_init);
+            std::lock_guard<std::recursive_mutex> lck(base_type::ctrlMtx);
+            agc.setMaxGain(maxGain);
+        }
+
         void setSamplerate(double samplerate) {
             assert(base_type::_block_init);
             std::lock_guard<std::recursive_mutex> lck(base_type::ctrlMtx);
