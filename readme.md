@@ -5,7 +5,22 @@
 The fork is to support Spyserver VFO+FFT - new module Spyserver VFO+FFT added to support this mode instead of FULL IQ Spyserver mode. Only portion of IQ around tuned frequency is streamed to save the internet bandwidth. You can set various values of IQ bandwidth.
 Please, keep in mind there are still some bugs in this module!!! 
 
-<img width="447" height="800" alt="1000437473" src="https://github.com/user-attachments/assets/2e38aef2-0aaa-483b-bfc9-5a5827c2e5ce" />
+**Airspy HF+ Discovery - Measured network load with this module for various values of IQ Bandwith settings**
+
+| IQ BANDWITH | UINT8 | INT16 | FLOAT32 |
+| :---: | :---: | :---: | :---: |
+| 912 kHz | 1.87 MB/s | 3.55 MB/s | more than 5 MB/s |
+| 456 kHz | 983 kB/s | 1.87 MB/s | 3.55 MB/s |
+| 228 kHz | 520 kB/s | 980 kB/s | 1.87 MB/s  |
+| 114 kHz | 283 kB/s | 517 kB/s | 980 kB/s |
+| 57 kHz | 165 kB/s | 283 kB/s | 517 kB/s |
+| 28 kHz | 107 kB/s | 164 kB/s | 283 kB/s |
+| 14 kHz | 80 kB/s | 105 kB/s | 164 kB/s |
+
+Values measured for FFT bandwith 912 kHz.
+
+
+<img width="315" height="600" alt="4ca1fad4-90d1-473a-b955-c98ff47551dd jpeg" src="https://github.com/user-attachments/assets/953482f8-f58f-4f57-9512-2d4f03a5483f" />
 
 
 ----------------------------------------------------------------------------------
