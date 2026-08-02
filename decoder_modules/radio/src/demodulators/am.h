@@ -82,9 +82,9 @@ namespace demod {
                 demod.setAGCDecay(agcDecay / getIFSampleRate());
                 saveConf("agcDecay", agcDecay);
             }
-            ImGui::LeftLabel("Threshold");
+            ImGui::LeftLabel("AGC Threshold");
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-            if (ImGui::SliderFloat(("##_radio_am_agc_thresh_" + name).c_str(), &agcThreshold, 0.0f, 100.0f, "%.0f dB")) {
+            if (ImGui::SliderFloat(("##_radio_am_agc_thresh_" + name).c_str(), &agcThreshold, 0.0f, 120.0f, "%.0f dB")) {
                 demod.setAGCMaxGain(powf(10.0f, agcThreshold / 20.0f));
                 saveConf("agcThreshold", agcThreshold);
             }
