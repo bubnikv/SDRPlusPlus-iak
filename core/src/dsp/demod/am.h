@@ -103,6 +103,13 @@ namespace dsp::demod {
             audioAgc.setDecay(decay);
         }
 
+        void setAGCMaxGain(float maxGain) {
+            assert(base_type::_block_init);
+            std::lock_guard<std::recursive_mutex> lck(base_type::ctrlMtx);
+            carrierAgc.setMaxGain(maxGain);
+            audioAgc.setMaxGain(maxGain);
+        }
+
         void setDCBlockRate(double rate) {
             assert(base_type::_block_init);
             std::lock_guard<std::recursive_mutex> lck(base_type::ctrlMtx);
