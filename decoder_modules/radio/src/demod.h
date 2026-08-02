@@ -250,9 +250,9 @@ namespace demod {
                 demod.setAGCDecay(decay / ifSamplerate);
                 owner->saveConf("agcDecay", decay);
             }
-            ImGui::LeftLabel("Threshold");
+            ImGui::LeftLabel("AGC Threshold");
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-            if (ImGui::SliderFloat((id + "_agc_thresh_" + owner->name).c_str(), &threshold, 0.0f, 100.0f, "%.0f dB")) {
+            if (ImGui::SliderFloat((id + "_agc_thresh_" + owner->name).c_str(), &threshold, 0.0f, 120.0f, "%.0f dB")) {
                 demod.setAGCMaxGain(powf(10.0f, threshold / 20.0f));
                 owner->saveConf("agcThreshold", threshold);
             }
