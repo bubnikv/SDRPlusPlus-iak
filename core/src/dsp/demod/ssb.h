@@ -28,8 +28,11 @@ namespace dsp::demod {
             xlator.init(NULL, getTranslation(), _samplerate);
             agc.init(NULL, 1.0, agcAttack, agcDecay, 10e6, 10.0, INFINITY);
 
+            // AGC now runs on the complex (analytic) signal, in-place on the xlator buffer,
+            // so its own output stream is unused. The mono scratch is only used by the stereo path.
+            agc.out.free();
             if constexpr (std::is_same_v<T, float>) {
-                agc.out.free();
+                mono.free();
             }
 
             base_type::init(in);
@@ -98,17 +101,20 @@ namespace dsp::demod {
         }
 
         int process(int count, const complex_t* in, T* out) {
-            // Move back sideband
+            // Shift the wanted sideband so it straddles DC
             xlator.process(count, in, xlator.out.writeBuf);
+
+            // AGC on the analytic (complex) signal: the gain is driven by the smooth |z|
+            // envelope instead of rectified audio, so it no longer ripples at audio rate.
+            // Loudness is unchanged - same setpoint, the envelope is still normalised to it.
+            agc.process(count, xlator.out.writeBuf, xlator.out.writeBuf);
 
             if constexpr (std::is_same_v<T, float>) {
                 convert::ComplexToReal::process(count, xlator.out.writeBuf, out);
-                agc.process(count, out, out);
             }
             if constexpr (std::is_same_v<T, stereo_t>) {
-                convert::ComplexToReal::process(count, xlator.out.writeBuf, agc.out.writeBuf);
-                agc.process(count, agc.out.writeBuf, agc.out.writeBuf);
-                convert::MonoToStereo::process(count, agc.out.writeBuf, out);
+                convert::ComplexToReal::process(count, xlator.out.writeBuf, mono.writeBuf);
+                convert::MonoToStereo::process(count, mono.writeBuf, out);
             }
 
             return count;
@@ -142,7 +148,8 @@ namespace dsp::demod {
         double _bandwidth;
         double _samplerate;
         channel::FrequencyXlator xlator;
-        loop::AGC<float> agc;
+        loop::AGC<complex_t> agc;
+        stream<float> mono;
 
     };
 };
