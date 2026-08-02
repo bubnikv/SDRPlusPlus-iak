@@ -196,12 +196,14 @@ namespace demod {
         float gain = 0.0f;   // dB
         float attack = 50.0f;
         float decay = 5.0f;
+        float threshold = 50.0f;   // dB, AGC max gain ceiling (SDR#-style threshold)
 
         void load(const nlohmann::json& j) {
             Demodulator::loadConf(j, "agcEnabled", enabled);
             Demodulator::loadConf(j, "agcGain", gain);
             Demodulator::loadConf(j, "agcAttack", attack);
             Demodulator::loadConf(j, "agcDecay", decay);
+            Demodulator::loadConf(j, "agcThreshold", threshold);
         }
 
         // Apply the enabled state and manual gain to a freshly init()ed demodulator
@@ -210,6 +212,7 @@ namespace demod {
         void apply(TDemod& demod) {
             demod.setAGCEnabled(enabled);
             demod.setAGCGain(powf(10.0f, gain / 20.0f));
+            demod.setAGCMaxGain(powf(10.0f, threshold / 20.0f));
         }
 
         template <class TDemod>
@@ -246,6 +249,12 @@ namespace demod {
             if (ImGui::SliderFloat((id + "_agc_decay_" + owner->name).c_str(), &decay, 1.0f, 20.0f)) {
                 demod.setAGCDecay(decay / ifSamplerate);
                 owner->saveConf("agcDecay", decay);
+            }
+            ImGui::LeftLabel("Threshold");
+            ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
+            if (ImGui::SliderFloat((id + "_agc_thresh_" + owner->name).c_str(), &threshold, 0.0f, 90.0f, "%.0f dB")) {
+                demod.setAGCMaxGain(powf(10.0f, threshold / 20.0f));
+                owner->saveConf("agcThreshold", threshold);
             }
             if (!enabled) { ImGui::EndDisabled(); }
         }
