@@ -2,6 +2,153 @@
 
 The detailed per-release history of the SDR++ iak fork, including alpha and beta pre-releases. For a brief summary of the major releases only, see [changelog.md](changelog.md).
 
+## v1.3.1-beta - 2026-08-02
+
+Renamed the “Threshold” label to “AGC Threshold” so it matches the others
+
+## v1.3.0-beta - 2026-08-02 - AGC improvement for SSB and AM
+
+Reworked AGC and SSB/AM demodulation to close the audio-quality gap with SDR#
+(previously SDR++ hissed more and had a worse SSB/AM signal-to-noise on Android).
+
+### Added
+
+- **AGC Threshold** slider for SSB, CW and AM: an SDR#-style maximum-gain ceiling
+  (120 dB, default 80) that directly limits how far the AGC lifts weak audio and
+  the noise floor between signals.
+
+### Changed
+
+- SSB/DSB AGC now tracks the complex-signal (I/Q) envelope instead of the rectified
+  audio, removing rectification ripple for a smoother, quieter gain action. Combined
+  with the SpyServer VFO+FFT module, SSB and AM now sound close to SDR# on Android.
+
+## v1.2.1-beta - 2026-07-31
+
+### Fixed
+
+- **High-DPI Android:** removed a spurious right-hand scrollbar on the waterfall
+  control column (Zoom / Max / Min sliders and the autoscale **A** button) on
+  high-density phones (e.g. Xiaomi; tablets were unaffected). The fit check
+  reserved more vertical space than the shrink step removed and ignored the
+  button height, so it was a proportional bug â€” lowering UI scaling never helped.
+  The reserved height (including the button) is now unified across both the check
+  and the shrink, with a `std::max` floor so the sliders can never vanish.
+
+### Notes
+
+- The **SpyServer VFO+FFT** source module is considered feature-complete as of this
+  release; later changes to it are incremental fixes only.
+
+## v1.2.0-beta - 2026-07-31 - automatic IQ digital gain
+
+### Added
+
+- **Automatic IQ digital gain** (the *Auto* mode of the IQ Digital Gain control):
+  a headroom-regulating servo that measures the raw IQ peak each cycle and drives
+  the SpyServer `IQ_DIGITAL_GAIN` so strong stations stop clipping while weak ones
+  stay well above the quantization floor. It servos the peak to a target just below
+  full scale and is bidirectional â€” pulling gain down on strong signals and
+  restoring it on quiet ones â€” with fast attack / slow release so it doesn't pump on
+  SSB/CW gaps, and it snaps back to the formula ceiling instantly on retune. The
+  live gain value being sent is shown next to the slider. Applies to UInt8 and
+  Int16 IQ; Float32 is left untouched.
+
+### Fixed
+
+- **Airspy HF+ silent in UInt8 at deep decimation:** the HF+ gain formula had no
+  device baseline, so at the narrowest IQ bandwidths the signal sat below the
+  ~48 dB UInt8 floor and dropped to silence. HF+ UInt8 now gets an added baseline
+  (the servo then places weak signals correctly); HF+ Int16/Float32 and the
+  R2 / RTL-SDR paths are unchanged.
+
+## v1.1.0-beta - 2026-07-30 - IQ digital gain control
+
+### Added
+
+- **IQ Digital Gain** control for the SpyServer VFO+FFT module: *Auto* applies the
+  per-decimation gain formula; unchecking it exposes a manual dB slider. A readout
+  shows the exact value being sent. Defaults to Auto.
+
+### Fixed
+
+- **SpyServer command ordering:** `STREAMING_MODE` is now sent before `GAIN` and
+  `IQ_DIGITAL_GAIN`, matching the reference client. The server re-stages gain when
+  the streaming mode changes, so the previous ordering applied digital gain under
+  the wrong mode and over-drove the IQ in combined FFT+IQ mode. Strong signals no
+  longer clip anomalously on either the HF+ or the R2.
+
+### Changed
+
+- The IQ-bandwidth dropdown now drops the two deepest (narrowest) decimation stages,
+  landing the floor around ~19 kHz on the R2 and ~12 kHz on the HF+, where
+  deep-decimation clipping was worst.
+
+## v1.0.0-beta - 2026-07-29 - first jp beta
+
+The first beta of the jp fork. It consolidates all pre-release (alpha) work: a
+complete rebrand from iak to jp, a new Airspy SpyServer VFO+FFT source module, an
+FT8/FT4/WSPR decoder, and Android frequency-manager fixes.
+
+### Rebrand: sdrpp-iak -> sdrpp-jp
+
+- Full rebrand so the app installs as **sdrpp-jp** everywhere the old `sdrpp-iak`
+  token appeared, install paths, plugin / resource / config directories, package
+  and file names, and the Android app. Verified against a `.deb` build (all install
+  paths load correctly).
+- The config directory changes with the rebrand; settings are reset once, by design
+  (no migration).
+- The SDR++ **server** network identity (fork ID and auth salt) is rebranded to jp
+  as well. This affects only SDR++'s own server protocol **not** SpyServer and
+  it was already diverged from mainline in the iak fork.
+- Reverse-DNS identifier unified to `org.jp.sdrpp` (matching the Android
+  `applicationId`).
+- Attribution to Alexandre Rouma, OK1IAK / Bubni­k and the upstream iak repository
+  is kept intact.
+
+### New: SpyServer VFO+FFT source module
+
+- A new `spyserver_vfo_source` module that connects to an Airspy **SpyServer in
+  VFO+FFT (combined FFT+IQ) mode**: the server sends a wide FFT for the waterfall
+  plus a narrow IQ stream for demodulation, instead of full-IQ. This gives a wide
+  spectrum view at a fraction of the network bandwidth. Works on Android and on
+  desktop (AppImage / `.deb`); tested against Airspy HF+ and Airspy R2 SpyServers.
+- Correct tuning in both centered and non-centered modes, AM and SSB; the earlier
+  non-center tuning desync is fixed (verified on Android tablets and Ubuntu desktop).
+- **Smooth in-window tuning:** the audible micro-gaps and brief center-station leak
+  when tuning inside the loaded waterfall are gone â€” it now tunes as smoothly as a
+  full-IQ stream. (Root cause was the core pushing the full visual center-offset
+  into the DSP mixer; fixed with a small core patch gated on external-FFT mode.)
+- Fixed the frequency **offset** function and reworked in-module tuning around it.
+- Fixed **Invert IQ**: the spectrum now flips correctly and tuning tracks correctly
+  on the inverted spectrum.
+- **Airspy R2:** resolved the FFT-bandwidth cap so the R2 delivers its full ~10 MHz
+  of FFT (the server's `maximum_bandwidth` cap limits only the IQ path); HF+
+  behaviour unchanged.
+- **Android:** USB-C DAC audio routing fixed.
+- UI cleanup: shortened control labels and removed the generic Decimation control.
+
+### New: FT8 / FT4 / WSPR decoder module
+
+- Ported an FT8 / FT4 / WSPR decoder as its own module
+  (`decoder_modules/ft8_decoder`). It creates its own USB "FT8 decoder" VFO for the
+  data it decodes, and the QTH / grid-square entry lives in the decoder module's own
+  UI.
+
+### Frequency manager (Android)
+
+- Import / export now works on Android: a typed file path replaces the
+  non-functional file dialog, with export scopes for the current list or all lists.
+
+### Radiosonde decoder module (Android)
+
+- Fixed crashing Radiosonde decoder module on Android
+
+### Build / packaging
+
+- Signed Android release builds via the fork's own keystore (signing secrets in
+  GitHub Actions), alongside the existing desktop AppImage / `.deb` builds.
+  
 ## SDR++ jp fork
 
 From here on the fork is maintained and developed as SDR++ jp, based on SDR++ iak by Vojtěch Bubník (OK1IAK), itself a fork of SDR++ by Alexandre Rouma (@AlexandreRouma). Versioning restarts at 1.0.0-beta; the entries below cover only the jp fork's own changes on top of the iak base. The app installs side by side with both upstream SDR++ and SDR++ iak (its own package names, config directory and Android app ID). Attribution to Alexandre Rouma and OK1IAK is retained throughout.
