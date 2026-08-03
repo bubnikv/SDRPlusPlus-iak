@@ -1,6 +1,7 @@
 # Changelog
 
-Major releases only. For the detailed per-release history including alpha and beta pre-releases, see [changelog-full.md](changelog-full.md).
+Major releases only. For the detailed per-release history including alpha releases, see [changelog-full.md](changelog-full.md).
+
 
 ## v1.2.2 - 2026-07-14 — first public release of SDR++ iak
 
