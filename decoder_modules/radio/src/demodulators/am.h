@@ -50,7 +50,7 @@ namespace demod {
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
             if (ImGui::Combo(("##_radio_am_agc_mode_" + name).c_str(), &agcMode, "Off\0Carrier\0Audio\0")) {
                 demod.setAGCMode((dsp::demod::AM<dsp::stereo_t>::AGCMode)agcMode);
-                agcGain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 90.0f);
+                agcGain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 120.0f);
                 saveConf("agcMode", agcMode);
                 if (agcMode == dsp::demod::AM<dsp::stereo_t>::AGCMode::OFF) {
                     // Keep the last AGC gain as the manual gain
@@ -59,12 +59,12 @@ namespace demod {
             }
             bool agcEnabled = (agcMode != dsp::demod::AM<dsp::stereo_t>::AGCMode::OFF);
             if (agcEnabled) {
-                agcGain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 90.0f);
+                agcGain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 120.0f);
                 ImGui::BeginDisabled();
             }
             ImGui::LeftLabel("Gain");
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-            if (ImGui::SliderFloat(("##_radio_am_gain_" + name).c_str(), &agcGain, -10.0f, 90.0f, "%.0f dB")) {
+            if (ImGui::SliderFloat(("##_radio_am_gain_" + name).c_str(), &agcGain, -10.0f, 120.0f, "%.0f dB")) {
                 demod.setAGCGain(powf(10.0f, agcGain / 20.0f));
                 saveConf("agcGain", agcGain);
             }
