@@ -2,6 +2,10 @@
 
 The detailed per-release history of the SDR++ iak fork, including alpha and beta pre-releases. For a brief summary of the major releases only, see [changelog.md](changelog.md).
 
+## SDR++ jp fork
+
+From here on the fork is maintained and developed as SDR++ jp, based on SDR++ iak by Vojtěch Bubník (OK1IAK), itself a fork of SDR++ by Alexandre Rouma (@AlexandreRouma). Versioning restarts at 1.0.0-beta; the entries below cover only the jp fork's own changes on top of the iak base. The app installs side by side with both upstream SDR++ and SDR++ iak (its own package names, config directory and Android app ID). Attribution to Alexandre Rouma and OK1IAK is retained throughout.
+
 ## v1.4.0-alpha - 2026-07-19
 
 A large UI-focused release. The headline is a touch-friendly interface overhaul that makes SDR++ iak usable with a finger on Android (and previewable on desktop): an Android-metrics style overlay, a Material 3 dark theme, single-finger drag-scroll with fling, pill-handle window splitters, and an IC-705-style direct frequency-entry keypad with an integrated band picker. A new shared `PopupDialog` widget brings consistent keyboard and back-gesture handling to every modal in the app. Alongside these, a batch of desktop input fixes, radio/DSP touches, and crash fixes ported from and reported against upstream SDR++.
