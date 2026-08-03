@@ -227,12 +227,12 @@ namespace demod {
                 }
             }
             if (enabled) {
-                gain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 90.0f);
+                gain = std::clamp<float>(20.0f * log10f(demod.getAGCGain()), -10.0f, 120.0f);
                 ImGui::BeginDisabled();
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-            if (ImGui::SliderFloat((id + "_gain_" + owner->name).c_str(), &gain, -10.0f, 90.0f, "%.0f dB")) {
+            if (ImGui::SliderFloat((id + "_gain_" + owner->name).c_str(), &gain, -10.0f, 120.0f, "%.0f dB")) {
                 demod.setAGCGain(powf(10.0f, gain / 20.0f));
                 owner->saveConf("agcGain", gain);
             }
