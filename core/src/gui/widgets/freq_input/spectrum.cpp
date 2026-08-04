@@ -75,14 +75,6 @@ namespace freq_input {
                 compactFrequency(endHz);
         }
 
-        bool contains(
-            const AvailableSpectrumRange& range,
-            std::int64_t frequencyHz)
-        {
-            return frequencyHz >= range.startHz &&
-                frequencyHz < range.endHz;
-        }
-
         std::int64_t midpoint(const AvailableSpectrumRange& range) {
             return range.startHz + (range.endHz - range.startHz) / 2;
         }
@@ -96,9 +88,7 @@ namespace freq_input {
                 return midpoint(range);
             }
             const double remembered = it->get<double>();
-            if (remembered < static_cast<double>(range.startHz) ||
-                remembered >= static_cast<double>(range.endHz))
-            {
+            if (!range.containsFrequency(remembered)) {
                 return midpoint(range);
             }
             return static_cast<std::int64_t>(remembered);
@@ -155,10 +145,7 @@ namespace freq_input {
         const SpectrumRange* active = nullptr;
         const SpectrumRange* persisted =
             findSpectrumRange(lastRangeId);
-        if (persisted &&
-            currentFrequency >= persisted->startHz &&
-            currentFrequency < persisted->endHz)
-        {
+        if (persisted && persisted->containsFrequency(currentFrequency)) {
             active = persisted;
         }
         else {

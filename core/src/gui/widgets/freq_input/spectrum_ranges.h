@@ -16,6 +16,12 @@ namespace freq_input {
         std::string_view rangeId;
         std::int64_t startHz;
         std::int64_t endHz;
+
+        constexpr bool containsFrequency(
+            std::int64_t frequencyHz) const noexcept
+        {
+            return frequencyHz >= startHz && frequencyHz < endHz;
+        }
     };
 
     // The portion of a canonical range that the active source can tune.
@@ -25,6 +31,11 @@ namespace freq_input {
         std::int64_t startHz = 0;
         std::int64_t endHz = 0;
         bool partial = false;
+
+        constexpr bool containsFrequency(double frequencyHz) const noexcept {
+            return frequencyHz >= static_cast<double>(startHz) &&
+                frequencyHz < static_cast<double>(endHz);
+        }
     };
 
     // The default continuous ITU/IEEE analyzer-navigation table, ordered by

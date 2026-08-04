@@ -1,4 +1,5 @@
 #include <gui/widgets/freq_input.h>
+#include <gui/widgets/freq_input/band_picker_groups.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/segmented_control.h>
 #include <gui/widgets/simple_widgets.h>
@@ -21,17 +22,6 @@
 #endif
 
 namespace freq_input {
-
-    // Coarse filter for the band picker's category row. This is intentionally a
-    // presentation grouping, not the radio service identity used for overlap
-    // resolution and stable IDs.
-    static const char* bandCategory(freq_input::BandService service) {
-        if (service == BandService::Amateur) { return "Ham"; }
-        if (service == BandService::Broadcast) { return "Bcast"; }
-        if (service == BandService::Aviation) { return "Air"; }
-        if (service == BandService::Maritime) { return "Marine"; }
-        return "Util";
-    }
 
     namespace canonical_bands {
 
@@ -247,25 +237,29 @@ namespace freq_input {
             const std::string& get(
                 const bandplan::BandPlan_t& plan,
                 const Context& ctx,
-                const std::string& group)
+                BandServiceSet services,
+                BandService currentService)
             {
                 const uint64_t rangeLo = ctx.rangeLo();
                 const uint64_t rangeHi = ctx.rangeHi();
                 if (!valid || cachedPlan != &plan ||
                     cachedRevision != plan.revision ||
                     cachedFrequency != ctx.frequency ||
-                    cachedGroup != group ||
+                    cachedServices != services ||
+                    cachedCurrentService != currentService ||
                     cachedLimited != ctx.limited ||
                     cachedRangeLo != rangeLo ||
                     cachedRangeHi != rangeHi)
                 {
-                    activeBandId = gui::bandStack.activateBandForGroup(
-                        group,
+                    activeBandId = gui::bandStack.activateBandForServices(
+                        services,
+                        currentService,
                         (double)ctx.frequency);
                     cachedPlan = &plan;
                     cachedRevision = plan.revision;
                     cachedFrequency = ctx.frequency;
-                    cachedGroup = group;
+                    cachedServices = services;
+                    cachedCurrentService = currentService;
                     cachedLimited = ctx.limited;
                     cachedRangeLo = rangeLo;
                     cachedRangeHi = rangeHi;
@@ -281,7 +275,8 @@ namespace freq_input {
             const bandplan::BandPlan_t* cachedPlan = nullptr;
             uint64_t cachedRevision = 0;
             uint64_t cachedFrequency = 0;
-            std::string cachedGroup;
+            BandServiceSet cachedServices;
+            BandService cachedCurrentService = BandService::Other;
             bool cachedLimited = false;
             uint64_t cachedRangeLo = 0;
             uint64_t cachedRangeHi = 0;
@@ -346,8 +341,13 @@ namespace freq_input {
         activeCache->invalidate();
         registerCache->invalidate();
         core::configManager.acquire();
-        category =
-            core::configManager.conf.value("freqEntryCategory", "Ham");
+        groupId = core::configManager.conf.value(
+            "bandPickerGroupId",
+            "ham");
+        currentService = bandServiceFromKey(
+            core::configManager.conf.value(
+                "lastActiveBandService",
+                "other"));
         core::configManager.release();
     }
 
@@ -370,46 +370,67 @@ namespace freq_input {
         const std::vector<canonical_bands::Entry>& avail =
             canonicalCache->get(*plan, ctx);
 
-        // Category row: only non-empty groups, plus All. A persisted category that
-        // vanished (plan or tuning range changed) falls back to All for display.
-        static const char* groupLabels[] = { "Ham", "Bcast", "Air", "Marine", "Util" };
-        std::vector<const char*> cats;
-        for (int i = 0; i < 5; i++) {
-            for (const auto& e : avail) {
-                if (!strcmp(
-                        bandCategory(e.band.resolved.service()),
-                        groupLabels[i]))
-                {
-                    cats.push_back(groupLabels[i]);
-                    break;
-                }
-            }
+        BandServiceSet availableServices;
+        for (const canonical_bands::Entry& entry : avail) {
+            availableServices = availableServices.with(
+                entry.band.resolved.service());
         }
-        cats.push_back("All");
-        int catIdx = (int)cats.size() - 1;
-        for (int i = 0; i < (int)cats.size() - 1; i++) {
-            if (category == cats[i]) { catIdx = i; }
+        const int maximumGroups = std::max(
+            4,
+            (int)std::floor(m.totalWidth / style::dp(56.0f)));
+        const band_groups::Layout groupLayout = band_groups::makeLayout(
+            availableServices,
+            maximumGroups);
+
+        std::vector<const char*> groupLabels;
+        groupLabels.reserve(groupLayout.groups.size());
+        for (const band_groups::Group& group : groupLayout.groups) {
+            groupLabels.push_back(group.label.data());
         }
-        if (doSegmentedControl("##sdrpp_band_category", catIdx, cats.data(), (int)cats.size(), ImVec2(m.totalWidth, m.rowHeight))) {
-            category = cats[catIdx];
+
+        int groupIndex = groupLayout.indexOf(groupId);
+        if (groupIndex < 0) {
+            groupIndex = groupLayout.indexFor(currentService);
+        }
+        if (groupIndex < 0) {
+            groupIndex = (int)groupLayout.groups.size() - 1;
+        }
+        if (doSegmentedControl(
+                "##sdrpp_band_category",
+                groupIndex,
+                groupLabels.data(),
+                (int)groupLabels.size(),
+                ImVec2(m.totalWidth, m.rowHeight)))
+        {
+            groupId = std::string(groupLayout.groups[groupIndex].id);
             scrollActiveIntoView = true;
             core::configManager.acquire();
-            core::configManager.conf["freqEntryCategory"] = category;
+            core::configManager.conf["bandPickerGroupId"] = groupId;
             core::configManager.release(true);
         }
-        const std::string effectiveCategory = cats[catIdx];
+        const band_groups::Group& activeGroup =
+            groupLayout.groups[groupIndex];
         ImGui::Spacing();
 
         std::vector<const canonical_bands::Entry*> shown;
         for (const auto& e : avail) {
-            if (effectiveCategory == "All" ||
-                effectiveCategory == bandCategory(e.band.resolved.service()))
-            {
+            if (activeGroup.services.contains(e.band.resolved.service())) {
                 shown.push_back(&e);
             }
         }
         const std::string& activeBandId =
-            activeCache->get(*plan, ctx, effectiveCategory);
+            activeCache->get(
+                *plan,
+                ctx,
+                activeGroup.services,
+                currentService);
+        if (const BandMapping* activeMapping =
+                findBandMappingById(activeBandId))
+        {
+            // A fallback match in another visible service becomes the current
+            // service for subsequent overlap resolution.
+            currentService = activeMapping->service;
+        }
 
         // OpenPopup must run at this (modal) scope, not inside the grid child, or
         // its popup ID won't match the BeginPopup below. The long-press detector
@@ -508,14 +529,12 @@ namespace freq_input {
                         gui::bandStack.selectBand(
                             bandId,
                             b.defFreq,
-                            activeBandId,
-                            effectiveCategory);
+                            activeBandId);
                     }
                     else {
                         gui::bandStack.selectLegacySegment(
                             b,
-                            activeBandId,
-                            effectiveCategory);
+                            activeBandId);
                     }
                     out.close = true;
 #ifdef __ANDROID__
@@ -620,8 +639,7 @@ namespace freq_input {
                         gui::bandStack.recallRegister(
                             b.resolved.bandId(),
                             k,
-                            activeBandId,
-                            effectiveCategory);
+                            activeBandId);
                         out.close = true;
                         ImGui::CloseCurrentPopup();
 #ifdef __ANDROID__

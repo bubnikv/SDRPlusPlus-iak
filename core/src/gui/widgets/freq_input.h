@@ -1,4 +1,5 @@
 #pragma once
+#include <gui/widgets/band_mapping.h>
 #include <imgui.h>
 #include <stdint.h>
 #include <memory>
@@ -133,9 +134,12 @@ namespace freq_input {
         std::unique_ptr<band_state::ActiveCache> activeCache;
         std::unique_ptr<band_state::RegisterCache> registerCache;
 
-        // Selected presentation group ("Ham", ..., "All"), restored exactly
-        // from config on open.
-        std::string category;
+        // Stable presentation-group identity. Labels and service membership
+        // belong to the current width-dependent picker layout.
+        std::string groupId;
+        // Service to try first when several services on the current page have
+        // overlapping bands at the tuned frequency.
+        BandService currentService = BandService::Other;
         bool scrollActiveIntoView = false;
 
         // Band-key press tracking: a quick tap recalls/cycles the top register,

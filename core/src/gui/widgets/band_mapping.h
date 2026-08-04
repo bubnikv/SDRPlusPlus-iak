@@ -43,8 +43,70 @@ namespace freq_input {
         Rlan,
         Meteorological,
         LandMobile,
-        Other
+        Other,
+        Count
     };
+
+    // A value-semantic set of radio services. Presentation layers may group
+    // services differently without teaching domain code about group IDs or
+    // labels.
+    class BandServiceSet {
+    public:
+        constexpr BandServiceSet() noexcept = default;
+
+        static constexpr BandServiceSet single(BandService service) noexcept {
+            return BandServiceSet(bit(service));
+        }
+
+        static constexpr BandServiceSet all() noexcept {
+            return BandServiceSet(
+                (std::uint32_t{1} <<
+                    static_cast<std::uint32_t>(BandService::Count)) - 1);
+        }
+
+        constexpr bool contains(BandService service) const noexcept {
+            return (bits & bit(service)) != 0;
+        }
+
+        constexpr bool intersects(BandServiceSet other) const noexcept {
+            return (bits & other.bits) != 0;
+        }
+
+        constexpr BandServiceSet with(BandService service) const noexcept {
+            return BandServiceSet(bits | bit(service));
+        }
+
+        constexpr BandServiceSet without(BandService service) const noexcept {
+            return BandServiceSet(bits & ~bit(service));
+        }
+
+        constexpr BandServiceSet merged(BandServiceSet other) const noexcept {
+            return BandServiceSet(bits | other.bits);
+        }
+
+        constexpr bool operator==(BandServiceSet other) const noexcept {
+            return bits == other.bits;
+        }
+
+        constexpr bool operator!=(BandServiceSet other) const noexcept {
+            return !(*this == other);
+        }
+
+    private:
+        explicit constexpr BandServiceSet(std::uint32_t value) noexcept
+            : bits(value) {}
+
+        static constexpr std::uint32_t bit(BandService service) noexcept {
+            return std::uint32_t{1} <<
+                static_cast<std::uint32_t>(service);
+        }
+
+        std::uint32_t bits = 0;
+    };
+
+    static_assert(
+        static_cast<std::uint32_t>(BandService::Count) < 32,
+        "BandServiceSet requires BandService to fit in a 32-bit mask");
 
     // What a legacy plan row represents. Only Band and Segment rows are
     // eligible for stable band IDs. Individual frequency assignments belong

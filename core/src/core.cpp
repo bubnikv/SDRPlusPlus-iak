@@ -172,7 +172,7 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["fftRate"] = 20;
     defConfig["fftSize"] = 65536;
     defConfig["fftWindow"] = "Nuttall";
-    defConfig["freqEntryCategory"] = "Ham";
+    defConfig["bandPickerGroupId"] = "ham";
     defConfig["freqEntryPage"] = "keypad";
     defConfig["spectrumRangeMemory"] = json::object();
     defConfig["spectrumLastRangeId"] = "";

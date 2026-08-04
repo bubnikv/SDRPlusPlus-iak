@@ -43,40 +43,40 @@ public:
     // Entry 0 is always the active register.
     std::vector<BandRegister> registersFor(std::string_view bandId) const;
 
-    // Resolve within the visible band group. Opening/changing a group may
-    // visibly select another service; it never writes a register.
-    std::string activateBandForGroup(
-        const std::string& group,
+    // Resolve within the services visible on the current picker page. The
+    // supplied current service wins when it contains the frequency; otherwise
+    // the first matching band from another visible service is used. Opening
+    // or changing the page never writes a register.
+    std::string activateBandForServices(
+        freq_input::BandServiceSet services,
+        freq_input::BandService currentService,
         double frequency);
 
     // A band-key tap. `activeBandId` is the visible source selected by
-    // activateBandForGroup(), not a globally inferred write-back target.
+    // activateBandForServices(), not a globally inferred write-back target.
     // Repeating that band stores entry 0, rotates left, and recalls the new 0.
     void selectBand(
         std::string_view bandId,
         double defaultFrequency,
-        const std::string& activeBandId,
-        const std::string& group);
+        const std::string& activeBandId);
 
     // Navigation fallback for a legacy row which has no stable identity. It
     // can tune the row but deliberately cannot own band-stack registers.
     void selectLegacySegment(
         const bandplan::Band_t& segment,
-        const std::string& activeBandId,
-        const std::string& group);
+        const std::string& activeBandId);
 
     // A register-list pick: store the visible source, rotate the picked target
     // entry to index 0 while preserving cyclic order, and recall it when set.
     void recallRegister(
         std::string_view bandId,
         int index,
-        const std::string& activeBandId,
-        const std::string& group);
+        const std::string& activeBandId);
 
     // Persist the current selector memory when closing or suspending the
     // application.
-    // Band matching is restricted to the last group and current service; shutdown
-    // never changes service.
+    // Band matching is restricted to the current service; shutdown never
+    // changes service.
     void commitCurrent();
 
 private:

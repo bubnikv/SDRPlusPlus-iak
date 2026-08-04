@@ -1263,6 +1263,7 @@ namespace freq_input {
                 case BandService::Meteorological:
                 case BandService::LandMobile:
                 case BandService::Other:
+                case BandService::Count:
                     break;
             }
             return {};
@@ -1356,6 +1357,7 @@ namespace freq_input {
             case BandService::Meteorological: return "meteorological";
             case BandService::LandMobile: return "land-mobile";
             case BandService::Other: return "other";
+            case BandService::Count: break;
         }
         return "other";
     }

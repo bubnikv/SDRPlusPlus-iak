@@ -154,7 +154,7 @@ namespace freq_input {
         std::int64_t frequencyHz)
     {
         for (const SpectrumRange& range : SPECTRUM_RANGES) {
-            if (frequencyHz >= range.startHz && frequencyHz < range.endHz) {
+            if (range.containsFrequency(frequencyHz)) {
                 return &range;
             }
         }
