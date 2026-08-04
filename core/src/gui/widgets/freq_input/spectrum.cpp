@@ -1,5 +1,6 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/freq_input/spectrum_ranges.h>
+#include <gui/widgets/freq_memory.h>
 #include <gui/widgets/toggle_style.h>
 #include <gui/style.h>
 #include <config.h>
@@ -80,15 +81,13 @@ namespace freq_input {
         }
 
         std::int64_t rememberedFrequency(
-            const json& memory,
+            ConfigManager::Node memory,
             const AvailableSpectrumRange& range)
         {
-            auto it = memory.find(std::string(range.range->rangeId));
-            if (it == memory.end() || !it->is_number()) {
-                return midpoint(range);
-            }
-            const double remembered = it->get<double>();
-            if (!range.containsFrequency(remembered)) {
+            double remembered = 0.0;
+            if (!memory.getTo(range.range->rangeId, remembered) ||
+                !range.containsFrequency(remembered))
+            {
                 return midpoint(range);
             }
             return static_cast<std::int64_t>(remembered);
@@ -97,25 +96,22 @@ namespace freq_input {
     }
 
     void Spectrum::onOpen() {
-        core::configManager.acquire();
-        lastRangeId =
-            core::configManager.conf.value("spectrumLastRangeId", "");
-        core::configManager.release();
+        auto txn = core::configManager.transaction();
+        lastRangeId = freq_memory::spectrum(txn).value(
+            freq_memory::ACTIVE_ID,
+            "");
     }
 
     Outcome Spectrum::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
         const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
 
-        core::configManager.acquire();
-        json& selectorConf = core::configManager.conf;
-        const bool selectorChanged =
-            selectorConf.value("lastMemorySelector", std::string()) !=
-            "spectrum";
-        if (selectorChanged) {
-            selectorConf["lastMemorySelector"] = "spectrum";
+        {
+            auto txn = core::configManager.transaction();
+            freq_memory::root(txn).set(
+                freq_memory::SELECTOR,
+                freq_memory::SELECTOR_SPECTRUM);
         }
-        core::configManager.release(selectorChanged);
 
         std::size_t rangeCount = 0;
         const SpectrumRange* definitions =
@@ -155,10 +151,8 @@ namespace freq_input {
             lastRangeId != std::string(active->rangeId))
         {
             lastRangeId = std::string(active->rangeId);
-            core::configManager.acquire();
-            core::configManager.conf["spectrumLastRangeId"] =
-                lastRangeId;
-            core::configManager.release(true);
+            auto txn = core::configManager.transaction();
+            freq_memory::spectrum(txn).set(freq_memory::ACTIVE_ID, lastRangeId);
         }
 
         if (ranges.empty()) {
@@ -229,27 +223,24 @@ namespace freq_input {
 
                 if (!selected) { continue; }
 
-                core::configManager.acquire();
-                json& conf = core::configManager.conf;
-                json& memory = conf["spectrumRangeMemory"];
-                if (!memory.is_object()) {
-                    memory = json::object();
-                }
-
-                // Remember the current frequency for the one non-overlapping
-                // range that owns it. This is a one-slot navigation memory,
-                // intentionally separate from the service-band register stack.
-                if (active)
                 {
-                    memory[std::string(active->rangeId)] =
-                        currentFrequency;
-                }
+                    auto txn = core::configManager.transaction();
+                    ConfigManager::Node spectrum = freq_memory::spectrum(txn);
+                    ConfigManager::Node memory =
+                        spectrum.node(freq_memory::LAST_FREQUENCY);
 
-                out.frequency = static_cast<std::uint64_t>(
-                    rememberedFrequency(memory, available));
-                conf["spectrumLastRangeId"] =
-                    std::string(range.rangeId);
-                core::configManager.release(true);
+                    // Remember the current frequency for the one non-overlapping
+                    // range that owns it. This is a one-slot navigation memory,
+                    // intentionally separate from the service-band register stack.
+                    if (active)
+                    {
+                        memory.set(active->rangeId, currentFrequency);
+                    }
+
+                    out.frequency = static_cast<std::uint64_t>(
+                        rememberedFrequency(memory, available));
+                    spectrum.set(freq_memory::ACTIVE_ID, range.rangeId);
+                }
 
                 lastRangeId = std::string(range.rangeId);
                 out.commit = true;

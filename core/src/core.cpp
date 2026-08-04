@@ -9,6 +9,7 @@
 #include <utils/flog.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/band_stack.h>
+#include <gui/widgets/freq_memory.h>
 #include <stb_image.h>
 #include <config.h>
 #include <core.h>
@@ -153,10 +154,6 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["bandColors"]["broadcast"] = "#0000FFFF";
     defConfig["bandColors"]["marine"] = "#00FFFFFF";
     defConfig["bandColors"]["military"] = "#FFFF00FF";
-    defConfig["bandMemory"] = json::object();
-    defConfig["lastActiveBandService"] = "other";
-    defConfig["lastActiveBandId"] = "";
-    defConfig["lastMemorySelector"] = "band";
     defConfig["bandPlan"] = "General";
     defConfig["bandPlanEnabled"] = true;
     defConfig["bandPlanPos"] = 0;
@@ -174,9 +171,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["fftWindow"] = "Nuttall";
     defConfig["bandPickerGroupId"] = "ham";
     defConfig["freqEntryPage"] = "keypad";
-    defConfig["spectrumRangeMemory"] = json::object();
-    defConfig["spectrumLastRangeId"] = "";
     defConfig["frequency"] = 100000000.0;
+    defConfig["frequencyMemory"] = freq_memory::defaults();
     defConfig["fullWaterfallUpdate"] = false;
     defConfig["max"] = 0.0;
     defConfig["maximized"] = false;

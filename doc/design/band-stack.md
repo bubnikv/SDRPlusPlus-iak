@@ -29,6 +29,25 @@ landed before that interim subset:
 The last of those is not in Part 8's plan; it is the other half of §1.1's
 complaint, done for the same reason and recorded in §1.1 below.
 
+**Config keys (updated 2026-08-04).** The six flat keys this note names
+throughout were gathered into one `frequencyMemory` subtree, and the whole
+persisted layout is now declared in `gui/widgets/freq_memory.h` — no other file
+spells the key names out. The prose below keeps the old names because it also
+reviews the implementation that used them; the mapping is:
+
+| Was | Is |
+|---|---|
+| `lastMemorySelector` | `frequencyMemory.selector` |
+| `lastActiveBandService` | `frequencyMemory.band.activeService` |
+| `lastActiveBandId` | `frequencyMemory.band.activeId` |
+| `bandMemory` | `frequencyMemory.band.stackingRegisters` |
+| `spectrumLastRangeId` | `frequencyMemory.spectrum.activeId` |
+| `spectrumRangeMemory` | `frequencyMemory.spectrum.lastFrequency` |
+
+There is no migration: an existing `config.json` keeps its old keys as unused
+entries and starts from the defaults, consistent with the no-migration policy
+for pre-release development data stated above.
+
 The original verdict below was that the data model was keyed on mutable,
 duplicate band-plan names and could not represent the active register. The
 interim release fixes those two immediate defects with stable plan-band IDs and

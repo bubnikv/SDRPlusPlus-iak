@@ -5,6 +5,7 @@
 #include <gui/widgets/simple_widgets.h>
 #include <gui/widgets/toggle_style.h>
 #include <gui/widgets/band_stack.h>
+#include <gui/widgets/freq_memory.h>
 #include <gui/gui.h>
 #include <gui/style.h>
 #include <backend.h>
@@ -340,15 +341,12 @@ namespace freq_input {
         scrollActiveIntoView = true;
         activeCache->invalidate();
         registerCache->invalidate();
-        core::configManager.acquire();
-        groupId = core::configManager.conf.value(
-            "bandPickerGroupId",
-            "ham");
+        auto txn = core::configManager.transaction();
+        groupId = txn.value("bandPickerGroupId", "ham");
         currentService = bandServiceFromKey(
-            core::configManager.conf.value(
-                "lastActiveBandService",
+            freq_memory::band(txn).value(
+                freq_memory::ACTIVE_SERVICE,
                 "other"));
-        core::configManager.release();
     }
 
     Outcome Bands::draw(const Context& ctx, const Metrics& m) {
