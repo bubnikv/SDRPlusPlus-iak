@@ -494,12 +494,18 @@ private:
                 }
             }
 
-            dcfg.tryGet("FMIFNREnabled", FMIFNREnabled);
+            bool storedFMIFNREnabled = FMIFNREnabled.load();
+            if (dcfg.tryGet("FMIFNREnabled", storedFMIFNREnabled)) {
+                FMIFNREnabled.store(storedFMIFNREnabled);
+            }
             std::string presetOpt;
             if (dcfg.tryGet("fmifnrPreset", presetOpt) && ifnrPresets.keyExists(presetOpt)) {
                 fmIFPresetId = ifnrPresets.keyId(presetOpt);
             }
-            dcfg.tryGet("noiseBlankerEnabled", nbEnabled);
+            bool storedNBEnabled = nbEnabled.load();
+            if (dcfg.tryGet("noiseBlankerEnabled", storedNBEnabled)) {
+                nbEnabled.store(storedNBEnabled);
+            }
             dcfg.tryGet("noiseBlankerLevel", nbLevel);
         }
 

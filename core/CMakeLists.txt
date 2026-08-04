@@ -28,6 +28,13 @@ if (SDRPP_RUNTIME_OUTPUT_DIRECTORY)
 endif ()
 
 add_library(sdrpp_core SHARED ${SRC} ${BACKEND_SRC})
+if (ANDROID OR OPT_BACKEND_ANDROID)
+    target_compile_definitions(sdrpp_core PRIVATE OPT_CONFIG_MULTIPLE_INSTANCES=0)
+    message(STATUS "Multiple-instance config synchronization: disabled")
+else ()
+    target_compile_definitions(sdrpp_core PRIVATE OPT_CONFIG_MULTIPLE_INSTANCES=1)
+    message(STATUS "Multiple-instance config synchronization: enabled")
+endif ()
 if (MSVC AND SDRPP_RUNTIME_OUTPUT_DIRECTORY)
     add_custom_command(TARGET sdrpp_core POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E remove -f

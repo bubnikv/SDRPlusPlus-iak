@@ -81,7 +81,7 @@ public:
                 containerId = containers.keyId(container);
             }
             refreshSampleTypes();
-            std::string sampleType;
+            int sampleType = 0;
             if (inst.tryGet("sampleType", sampleType) && sampleTypes.keyExists(sampleType)) {
                 sampleTypeId = sampleTypes.keyId(sampleType);
             }

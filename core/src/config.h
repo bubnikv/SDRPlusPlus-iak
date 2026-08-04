@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -12,6 +13,8 @@
 #include <vector>
 
 using nlohmann::json;
+
+class ConfigSaver;
 
 namespace config_detail {
     // Reported when a stored value can't be converted to the type the caller asked
@@ -134,20 +137,22 @@ private:
     bool heldByCurrentThread() const;
 #endif
 
-    void autoSaveWorker();
+    // Called only by the one process-wide ConfigSaver. The dirty flag is guarded
+    // by mtx and is cleared only after a successful disk commit.
+    bool saveIfDirty();
+    bool saveLocked();
+
+    friend class ConfigSaver;
 
     std::string path = "";
-    volatile bool changed = false;
-    volatile bool autoSaveEnabled = false;
-    std::thread autoSaveThread;
+    json persisted;
+    bool persistedValid = false;
+    bool dirty = false;
+    std::atomic<bool> autoSaveEnabled{ false };
     std::mutex mtx;
 #ifndef NDEBUG
     std::atomic<std::thread::id> owner{ std::thread::id() };
 #endif
-
-    std::mutex termMtx;
-    std::condition_variable termCond;
-    volatile bool termFlag = false;
 };
 
 class ConfigManager::Transaction {
