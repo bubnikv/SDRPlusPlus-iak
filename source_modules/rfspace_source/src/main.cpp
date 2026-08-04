@@ -39,10 +39,10 @@ public:
 
         // Load config
         {
-            auto txn = config.transaction();
+            auto configAccess = config.read();
             std::string hostStr;
-            if (txn.tryGet("hostname", hostStr)) { strcpy(hostname, hostStr.c_str()); }
-            txn.tryGet("port", port);
+            if (configAccess.tryGet("hostname", hostStr)) { strcpy(hostname, hostStr.c_str()); }
+            configAccess.tryGet("port", port);
         }
 
         sigpath::sourceManager.registerSource("RFspace", &handler);
@@ -133,12 +133,12 @@ private:
 
         if (connected) { SmGui::BeginDisabled(); }
         if (SmGui::InputText(CONCAT("##_rfspace_srv_host_", _this->name), _this->hostname, 1023)) {
-            config.set("hostname", _this->hostname);
+            config.edit().set("hostname", _this->hostname);
         }
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(CONCAT("##_rfspace_srv_port_", _this->name), &_this->port, 0, 0)) {
-            config.set("port", _this->port);
+            config.edit().set("port", _this->port);
         }
         if (connected) { SmGui::EndDisabled(); }
 
@@ -171,7 +171,7 @@ private:
                 _this->client->setSampleRate(_this->sampleRate);
                 core::setInputSampleRate(_this->sampleRate);
                 
-                config.transaction().section("devices", _this->devConfName).set("sampleRate", _this->sampleRates.key(_this->srId));
+                config.edit().section("devices", _this->devConfName).set("sampleRate", _this->sampleRates.key(_this->srId));
             }
 
             if (_this->running) { SmGui::EndDisabled(); }
@@ -182,7 +182,7 @@ private:
                 if (SmGui::Combo("##rfspace_source_rf_port", &_this->rfPortId, _this->rfPorts.txt)) {
                     _this->client->setPort(_this->rfPorts[_this->rfPortId]);
 
-                    config.transaction().section("devices", _this->devConfName).set("rfPort", _this->rfPorts.key(_this->rfPortId));
+                    config.edit().section("devices", _this->devConfName).set("rfPort", _this->rfPorts.key(_this->rfPortId));
                 }
             }
 
@@ -191,7 +191,7 @@ private:
             if (SmGui::SliderFloatWithSteps("##rfspace_source_gain", &_this->gain, -30, 0, 10, SmGui::FMT_STR_FLOAT_DB_NO_DECIMAL)) {
                 _this->client->setGain(_this->gain);
 
-                config.transaction().section("devices", _this->devConfName).set("gain", _this->gain);
+                config.edit().section("devices", _this->devConfName).set("gain", _this->gain);
             }
 
             SmGui::Text("Status:");
@@ -239,8 +239,8 @@ private:
         srId = 0;
         rfPortId = 0;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", devConfName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", devConfName);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -318,9 +318,9 @@ MOD_EXPORT void _INIT_() {
 
     // Check config in case a user has a very old version
     {
-        auto txn = config.transaction();
-        if (!txn.contains("hostname") || !txn.contains("port") || !txn.contains("devices")) {
-            txn.reset(def);
+        auto configAccess = config.edit();
+        if (!configAccess.contains("hostname") || !configAccess.contains("port") || !configAccess.contains("devices")) {
+            configAccess.reset(def);
         }
     }
 }
@@ -334,6 +334,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

@@ -75,12 +75,12 @@ namespace backend {
     int init(std::string resDir) {
         // Load config
         {
-            auto txn = core::configManager.transaction();
-            ConfigManager::Section size = txn.section("windowSize");
+            auto configAccess = core::configManager.read();
+            ConfigManager::ReadSection size = configAccess.section("windowSize");
             size.tryGet("w", winWidth);
             size.tryGet("h", winHeight);
-            txn.tryGet("maximized", maximized);
-            txn.tryGet("fullscreen", fullScreen);
+            configAccess.tryGet("maximized", maximized);
+            configAccess.tryGet("fullscreen", fullScreen);
         }
         float userScaleFactor = common::configUserScaleFactor();
 
@@ -266,10 +266,10 @@ namespace backend {
                 _maximized = maximized;
                 int restoreW = 0, restoreH = 0;
                 {
-                    auto txn = core::configManager.transaction();
-                    txn.set("maximized", _maximized);
+                    auto configAccess = core::configManager.edit();
+                    configAccess.set("maximized", _maximized);
                     if (!maximized) {
-                        ConfigManager::Section size = txn.section("windowSize");
+                        ConfigManager::EditSection size = configAccess.section("windowSize");
                         restoreW = size.value("w", winWidth);
                         restoreH = size.value("h", winHeight);
                     }
@@ -290,20 +290,20 @@ namespace backend {
                     glfwGetWindowPos(window, &fsPosX, &fsPosY);
                     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
                     glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, 0);
-                    core::configManager.set("fullscreen", true);
+                    core::configManager.edit().set("fullscreen", true);
                 }
                 else {
                     flog::info("Fullscreen: OFF");
                     glfwSetWindowMonitor(window, nullptr, fsPosX, fsPosY, fsWidth, fsHeight, 0);
-                    core::configManager.set("fullscreen", false);
+                    core::configManager.edit().set("fullscreen", false);
                 }
             }
 
             if ((_winWidth != winWidth || _winHeight != winHeight) && !maximized && _winWidth > 0 && _winHeight > 0) {
                 winWidth = _winWidth;
                 winHeight = _winHeight;
-                auto txn = core::configManager.transaction();
-                ConfigManager::Section size = txn.section("windowSize");
+                auto configAccess = core::configManager.edit();
+                ConfigManager::EditSection size = configAccess.section("windowSize");
                 size.set("w", winWidth);
                 size.set("h", winHeight);
             }

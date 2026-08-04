@@ -130,8 +130,8 @@ public:
 
         chanId = 0;
         {
-            auto txn = config.transaction();
-            txn.section("devices", selectedDevName).tryGet("channel", chanId);
+            auto configAccess = config.read();
+            configAccess.section("devices", selectedDevName).tryGet("channel", chanId);
         }
 
         chanId = std::clamp<int>(chanId, 0, channelCount - 1);
@@ -184,8 +184,8 @@ public:
         bandwidthsTxt += '\0';
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedDevName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedDevName);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -361,14 +361,14 @@ private:
         if (SmGui::Combo("##limesdr_dev_sel", &_this->devId, _this->devListTxt.c_str())) {
             _this->selectByInfoStr(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", _this->selectedDevName);
+            config.edit().set("device", _this->selectedDevName);
         }
 
         if (SmGui::Combo(CONCAT("##_limesdr_sr_sel_", _this->name), &_this->srId, _this->sampleRatesTxt.c_str())) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedDevName != "") {
-                config.transaction().section("devices", _this->selectedDevName).set("sampleRate", _this->sampleRates[_this->srId]);
+                config.edit().section("devices", _this->selectedDevName).set("sampleRate", _this->sampleRates[_this->srId]);
             }
         }
 
@@ -386,7 +386,7 @@ private:
             SmGui::LeftLabel("RX Channel");
             SmGui::FillWidth();
             if (SmGui::Combo("##limesdr_ch_sel", &_this->chanId, _this->channelNamesTxt.c_str()) && _this->selectedDevName != "") {
-                config.transaction().section("devices", _this->selectedDevName).set("channel", _this->chanId);
+                config.edit().section("devices", _this->selectedDevName).set("channel", _this->chanId);
             }
         }
 
@@ -399,7 +399,7 @@ private:
                 LMS_SetAntenna(_this->openDev, false, _this->chanId, _this->antennaId);
             }
             if (_this->selectedDevName != "") {
-                config.transaction().section("devices", _this->selectedDevName).set("antenna", _this->antennaNameList[_this->antennaId]);
+                config.edit().section("devices", _this->selectedDevName).set("antenna", _this->antennaNameList[_this->antennaId]);
             }
         }
 
@@ -410,7 +410,7 @@ private:
                 LMS_SetLPFBW(_this->openDev, false, _this->chanId, (_this->bwId == _this->bandwidths.size()) ? _this->getBestBandwidth(_this->sampleRate) : _this->bandwidths[_this->bwId]);
             }
             if (_this->selectedDevName != "") {
-                config.transaction().section("devices", _this->selectedDevName).set("bandwidth", _this->bwId);
+                config.edit().section("devices", _this->selectedDevName).set("bandwidth", _this->bwId);
             }
         }
 
@@ -421,7 +421,7 @@ private:
                 LMS_SetGaindB(_this->openDev, false, _this->chanId, _this->gain);
             }
             if (_this->selectedDevName != "") {
-                config.transaction().section("devices", _this->selectedDevName).set("gain", _this->gain);
+                config.edit().section("devices", _this->selectedDevName).set("gain", _this->gain);
             }
         }
     }
@@ -495,6 +495,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

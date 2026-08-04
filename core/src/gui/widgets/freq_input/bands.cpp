@@ -341,10 +341,10 @@ namespace freq_input {
         scrollActiveIntoView = true;
         activeCache->invalidate();
         registerCache->invalidate();
-        auto txn = core::configManager.transaction();
-        groupId = txn.value("bandPickerGroupId", "ham");
+        auto configAccess = core::configManager.read();
+        groupId = configAccess.value("bandPickerGroupId", "ham");
         currentService = bandServiceFromKey(
-            freq_memory::band(txn).value(
+            freq_memory::band(configAccess).value(
                 freq_memory::ACTIVE_SERVICE,
                 "other"));
     }
@@ -402,7 +402,7 @@ namespace freq_input {
         {
             groupId = std::string(groupLayout.groups[groupIndex].id);
             scrollActiveIntoView = true;
-            core::configManager.set("bandPickerGroupId", groupId);
+            core::configManager.edit().set("bandPickerGroupId", groupId);
         }
         const band_groups::Group& activeGroup =
             groupLayout.groups[groupIndex];

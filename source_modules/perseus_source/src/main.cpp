@@ -44,7 +44,7 @@ public:
 
         refresh();
 
-        std::string serial = config.value("device", std::string());
+        std::string serial = config.read().value("device", std::string());
         select(serial);
 
         sigpath::sourceManager.registerSource("Perseus", &handler);
@@ -186,8 +186,8 @@ public:
         preselector = true;
         atten = 0;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerial);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection dev = configAccess.section("devices", selectedSerial);
 
             int sr = 0;
             if (dev.tryGet("samplerate", sr) && srList.keyExists(sr)) {
@@ -320,14 +320,14 @@ private:
             std::string serial = _this->devList.key(_this->devId);
             _this->select(serial);
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", serial);
+            config.edit().set("device", serial);
         }
 
         if (SmGui::Combo(CONCAT("##_airspyhf_sr_sel_", _this->name), &_this->srId, _this->srList.txt)) {
             _this->sampleRate = _this->srList[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("samplerate", _this->sampleRate);
+                config.edit().section("devices", _this->selectedSerial).set("samplerate", _this->sampleRate);
             }
         }
 
@@ -349,7 +349,7 @@ private:
                 perseus_set_attenuator_in_db(_this->openDev, _this->atten);
             }
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("attenuation", _this->atten);
+                config.edit().section("devices", _this->selectedSerial).set("attenuation", _this->atten);
             }
         }
 
@@ -358,7 +358,7 @@ private:
                 perseus_set_adc(_this->openDev, _this->dithering, _this->preamp);
             }
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("preamp", _this->preamp);
+                config.edit().section("devices", _this->selectedSerial).set("preamp", _this->preamp);
             }
         }
 
@@ -367,7 +367,7 @@ private:
                 perseus_set_adc(_this->openDev, _this->dithering, _this->preamp);
             }
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("dithering", _this->dithering);
+                config.edit().section("devices", _this->selectedSerial).set("dithering", _this->dithering);
             }
         }
 
@@ -376,7 +376,7 @@ private:
                 perseus_set_ddc_center_freq(_this->openDev, _this->freq, _this->preselector);
             }
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("preselector", _this->preselector);
+                config.edit().section("devices", _this->selectedSerial).set("preselector", _this->preselector);
             }
         }
     }
@@ -442,6 +442,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

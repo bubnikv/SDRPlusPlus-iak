@@ -13,17 +13,17 @@ namespace core {
 
     void setInputSampleRate(double samplerate);
 
-    // Commit live UI state that is not continuously persisted, then force the
-    // application configuration to disk. Used by lifecycle events where the
-    // process may be terminated before the auto-save interval expires.
-    SDRPP_CPP_EXPORT void saveState();
+    // Commit live UI state that is not continuously persisted, then synchronously
+    // flush every autosaved core and module config. This is non-terminal because
+    // Android may resume after the lifecycle event.
+    SDRPP_CPP_EXPORT bool saveState();
 
     // Effective resource paths. Returns the value from the config,
     // except under AppImage builds (BUILD_APPIMAGE) on Linux when $APPDIR
     // is set — in which case the bundled paths inside the AppImage mount
     // are returned. The accessor pattern keeps the FUSE mount point out
     // of the persisted config file. Both take the config lock themselves, so
-    // they must not be called with a transaction open.
+    // they must not be called while this manager has an active access.
     SDRPP_CPP_EXPORT std::string getModulesDirectory();
     SDRPP_CPP_EXPORT std::string getResourcesDirectory();
 

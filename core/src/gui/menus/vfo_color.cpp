@@ -5,6 +5,9 @@
 #include <string>
 #include <core.h>
 #include <map>
+#include <vector>
+#include <algorithm>
+#include <cctype>
 
 namespace vfo_color_menu {
     std::map<std::string, ImVec4> vfoColors;
@@ -22,17 +25,43 @@ namespace vfo_color_menu {
         vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
+    void saveColors(const std::vector<std::pair<std::string, std::string>>& updates) {
+        if (updates.empty()) { return; }
+
+        auto configAccess = core::configManager.edit();
+        ConfigManager::EditSection colors = configAccess.section("vfoColors");
+        for (const auto& [name, color] : updates) {
+            colors.set(name, color);
+        }
+    }
+
+    void repairColors(const std::vector<std::pair<std::string, json>>& repairs) {
+        if (repairs.empty()) { return; }
+
+        auto configAccess = core::configManager.edit();
+        ConfigManager::EditSection colors = configAccess.section("vfoColors");
+        for (const auto& [name, observed] : repairs) {
+            // Preserve a value replaced after the read snapshot.
+            if (colors.contains(name) && colors.value(name, json()) == observed) {
+                colors.set(name, "#FFFFFF");
+            }
+        }
+    }
+
     void init() {
-        // Load colors from config
-        auto txn = core::configManager.transaction();
-        ConfigManager::Section colors = txn.section("vfoColors");
-        // Copied out: the repairs below write back into the same subtree.
-        const json* stored = colors.peek();
-        json conf = stored ? *stored : json::object();
+        // Snapshot the subtree so parsing and VFO callbacks do not hold the config mutex.
+        json conf;
+        {
+            auto configAccess = core::configManager.read();
+            const json* stored = configAccess.section("vfoColors").peek();
+            conf = stored ? *stored : json::object();
+        }
+
+        std::vector<std::pair<std::string, json>> repairs;
         for (auto& [name, val] : conf.items()) {
             // If not a string, repair with default
             if (!val.is_string()) {
-                colors.set(name, "#FFFFFF");
+                repairs.emplace_back(name, val);
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 if (sigpath::vfoManager.vfoExists(name)) {
                     sigpath::vfoManager.setColor(name, IM_COL32(255, 255, 255, 50));
@@ -42,8 +71,9 @@ namespace vfo_color_menu {
 
             // If not a valid hex color, repair with default
             std::string col = val;
-            if (col[0] != '#' || !std::all_of(col.begin() + 1, col.end(), ::isxdigit)) {
-                colors.set(name, "#FFFFFF");
+            if (col.size() != 7 || col[0] != '#' ||
+                    !std::all_of(col.begin() + 1, col.end(), [](unsigned char c) { return std::isxdigit(c) != 0; })) {
+                repairs.emplace_back(name, val);
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 if (sigpath::vfoManager.vfoExists(name)) {
                     sigpath::vfoManager.setColor(name, IM_COL32(255, 255, 255, 50));
@@ -61,6 +91,7 @@ namespace vfo_color_menu {
                 sigpath::vfoManager.setColor(name, IM_COL32((int)roundf(r), (int)roundf(g), (int)roundf(b), 50));
             }
         }
+        repairColors(repairs);
 
         // Iterate existing VFOs and set their color if in the config, if not set to
         // default. In memory only -- the entry is written when the user picks a colour.
@@ -83,6 +114,8 @@ namespace vfo_color_menu {
         if (ImGui::Button("Auto Color##vfo_color", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
             float delta = 1.0f / (float)gui::waterfall.vfos.size();
             float hue = 0;
+            std::vector<std::pair<std::string, std::string>> updates;
+            updates.reserve(gui::waterfall.vfos.size());
             for (auto& [name, vfo] : gui::waterfall.vfos) {
                 float r, g, b;
                 ImGui::ColorConvertHSVtoRGB(hue, 0.5f, 1.0f, r, g, b);
@@ -91,19 +124,21 @@ namespace vfo_color_menu {
                 hue += delta;
                 char buf[16];
                 sprintf(buf, "#%02X%02X%02X", (int)roundf(r * 255), (int)roundf(g * 255), (int)roundf(b * 255));
-                auto txn = core::configManager.transaction();
-                txn.section("vfoColors").set(name, buf);
+                updates.emplace_back(name, buf);
             }
+            saveColors(updates);
         }
 
         ImGui::TableSetColumnIndex(1);
         if (ImGui::Button("Clear All##vfo_color", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+            std::vector<std::pair<std::string, std::string>> updates;
+            updates.reserve(gui::waterfall.vfos.size());
             for (auto& [name, vfo] : gui::waterfall.vfos) {
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 vfo->color = IM_COL32(255, 255, 255, 50);
-                auto txn = core::configManager.transaction();
-                txn.section("vfoColors").set(name, "#FFFFFF");
+                updates.emplace_back(name, "#FFFFFF");
             }
+            saveColors(updates);
         }
 
         ImGui::EndTable();
@@ -121,8 +156,7 @@ namespace vfo_color_menu {
                 vfo->color = IM_COL32((int)roundf(col.x * 255), (int)roundf(col.y * 255), (int)roundf(col.z * 255), 50);
                 char buf[16];
                 sprintf(buf, "#%02X%02X%02X", (int)roundf(col.x * 255), (int)roundf(col.y * 255), (int)roundf(col.z * 255));
-                auto txn = core::configManager.transaction();
-                txn.section("vfoColors").set(name, buf);
+                core::configManager.edit().section("vfoColors").set(name, buf);
             }
             ImGui::SameLine();
             ImGui::TextUnformatted(name.c_str());

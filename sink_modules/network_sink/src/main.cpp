@@ -40,8 +40,8 @@ public:
         // Load config
         bool startNow = false;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section stream = txn.section(_streamName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection stream = configAccess.section(_streamName);
 
             // Seed whatever this stream is missing, which for a stream never seen
             // before is the whole block.
@@ -134,18 +134,18 @@ public:
 
         if (listening) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_network_sink_host_", _streamName), hostname, 1023)) {
-            config.transaction().section(_streamName).set("hostname", hostname);
+            config.edit().section(_streamName).set("hostname", hostname);
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_network_sink_port_", _streamName), &port, 0, 0)) {
-            config.transaction().section(_streamName).set("port", port);
+            config.edit().section(_streamName).set("port", port);
         }
 
         ImGui::LeftLabel("Protocol");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo(CONCAT("##_network_sink_mode_", _streamName), &modeId, sinkModesTxt)) {
-            config.transaction().section(_streamName).set("protocol", modeId);
+            config.edit().section(_streamName).set("protocol", modeId);
         }
 
         if (listening) { style::endDisabled(); }
@@ -156,22 +156,22 @@ public:
             sampleRate = sampleRates[srId];
             _stream->setSampleRate(sampleRate);
             packer.setSampleCount(sampleRate / 60);
-            config.transaction().section(_streamName).set("sampleRate", sampleRate);
+            config.edit().section(_streamName).set("sampleRate", sampleRate);
         }
 
         if (ImGui::Checkbox(CONCAT("Stereo##_network_sink_stereo_", _streamName), &stereo)) {
             stop();
             start();
-            config.transaction().section(_streamName).set("stereo", stereo);
+            config.edit().section(_streamName).set("stereo", stereo);
         }
 
         if (listening && ImGui::Button(CONCAT("Stop##_network_sink_stop_", _streamName), ImVec2(menuWidth, 0))) {
             stopServer();
-            config.transaction().section(_streamName).set("listening", false);
+            config.edit().section(_streamName).set("listening", false);
         }
         else if (!listening && ImGui::Button(CONCAT("Start##_network_sink_stop_", _streamName), ImVec2(menuWidth, 0))) {
             startServer();
-            config.transaction().section(_streamName).set("listening", true);
+            config.edit().section(_streamName).set("listening", true);
         }
 
         ImGui::TextUnformatted("Status:");
@@ -351,6 +351,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

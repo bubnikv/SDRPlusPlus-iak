@@ -282,10 +282,10 @@ public:
     void postInit() {
         json stored;
         {
-            auto txn = config.transaction();
-            txn.tryGet("duration", receiveDuration);
-            txn.tryGet("visible", visible);
-            stored = txn.value("receivers", json::object());
+            auto configAccess = config.read();
+            configAccess.tryGet("duration", receiveDuration);
+            configAccess.tryGet("visible", visible);
+            stored = configAccess.value("receivers", json::object());
         }
         if (stored.is_object()) {
             for (auto [k, c]: stored.items()) {
@@ -323,12 +323,12 @@ private:
         ImGui::LeftLabel("Seconds to receive:");
         ImGui::FillWidth();
         if (ImGui::SliderInt("##_websdr_duration_", &receiveDuration, 15, 45)) {
-            config.set("duration", receiveDuration);
+            config.edit().set("duration", receiveDuration);
 
         }
         ImGui::LeftLabel("Enabled");
         if (ImGui::Checkbox("##_websdr_visible_", &visible)) {
-            config.set("visible", visible);
+            config.edit().set("visible", visible);
         }
         if (ImGui::Button("Add new...")) {
             selector.openPopup();
@@ -345,7 +345,7 @@ private:
         }
         if (removeIndex != -1) {
             std::shared_ptr<SingleReceiver> recvr = receivers[removeIndex];
-            config.transaction().section("receivers").erase(recvr->id);
+            config.edit().section("receivers").erase(recvr->id);
             receivers.erase(receivers.begin() + removeIndex);
         }
         selector.drawPopup([=](const std::string &hostPort, const std::string &loc, const std::optional<ServerEntry::FrequencyBand> &) {
@@ -356,8 +356,8 @@ private:
                 auto epochMs = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 auto recvr = std::make_shared<SingleReceiver>(std::to_string(epochMs), hostPort, loc, this);
                 receivers.push_back(recvr);
-                auto txn = config.transaction();
-                ConfigManager::Section entry = txn.section("receivers", recvr->id);
+                auto configAccess = config.edit();
+                ConfigManager::EditSection entry = configAccess.section("receivers", recvr->id);
                 entry.set("url", recvr->url);
                 entry.set("loc", recvr->loc);
             }
@@ -411,6 +411,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void *instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

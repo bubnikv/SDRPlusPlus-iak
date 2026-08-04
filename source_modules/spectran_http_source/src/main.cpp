@@ -124,12 +124,12 @@ private:
         if (connected) { SmGui::BeginDisabled(); }
 
         if (SmGui::InputText(CONCAT("##spectran_http_host_", _this->name), _this->hostname, 1023)) {
-            config.set("hostname", _this->hostname);
+            config.edit().set("hostname", _this->hostname);
         }
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(CONCAT("##spectran_http_port_", _this->name), &_this->port, 0, 0)) {
-            config.set("port", _this->port);
+            config.edit().set("port", _this->port);
         }
 
         if (connected) { SmGui::EndDisabled(); }
@@ -223,6 +223,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

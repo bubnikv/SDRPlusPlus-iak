@@ -84,8 +84,8 @@ namespace style {
     void applyScaledStyle(const std::function<void()>& resetStyle);
     // Rewrites a dimension stored in physical pixels as logical units, once, and
     // leaves a marker key behind so it isn't converted twice. Takes the open
-    // transaction rather than the document, since it both reads and writes.
-    void migrateLogicalDimension(ConfigManager::Transaction& txn, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical);
+    // edit access rather than the document, since it both reads and writes.
+    void migrateLogicalDimension(ConfigManager::EditAccess& configAccess, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical);
     void beginDisabled();
     void endDisabled();
     void testtt();

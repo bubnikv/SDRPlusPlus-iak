@@ -29,17 +29,27 @@ endif ()
 
 add_library(sdrpp_core SHARED ${SRC} ${BACKEND_SRC})
 if (ANDROID OR OPT_BACKEND_ANDROID)
-    target_compile_definitions(sdrpp_core PRIVATE OPT_CONFIG_MULTIPLE_INSTANCES=0)
+    set(SDRPP_CONFIG_MULTIPLE_INSTANCES 0)
     message(STATUS "Multiple-instance config synchronization: disabled")
 else ()
-    target_compile_definitions(sdrpp_core PRIVATE OPT_CONFIG_MULTIPLE_INSTANCES=1)
+    set(SDRPP_CONFIG_MULTIPLE_INSTANCES 1)
     message(STATUS "Multiple-instance config synchronization: enabled")
 endif ()
+target_compile_definitions(sdrpp_core PRIVATE
+    OPT_CONFIG_MULTIPLE_INSTANCES=${SDRPP_CONFIG_MULTIPLE_INSTANCES})
 if (MSVC AND SDRPP_RUNTIME_OUTPUT_DIRECTORY)
     add_custom_command(TARGET sdrpp_core POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E remove -f
             "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/$<TARGET_FILE_NAME:sdrpp_core>"
         VERBATIM)
+endif ()
+
+if (OPT_BUILD_TESTS AND NOT ANDROID)
+    add_executable(config_manager_tests tests/config_manager_tests.cpp)
+    target_link_libraries(config_manager_tests PRIVATE sdrpp_core)
+    target_compile_definitions(config_manager_tests PRIVATE
+        OPT_CONFIG_MULTIPLE_INSTANCES=${SDRPP_CONFIG_MULTIPLE_INSTANCES})
+    add_test(NAME config_manager_tests COMMAND config_manager_tests)
 endif ()
 
 target_compile_definitions(sdrpp_core PRIVATE

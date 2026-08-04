@@ -56,7 +56,7 @@ public:
         refresh();
 
         // Select device here
-        std::string serial = config.value("device", std::string());
+        std::string serial = config.read().value("device", std::string());
         selectBySerial(serial);
 
         sigpath::sourceManager.registerSource("BladeRF", &handler);
@@ -155,8 +155,8 @@ public:
         if (reloadChannelId) {
             chanId = 0;
             if (channelCount > 1) {
-                auto txn = config.transaction();
-                txn.section("devices", info->serial).tryGet("channelId", chanId);
+                auto configAccess = config.read();
+                configAccess.section("devices", info->serial).tryGet("channelId", chanId);
             }
         }
 
@@ -221,8 +221,8 @@ public:
 
         // Load settings here
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerial);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedSerial);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -405,14 +405,14 @@ private:
             bladerf_devinfo info = _this->devInfoList[_this->devId];
             _this->selectByInfo(&info);
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", _this->selectedSerial);
+            config.edit().set("device", _this->selectedSerial);
         }
 
         if (SmGui::Combo(CONCAT("##_balderf_sr_sel_", _this->name), &_this->srId, _this->sampleRatesTxt.c_str())) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("sampleRate", _this->sampleRates[_this->srId]);
+                config.edit().section("devices", _this->selectedSerial).set("sampleRate", _this->sampleRates[_this->srId]);
             }
         }
 
@@ -432,7 +432,7 @@ private:
             SmGui::FillWidth();
             SmGui::Combo(CONCAT("##_balderf_ch_sel_", _this->name), &_this->chanId, _this->channelNamesTxt.c_str());
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("channelId", _this->chanId);
+                config.edit().section("devices", _this->selectedSerial).set("channelId", _this->chanId);
             }
         }
 
@@ -445,7 +445,7 @@ private:
                 bladerf_set_bandwidth(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), (_this->bwId == _this->bandwidths.size()) ? std::clamp<uint64_t>(_this->sampleRate, _this->bwRange->min, _this->bwRange->max) : _this->bandwidths[_this->bwId], NULL);
             }
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("bandwidth", _this->bwId);
+                config.edit().section("devices", _this->selectedSerial).set("bandwidth", _this->bwId);
             }
         }
 
@@ -456,7 +456,7 @@ private:
                 _this->setClockSource(_this->clocks[_this->clkId]);
             }
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("clock", _this->clocks.key(_this->clkId));
+                config.edit().section("devices", _this->selectedSerial).set("clock", _this->clocks.key(_this->clkId));
             }
         }
 
@@ -473,7 +473,7 @@ private:
                 bladerf_set_gain(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->overallGain);
             }
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("gainMode", _this->gainModeNames[_this->gainMode]);
+                config.edit().section("devices", _this->selectedSerial).set("gainMode", _this->gainModeNames[_this->gainMode]);
             }
         }
 
@@ -488,7 +488,7 @@ private:
                 bladerf_set_gain(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->overallGain);
             }
             if (_this->selectedSerial != "") {
-                config.transaction().section("devices", _this->selectedSerial).set("overallGain", _this->overallGain);
+                config.edit().section("devices", _this->selectedSerial).set("overallGain", _this->overallGain);
             }
         }
         if (_this->selectedSerial != "") {
@@ -500,7 +500,7 @@ private:
                 if (_this->running) {
                     bladerf_set_bias_tee(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->biasT);
                 }
-                config.transaction().section("devices", _this->selectedSerial).set("biasT", _this->biasT);
+                config.edit().section("devices", _this->selectedSerial).set("biasT", _this->biasT);
             }
         }
     }
@@ -600,6 +600,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

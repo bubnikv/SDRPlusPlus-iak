@@ -100,7 +100,7 @@ public:
 
         refresh();
 
-        std::string confSerial = config.value("device", std::string());
+        std::string confSerial = config.read().value("device", std::string());
         selectBySerial(confSerial);
 
         sigpath::sourceManager.registerSource("HackRF", &handler);
@@ -178,8 +178,8 @@ public:
         bwId = 16;
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", serial);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", serial);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -333,13 +333,13 @@ private:
         if (SmGui::Combo(CONCAT("##_hackrf_dev_sel_", _this->name), &_this->devId, _this->devListTxt.c_str())) {
             _this->selectBySerial(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", _this->selectedSerial);
+            config.edit().set("device", _this->selectedSerial);
         }
 
         if (SmGui::Combo(CONCAT("##_hackrf_sr_sel_", _this->name), &_this->srId, sampleRatesTxt)) {
             _this->sampleRate = sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
-            config.transaction().section("devices", _this->selectedSerial).set("sampleRate", _this->sampleRate);
+            config.edit().section("devices", _this->selectedSerial).set("sampleRate", _this->sampleRate);
         }
 
         SmGui::SameLine();
@@ -363,7 +363,7 @@ private:
             if (_this->running) {
                 hackrf_set_baseband_filter_bandwidth(_this->openDev, _this->bandwidthIdToBw(_this->bwId));
             }
-            config.transaction().section("devices", _this->selectedSerial).set("bandwidth", _this->bwId);
+            config.edit().section("devices", _this->selectedSerial).set("bandwidth", _this->bwId);
         }
 
         SmGui::LeftLabel("LNA Gain");
@@ -372,7 +372,7 @@ private:
             if (_this->running) {
                 hackrf_set_lna_gain(_this->openDev, _this->lna);
             }
-            config.transaction().section("devices", _this->selectedSerial).set("lnaGain", (int)_this->lna);
+            config.edit().section("devices", _this->selectedSerial).set("lnaGain", (int)_this->lna);
         }
 
         SmGui::LeftLabel("VGA Gain");
@@ -381,21 +381,21 @@ private:
             if (_this->running) {
                 hackrf_set_vga_gain(_this->openDev, _this->vga);
             }
-            config.transaction().section("devices", _this->selectedSerial).set("vgaGain", (int)_this->vga);
+            config.edit().section("devices", _this->selectedSerial).set("vgaGain", (int)_this->vga);
         }
 
         if (SmGui::Checkbox(CONCAT("Bias-T##_hackrf_bt_", _this->name), &_this->biasT)) {
             if (_this->running) {
                 hackrf_set_antenna_enable(_this->openDev, _this->biasT);
             }
-            config.transaction().section("devices", _this->selectedSerial).set("biasT", _this->biasT);
+            config.edit().section("devices", _this->selectedSerial).set("biasT", _this->biasT);
         }
 
         if (SmGui::Checkbox(CONCAT("Amp Enabled##_hackrf_amp_", _this->name), &_this->amp)) {
             if (_this->running) {
                 hackrf_set_amp_enable(_this->openDev, _this->amp);
             }
-            config.transaction().section("devices", _this->selectedSerial).set("amp", _this->amp);
+            config.edit().section("devices", _this->selectedSerial).set("amp", _this->amp);
         }
     }
 
@@ -450,6 +450,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

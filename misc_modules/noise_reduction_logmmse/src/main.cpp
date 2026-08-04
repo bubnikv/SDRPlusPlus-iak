@@ -40,9 +40,9 @@ public:
     NRModule(std::string name) {
         this->name = name;
         {
-            auto txn = config.transaction();
-            txn.tryGet("IFNR", ifnr);
-            txn.tryGet("DisableCpuDeactivation", disableCpuDeactivation);
+            auto configAccess = config.read();
+            configAccess.tryGet("IFNR", ifnr);
+            configAccess.tryGet("DisableCpuDeactivation", disableCpuDeactivation);
         }
 
         ifnrProcessor.setDisableCpuDeactivation(disableCpuDeactivation);
@@ -91,7 +91,7 @@ private:
         afnrProcessors2[instanceName] = afnromlsa;
         afnromlsa->setAudioSampleRate((int)sigpath::sinkManager.getStreamSampleRate(instanceName));
 
-        bool afnr2 = config.value("AF_NR2_" + instanceName, false);
+        bool afnr2 = config.read().value("AF_NR2_" + instanceName, false);
         afnromlsa->allowed = afnr2;
 
         // Only splice the block into the running AF chain when the feature is
@@ -165,7 +165,7 @@ private:
         if (!enabled) { style::beginDisabled(); }
 
         if (ImGui::Checkbox("Baseband NR##_sdrpp_if_nr", &ifnr)) {
-            config.set("IFNR", ifnr);
+            config.edit().set("IFNR", ifnr);
             if (ifnr) { // toggled on - attempt to run.
                 ifnrProcessor.stopReason = nullptr;
             }
@@ -181,7 +181,7 @@ private:
         const char* stopReason = ifnrProcessor.stopReason;
         if (stopReason && ifnr) { // wants to stop -> stop it.
             ifnr = false;
-            config.set("IFNR", ifnr);
+            config.edit().set("IFNR", ifnr);
             actuateIFNR();
         }
         if (stopReason) { // stopped because reason -> show it.
@@ -207,7 +207,7 @@ private:
                 if (clicked) {
                     disableCpuDeactivation = !disableCpuDeactivation;
                     ifnrProcessor.setDisableCpuDeactivation(disableCpuDeactivation);
-                    config.set("DisableCpuDeactivation", disableCpuDeactivation);
+                    config.edit().set("DisableCpuDeactivation", disableCpuDeactivation);
                 }
                 if (disableCpuDeactivation) {
                     auto drawList = ImGui::GetWindowDrawList();
@@ -229,7 +229,7 @@ private:
                 // Disabling joins the block's worker thread, so the buffer can
                 // be cleared here; otherwise stale audio would flush on re-enable.
                 if (!v->allowed) { v->buffer.clear(); }
-                config.set("AF_NR2_" + k, v->allowed);
+                config.edit().set("AF_NR2_" + k, v->allowed);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("OMLSA-MCRA speech denoiser on this radio's audio output.\n"
@@ -275,6 +275,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

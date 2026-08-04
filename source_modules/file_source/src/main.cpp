@@ -109,7 +109,7 @@ public:
 
         if (core::args["server"].b()) { return; }
 
-        fileSelect.setPath(config.value("path", std::string()), true);
+        fileSelect.setPath(config.read().value("path", std::string()), true);
 
         handler.ctx = this;
         handler.selectHandler = menuSelected;
@@ -239,7 +239,7 @@ private:
                 }
             }
             _this->updateFormatStr();
-            config.set("path", _this->fileSelect.path);
+            config.edit().set("path", _this->fileSelect.path);
         }
 
         if (!_this->formatStr.empty()) {
@@ -356,6 +356,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

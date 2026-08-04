@@ -36,7 +36,7 @@ public:
         refresh();
 
         // Select default device
-        std::string devName = config.value("device", std::string());
+        std::string devName = config.read().value("device", std::string());
         selectDevice(devName);
 
         handler.ctx = this;
@@ -228,9 +228,9 @@ private:
         // back into the core, and the defaults path is the same either way.
         double storedSampleRate = sampleRates[0];
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", name);
-            ConfigManager::Section gains = dev.section("gains");
+            auto configAccess = config.read();
+            ConfigManager::ReadSection dev = configAccess.section("devices", name);
+            ConfigManager::ReadSection gains = dev.section("gains");
 
             uiAntennaId = 0;
             dev.tryGet("antenna", uiAntennaId);
@@ -267,8 +267,7 @@ private:
         if (hasAgc) {
             conf["agc"] = agc;
         }
-        auto txn = config.transaction();
-        txn.section("devices").set(devArgs["label"], conf);
+        config.edit().section("devices").set(devArgs["label"], conf);
     }
 
     static void menuSelected(void* ctx) {
@@ -363,7 +362,7 @@ private:
             SmGui::ForceSync();
             if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
                 _this->refresh();
-                _this->selectDevice(config.value("device", std::string()));
+                _this->selectDevice(config.read().value("device", std::string()));
             }
             return;
         }
@@ -374,7 +373,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_dev_select_", _this->name), &_this->devId, _this->txtDevList.c_str())) {
             _this->selectDevice(_this->devList[_this->devId]["label"]);
-            config.set("device", _this->devList[_this->devId]["label"]);
+            config.edit().set("device", _this->devList[_this->devId]["label"]);
         }
 
         if (SmGui::Combo(CONCAT("##_sr_select_", _this->name), &_this->srId, _this->txtSrList.c_str())) {
@@ -388,7 +387,7 @@ private:
         SmGui::FillWidth();
         if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
             _this->refresh();
-            _this->selectDevice(config.value("device", std::string()));
+            _this->selectDevice(config.read().value("device", std::string()));
         }
 
         if (_this->running) { SmGui::EndDisabled(); }
@@ -529,6 +528,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

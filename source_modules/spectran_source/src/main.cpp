@@ -71,7 +71,7 @@ public:
         refresh();
 
         // Select device from config
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         // TODO: Select
         selectSerial("");
 
@@ -554,6 +554,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

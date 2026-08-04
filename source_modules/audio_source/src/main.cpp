@@ -54,7 +54,7 @@ public:
         refresh();
 
         // Select device
-        std::string device = config.value("device", std::string());
+        std::string device = config.read().value("device", std::string());
         select(device);
         
         sigpath::sourceManager.registerSource("Audio", &handler);
@@ -137,8 +137,8 @@ public:
 
         // Load samplerate from config
         {
-            auto txn = config.transaction();
-            if (txn.section("devices", selectedDevice).tryGet("sampleRate", sampleRate) && sampleRates.keyExists(sampleRate)) {
+            auto configAccess = config.read();
+            if (configAccess.section("devices", selectedDevice).tryGet("sampleRate", sampleRate) && sampleRates.keyExists(sampleRate)) {
                 srId = sampleRates.keyId(sampleRate);
             }
         }
@@ -228,14 +228,14 @@ private:
             std::string dev = _this->devices.key(_this->devId);
             _this->select(dev);
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", dev);
+            config.edit().set("device", dev);
         }
 
         if (SmGui::Combo(CONCAT("##_audio_sr_sel_", _this->name), &_this->srId, _this->sampleRates.txt)) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedDevice.empty()) {
-                config.transaction().section("devices", _this->selectedDevice).set("sampleRate", _this->sampleRate);
+                config.edit().section("devices", _this->selectedDevice).set("sampleRate", _this->sampleRate);
             }
         }
 
@@ -308,6 +308,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

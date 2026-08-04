@@ -63,7 +63,7 @@ public:
         refresh();
 
         // Select device
-        devDesc = config.value("device", std::string());
+        devDesc = config.read().value("device", std::string());
         select(devDesc);
 
         // Register source
@@ -197,8 +197,8 @@ private:
 
         // Load device config
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", devDesc);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection dev = configAccess.section("devices", devDesc);
             dev.tryGet("samplerate", samplerate);
             dev.tryGet("bandwidth", bandwidth);
 
@@ -358,14 +358,14 @@ private:
         if (SmGui::Combo("##plutosdr_dev_sel", &_this->devId, _this->devices.txt)) {
             _this->select(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->samplerate);
-            config.set("device", _this->devices.key(_this->devId));
+            config.edit().set("device", _this->devices.key(_this->devId));
         }
 
         if (SmGui::Combo(CONCAT("##_pluto_sr_", _this->name), &_this->srId, _this->samplerates.txt)) {
             _this->samplerate = _this->samplerates.value(_this->srId);
             core::setInputSampleRate(_this->samplerate);
             if (!_this->devDesc.empty()) {
-                config.transaction().section("devices", _this->devDesc).set("samplerate", _this->samplerate);
+                config.edit().section("devices", _this->devDesc).set("samplerate", _this->samplerate);
             }
         }
 
@@ -388,7 +388,7 @@ private:
                 _this->setBandwidth(_this->bandwidth);
             }
             if (!_this->devDesc.empty()) {
-                config.transaction().section("devices", _this->devDesc).set("bandwidth", _this->bandwidth);
+                config.edit().section("devices", _this->devDesc).set("bandwidth", _this->bandwidth);
             }
         }
 
@@ -400,7 +400,7 @@ private:
                 iio_channel_attr_write(_this->rxChan, "gain_control_mode", _this->gainModes.value(_this->gmId).c_str());
             }
             if (!_this->devDesc.empty()) {
-                config.transaction().section("devices", _this->devDesc).set("gainMode", _this->gainModes.key(_this->gmId));
+                config.edit().section("devices", _this->devDesc).set("gainMode", _this->gainModes.key(_this->gmId));
             }
         }
 
@@ -412,7 +412,7 @@ private:
                 iio_channel_attr_write_double(_this->rxChan, "hardwaregain", _this->gain);
             }
             if (!_this->devDesc.empty()) {
-                config.transaction().section("devices", _this->devDesc).set("gain", _this->gain);
+                config.edit().section("devices", _this->devDesc).set("gain", _this->gain);
             }
         }
         if (_this->gmId) { SmGui::EndDisabled(); }
@@ -424,7 +424,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_pluto_rfinput_", _this->name), &_this->rfId, _this->rfInputs.txt)) {
             if (!_this->devDesc.empty()) {
-                config.transaction().section("devices", _this->devDesc).set("rfInput", _this->rfInputs.key(_this->rfId));
+                config.edit().section("devices", _this->devDesc).set("rfInput", _this->rfInputs.key(_this->rfId));
             }
         }
         if (_this->running) { SmGui::EndDisabled(); }
@@ -576,9 +576,9 @@ MOD_EXPORT void _INIT_() {
 
     // Reset the configuration if the old format is still used
     {
-        auto txn = config.transaction();
-        if (!txn.contains("device") || !txn.contains("devices")) {
-            txn.reset(defConf);
+        auto configAccess = config.edit();
+        if (!configAccess.contains("device") || !configAccess.contains("devices")) {
+            configAccess.reset(defConf);
         }
     }
 }
@@ -592,6 +592,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

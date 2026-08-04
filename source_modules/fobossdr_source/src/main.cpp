@@ -49,7 +49,7 @@ public:
         refresh();
 
         // Select device from config
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         select(devSerial);
 
         sigpath::sourceManager.registerSource("FobosSDR", &handler);
@@ -206,8 +206,8 @@ private:
 
         // Load config
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerial);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection dev = configAccess.section("devices", selectedSerial);
 
             int desiredSr = 0;
             if (dev.tryGet("samplerate", desiredSr) && samplerates.keyExists(desiredSr)) {
@@ -365,14 +365,14 @@ private:
         if (SmGui::Combo(CONCAT("##_fobossdr_dev_sel_", _this->name), &_this->devId, _this->devices.txt)) {
             _this->select(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->sampleRate);
-            config.set("device", _this->selectedSerial);
+            config.edit().set("device", _this->selectedSerial);
         }
 
         if (SmGui::Combo(CONCAT("##_fobossdr_sr_sel_", _this->name), &_this->srId, _this->samplerates.txt)) {
             _this->sampleRate = _this->samplerates.value(_this->srId);
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("samplerate", _this->samplerates.key(_this->srId));
+                config.edit().section("devices", _this->selectedSerial).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -389,7 +389,7 @@ private:
         SmGui::FillWidth();
         if (SmGui::Combo(CONCAT("##_fobossdr_port_", _this->name), &_this->portId, _this->ports.txt)) {
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("port", _this->ports.key(_this->portId));
+                config.edit().section("devices", _this->selectedSerial).set("port", _this->ports.key(_this->portId));
             }
         }
 
@@ -402,7 +402,7 @@ private:
                 fobos_rx_set_clk_source(_this->openDev, _this->clockSources[_this->clkSrcId]);
             }
             if (!_this->selectedSerial.empty()) {
-                config.transaction().section("devices", _this->selectedSerial).set("clkSrc", _this->clockSources.key(_this->clkSrcId));
+                config.edit().section("devices", _this->selectedSerial).set("clkSrc", _this->clockSources.key(_this->clkSrcId));
             }
         }
 
@@ -414,7 +414,7 @@ private:
                     fobos_rx_set_lna_gain(_this->openDev, _this->lnaGain);
                 }
                 if (!_this->selectedSerial.empty()) {
-                    config.transaction().section("devices", _this->selectedSerial).set("lnaGain", _this->lnaGain);
+                    config.edit().section("devices", _this->selectedSerial).set("lnaGain", _this->lnaGain);
                 }
             }
 
@@ -425,7 +425,7 @@ private:
                     fobos_rx_set_vga_gain(_this->openDev, _this->vgaGain);
                 }
                 if (!_this->selectedSerial.empty()) {
-                    config.transaction().section("devices", _this->selectedSerial).set("vgaGain", _this->vgaGain);
+                    config.edit().section("devices", _this->selectedSerial).set("vgaGain", _this->vgaGain);
                 }
             }
         }
@@ -538,6 +538,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

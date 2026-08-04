@@ -536,21 +536,21 @@ namespace geomap {
     }
     void GeoMap::saveTo(ConfigManager& manager, const char* prefix){
         auto pref = std::string(prefix);
-        auto txn = manager.transaction();
-        txn.set(pref + "_scale_x", scale.x);
-        txn.set(pref + "_scale_y", scale.y);
-        txn.set(pref + "_translate_x", translate.x);
-        txn.set(pref + "_translate_y", translate.y);
+        auto configAccess = manager.edit();
+        configAccess.set(pref + "_scale_x", scale.x);
+        configAccess.set(pref + "_scale_y", scale.y);
+        configAccess.set(pref + "_translate_x", translate.x);
+        configAccess.set(pref + "_translate_y", translate.y);
     };
 
     void GeoMap::loadFrom(ConfigManager& manager, const char* prefix) {
         auto pref = std::string(prefix);
-        auto txn = manager.transaction();
-        if (txn.contains(pref + "_scale_x")) {
-            txn.tryGet(pref + "_scale_x", scale.x);
-            txn.tryGet(pref + "_scale_y", scale.y);
-            txn.tryGet(pref + "_translate_x", translate.x);
-            txn.tryGet(pref + "_translate_y", translate.y);
+        auto configAccess = manager.read();
+        if (configAccess.contains(pref + "_scale_x")) {
+            configAccess.tryGet(pref + "_scale_x", scale.x);
+            configAccess.tryGet(pref + "_scale_y", scale.y);
+            configAccess.tryGet(pref + "_translate_x", translate.x);
+            configAccess.tryGet(pref + "_translate_y", translate.y);
         }
     };
 };

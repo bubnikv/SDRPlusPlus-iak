@@ -34,6 +34,12 @@ namespace backend {
     EGLContext _EglContext = EGL_NO_CONTEXT;
     char _LogTag[] = "SDR++ iak";
     bool initialized = false;
+
+    void saveLifecycleState(const char* event) {
+        if (!core::saveState()) {
+            flog::error("One or more configs could not be saved during {}", event);
+        }
+    }
     bool pauseRendering = false;
     std::atomic<bool> sleepScreenDimmed{false};   // True during DIM and DARK phases (set via JNI)
     std::atomic<bool> sleepRenderPaused{false};   // True during DARK phase only (set via JNI)
@@ -151,7 +157,7 @@ namespace backend {
         switch (appCmd) {
         case APP_CMD_SAVE_STATE:
             flog::warn("APP_CMD_SAVE_STATE");
-            core::saveState();
+            saveLifecycleState("APP_CMD_SAVE_STATE");
             break;
         case APP_CMD_PAUSE:
             flog::warn("APP_CMD_PAUSE");
@@ -159,12 +165,12 @@ namespace backend {
             // Android may kill the process while it is backgrounded. Commit
             // while the radio interface is still alive, then force the config
             // to disk instead of waiting for the auto-save interval.
-            core::saveState();
+            saveLifecycleState("APP_CMD_PAUSE");
             gui::mainWindow.setPlayState(false);
             break;
         case APP_CMD_STOP:
             flog::warn("APP_CMD_STOP");
-            core::saveState();
+            saveLifecycleState("APP_CMD_STOP");
             break;
         case APP_CMD_RESUME:
             flog::warn("APP_CMD_RESUME");
@@ -771,7 +777,7 @@ namespace backend {
                     flog::warn("ASKED TO EXIT");
                     exited = true;
 
-                    core::saveState();
+                    saveLifecycleState("application exit");
 
                     // Stop SDR
                     gui::mainWindow.setPlayState(false);

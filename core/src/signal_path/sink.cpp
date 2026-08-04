@@ -313,8 +313,8 @@ void SinkManager::loadStreamConfig(std::string name) {
     // itself and would deadlock on the non-recursive lock.
     json conf;
     {
-        auto txn = core::configManager.transaction();
-        conf = txn.section("streams").value(name, json());
+        auto configAccess = core::configManager.read();
+        conf = configAccess.section("streams").value(name, json());
     }
     if (!conf.is_object()) { return; }
 
@@ -344,8 +344,7 @@ void SinkManager::saveStreamConfig(std::string name) {
     conf["sink"] = providerNames[stream->providerId];
     conf["volume"] = stream->getVolume();
     conf["muted"] = stream->volumeAjust.getMuted();
-    auto txn = core::configManager.transaction();
-    txn.section("streams").set(name, conf);
+    core::configManager.edit().section("streams").set(name, conf);
 }
 
 void SinkManager::loadSinksFromConfig() {

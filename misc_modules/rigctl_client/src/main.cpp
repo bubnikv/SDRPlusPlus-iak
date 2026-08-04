@@ -32,8 +32,8 @@ public:
 
         // Load config
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection inst = configAccess.section(name);
             std::string h;
             if (inst.tryGet("host", h)) { strcpy(host, h.c_str()); }
             if (inst.tryGet("port", port)) { port = std::clamp<int>(port, 1, 65535); }
@@ -110,12 +110,12 @@ private:
 
         if (_this->running) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_rigctl_cli_host_", _this->name), _this->host, 1023)) {
-            config.transaction().section(_this->name).set("host", std::string(_this->host));
+            config.edit().section(_this->name).set("host", std::string(_this->host));
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_rigctl_cli_port_", _this->name), &_this->port, 0, 0)) {
-            config.transaction().section(_this->name).set("port", _this->port);
+            config.edit().section(_this->name).set("port", _this->port);
         }
         if (_this->running) { style::endDisabled(); }
 
@@ -125,7 +125,7 @@ private:
             if (_this->running) {
                 sigpath::sourceManager.setPanadapterIF(_this->ifFreq);
             }
-            config.transaction().section(_this->name).set("ifFreq", _this->ifFreq);
+            config.edit().section(_this->name).set("ifFreq", _this->ifFreq);
         }
 
         if (_this->running && ImGui::ActionButton(CONCAT("Stop##_rigctl_cli_stop_", _this->name))) {
@@ -185,6 +185,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

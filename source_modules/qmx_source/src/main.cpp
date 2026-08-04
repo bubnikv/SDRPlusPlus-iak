@@ -116,14 +116,14 @@ private:
         double loadedFreq = 7000000.0;
         bool loadedSyncVfo = false;
         {
-            auto txn = config.transaction();
-            txn.tryGet("frequency", loadedFreq);
-            txn.tryGet("syncVfo", loadedSyncVfo);
+            auto configAccess = config.read();
+            configAccess.tryGet("frequency", loadedFreq);
+            configAccess.tryGet("syncVfo", loadedSyncVfo);
 #ifndef __ANDROID__
-            txn.tryGet("audioDevice", selectedAudioDevice);
-            txn.tryGet("serialPort", selectedSerialPort);
+            configAccess.tryGet("audioDevice", selectedAudioDevice);
+            configAccess.tryGet("serialPort", selectedSerialPort);
 #else
-            txn.tryGet("device", selectedAndroidDevice);
+            configAccess.tryGet("device", selectedAndroidDevice);
 #endif
         }
         freq = loadedFreq;
@@ -252,7 +252,7 @@ private:
         refresh();
         selectAndroidDeviceByName(deviceToRestore);
 
-        config.set("device", selectedAndroidDevice);
+        config.edit().set("device", selectedAndroidDevice);
 
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
     }
@@ -351,7 +351,7 @@ private:
         self->freq = freq;
         self->sync.onIqCenterChanged(freq);
 
-        config.set("frequency", freq);
+        config.edit().set("frequency", freq);
     }
 
     static void menuHandler(void* ctx) {
@@ -369,7 +369,7 @@ private:
         if (SmGui::Combo(CONCAT("##_qmx_audio_dev_", self->name), &self->audioDevId, self->audioDevices.txt)) {
             std::string dev = self->audioDevices.key(self->audioDevId);
             self->selectAudioDevice(dev);
-            config.set("audioDevice", dev);
+            config.edit().set("audioDevice", dev);
         }
 
         float refreshBtnWidth = std::max(90.0f, ImGui::CalcTextSize("Refresh").x + (ImGui::GetStyle().FramePadding.x * 2.0f) + 4.0f);
@@ -379,7 +379,7 @@ private:
         if (SmGui::Combo(CONCAT("##_qmx_serial_dev_", self->name), &self->serialPortId, self->serialPorts.txt)) {
             std::string port = self->serialPorts.key(self->serialPortId);
             self->selectSerialPort(port);
-            config.set("serialPort", port);
+            config.edit().set("serialPort", port);
         }
 
         SmGui::SameLine();
@@ -418,7 +418,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_qmx_android_dev_", self->name), &self->androidDevId, self->androidDeviceListTxt.c_str())) {
             self->selectAndroidDeviceById(self->androidDevId);
-            config.set("device", self->selectedAndroidDevice);
+            config.edit().set("device", self->selectedAndroidDevice);
         }
 
         SmGui::SameLine();
@@ -454,7 +454,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Checkbox(CONCAT("Sync VFO##_qmx_sync_vfo_", self->name), &syncVfoCb)) {
             self->sync.setSyncVfo(syncVfoCb);
-            config.set("syncVfo", syncVfoCb);
+            config.edit().set("syncVfo", syncVfoCb);
         }
 
         SmGui::Separator();
@@ -637,6 +637,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

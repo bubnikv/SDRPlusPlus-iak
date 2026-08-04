@@ -44,8 +44,8 @@ public:
 
         std::string device = "";
         {
-            auto txn = config.transaction();
-            ConfigManager::Section stream = txn.section(_streamName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection stream = configAccess.section(_streamName);
             stream.ensure("device", "");
             stream.ensure("devices", json::object());
             stream.tryGet("device", device);
@@ -97,8 +97,8 @@ public:
         auto& dev = devices[id];
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section devices = txn.section(_streamName, "devices");
+            auto configAccess = config.edit();
+            ConfigManager::EditSection devices = configAccess.section(_streamName, "devices");
             devices.ensure(dev.name, dev.preferredSampleRate);
             devices.tryGet(dev.name, sampleRate);
         }
@@ -138,7 +138,7 @@ public:
         ImGui::SetNextItemWidth(menuWidth);
         if (ImGui::Combo(("##_coreaudio_sink_dev_" + _streamName).c_str(), &devId, txtDevList.c_str())) {
             selectById(devId);
-            config.transaction().section(_streamName).set("device", devices[devId].name);
+            config.edit().section(_streamName).set("device", devices[devId].name);
         }
 
         ImGui::SetNextItemWidth(menuWidth);
@@ -149,7 +149,7 @@ public:
                 doStop();
                 doStart();
             }
-            config.transaction().section(_streamName, "devices").set(devices[devId].name, sampleRate);
+            config.edit().section(_streamName, "devices").set(devices[devId].name, sampleRate);
         }
     }
 
@@ -535,6 +535,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

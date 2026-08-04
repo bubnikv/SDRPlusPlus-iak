@@ -45,7 +45,7 @@ public:
 
         refresh();
 
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         selectByString(devSerial);
 
         sigpath::sourceManager.registerSource("Airspy HF+", &handler);
@@ -179,8 +179,8 @@ public:
 
         // Load config here
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerStr);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedSerStr);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -216,7 +216,7 @@ private:
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         selectByString(devSerial);
         core::setInputSampleRate(sampleRate);
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
@@ -348,7 +348,7 @@ private:
             _this->selectBySerial(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.set("device", _this->selectedSerStr);
+                config.edit().set("device", _this->selectedSerStr);
             }
         }
 
@@ -356,7 +356,7 @@ private:
             _this->sampleRate = _this->sampleRateList[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("sampleRate", _this->sampleRate);
+                config.edit().section("devices", _this->selectedSerStr).set("sampleRate", _this->sampleRate);
             }
         }
 
@@ -368,7 +368,7 @@ private:
             _this->refreshAndroidSelection();
 #else
             _this->refresh();
-            std::string devSerial = config.value("device", std::string());
+            std::string devSerial = config.read().value("device", std::string());
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
 #endif
@@ -386,7 +386,7 @@ private:
                 }
             }
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("agcMode", _this->agcMode);
+                config.edit().section("devices", _this->selectedSerStr).set("agcMode", _this->agcMode);
             }
         }
 
@@ -397,7 +397,7 @@ private:
                 airspyhf_set_hf_att(_this->openDev, _this->atten / 6.0f);
             }
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("attenuation", _this->atten);
+                config.edit().section("devices", _this->selectedSerStr).set("attenuation", _this->atten);
             }
         }
 
@@ -406,7 +406,7 @@ private:
                 airspyhf_set_hf_lna(_this->openDev, _this->hfLNA);
             }
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("lna", _this->hfLNA);
+                config.edit().section("devices", _this->selectedSerStr).set("lna", _this->hfLNA);
             }
         }
     }
@@ -463,6 +463,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

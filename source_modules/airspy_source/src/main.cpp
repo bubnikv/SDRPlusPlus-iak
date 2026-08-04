@@ -51,9 +51,9 @@ public:
         // Select device from config
         std::string devSerial;
         {
-            auto txn = config.transaction();
-            txn.ensure("device", "");
-            txn.tryGet("device", devSerial);
+            auto configAccess = config.edit();
+            configAccess.ensure("device", "");
+            configAccess.tryGet("device", devSerial);
         }
         selectByString(devSerial);
 
@@ -179,8 +179,8 @@ public:
 
         // Load config here
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerStr);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedSerStr);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -232,14 +232,13 @@ private:
     template <class T>
     static void saveDeviceSetting(const std::string& serial, std::string_view key, const T& value) {
         if (serial.empty()) { return; }
-        auto txn = config.transaction();
-        txn.section("devices", serial).set(key, value);
+        config.edit().section("devices", serial).set(key, value);
     }
 
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         selectByString(devSerial);
         core::setInputSampleRate(sampleRate);
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
@@ -393,7 +392,7 @@ private:
             _this->selectBySerial(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.set("device", _this->selectedSerStr);
+                config.edit().set("device", _this->selectedSerStr);
             }
         }
 
@@ -411,7 +410,7 @@ private:
             _this->refreshAndroidSelection();
 #else
             _this->refresh();
-            std::string devSerial = config.value("device", std::string());
+            std::string devSerial = config.read().value("device", std::string());
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
 #endif
@@ -623,6 +622,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

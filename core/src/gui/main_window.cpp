@@ -61,7 +61,7 @@ void MainWindow::init() {
 
     credits::init();
 
-    json menuElements = core::configManager.value("menuElements", json::array());
+    json menuElements = core::configManager.read().value("menuElements", json::array());
     std::string modulesDir = core::getModulesDirectory();
     std::string resourcesDir = core::getResourcesDirectory();
 
@@ -140,9 +140,9 @@ void MainWindow::init() {
     std::vector<std::string> modules;
     json moduleInstances;
     {
-        auto txn = core::configManager.transaction();
-        txn.tryGet("modules", modules);
-        moduleInstances = txn.value("moduleInstances", json::object());
+        auto configAccess = core::configManager.read();
+        configAccess.tryGet("modules", modules);
+        moduleInstances = configAccess.value("moduleInstances", json::object());
     }
     auto modList = moduleInstances.items();
 
@@ -214,15 +214,15 @@ void MainWindow::init() {
     float rawFftHeight = 150.0f;
     bool centerTuning = false;
     {
-        auto txn = core::configManager.transaction();
-        txn.tryGet("min", fftMin);
-        txn.tryGet("max", fftMax);
-        stickyAutoRange = txn.value("waterfallAutoRange", false);
-        txn.tryGet("frequency", frequency);
-        txn.tryGet("showMenu", showMenu);
-        rawMenuWidth = txn.value("menuWidth", rawMenuWidth);
-        rawFftHeight = txn.value("fftHeight", rawFftHeight);
-        centerTuning = txn.value("centerTuning", false);
+        auto configAccess = core::configManager.read();
+        configAccess.tryGet("min", fftMin);
+        configAccess.tryGet("max", fftMax);
+        stickyAutoRange = configAccess.value("waterfallAutoRange", false);
+        configAccess.tryGet("frequency", frequency);
+        configAccess.tryGet("showMenu", showMenu);
+        rawMenuWidth = configAccess.value("menuWidth", rawMenuWidth);
+        rawFftHeight = configAccess.value("fftHeight", rawFftHeight);
+        centerTuning = configAccess.value("centerTuning", false);
     }
 
     autoRange.init(&fftMin, &fftMax, stickyAutoRange);
@@ -288,9 +288,9 @@ void MainWindow::onContentScaleChanged(float oldScale) {
     newWidth = menuWidth;
     fftHeight = style::rescale(fftHeight, oldScale);
     gui::waterfall.setFFTHeight(fftHeight);
-    auto txn = core::configManager.transaction();
-    txn.set("menuWidth", style::unscale(menuWidth));
-    txn.set("fftHeight", style::unscale(fftHeight));
+    auto configAccess = core::configManager.edit();
+    configAccess.set("menuWidth", style::unscale(menuWidth));
+    configAccess.set("fftHeight", style::unscale(fftHeight));
 }
 
 void MainWindow::vfoAddedHandler(VFOManager::VFO* vfo, void* ctx) {
@@ -298,8 +298,8 @@ void MainWindow::vfoAddedHandler(VFOManager::VFO* vfo, void* ctx) {
     std::string name = vfo->getName();
     double offset;
     {
-        auto txn = core::configManager.transaction();
-        if (!txn.section("vfoOffsets").tryGet(name, offset)) { return; }
+        auto configAccess = core::configManager.read();
+        if (!configAccess.section("vfoOffsets").tryGet(name, offset)) { return; }
     }
 
     double viewBW = gui::waterfall.getViewBandwidth();
@@ -349,8 +349,9 @@ void MainWindow::draw() {
             }
             gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + vfo->generalOffset);
             gui::freqSelect.frequencyChanged = false;
-            auto txn = core::configManager.transaction();
-            txn.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
+            core::configManager.edit()
+                .section("vfoOffsets")
+                .set(gui::waterfall.selectedVFO, vfo->generalOffset);
         }
     }
 
@@ -372,10 +373,10 @@ void MainWindow::draw() {
             vfo->lowerOffsetChanged = false;
             vfo->upperOffsetChanged = false;
         }
-        auto txn = core::configManager.transaction();
-        txn.set("frequency", gui::waterfall.getCenterFrequency());
+        auto configAccess = core::configManager.edit();
+        configAccess.set("frequency", gui::waterfall.getCenterFrequency());
         if (vfo != NULL) {
-            txn.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
+            configAccess.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
         }
     }
 
@@ -389,13 +390,13 @@ void MainWindow::draw() {
         else {
             gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency());
         }
-        core::configManager.set("frequency", gui::waterfall.getCenterFrequency());
+        core::configManager.edit().set("frequency", gui::waterfall.getCenterFrequency());
     }
 
     int _fftHeight = gui::waterfall.getFFTHeight();
     if (fftHeight != _fftHeight) {
         fftHeight = _fftHeight;
-        core::configManager.set("fftHeight", style::unscale(fftHeight));
+        core::configManager.edit().set("fftHeight", style::unscale(fftHeight));
     }
 
 #if 1
@@ -446,7 +447,7 @@ void MainWindow::draw() {
 #endif
     if (menuClicked) {
         showMenu = !showMenu;
-        core::configManager.set("showMenu", showMenu);
+        core::configManager.edit().set("showMenu", showMenu);
     }
     ImGui::PopID();
 
@@ -544,7 +545,7 @@ void MainWindow::draw() {
         if (ImGui::ImageButton(icons::CENTER_TUNING, btnSize, ImVec2(0, 0), ImVec2(1, 1), toolbarButtonPadding, ImVec4(0, 0, 0, 0), textCol)) {
             tuningMode = tuner::TUNER_MODE_NORMAL;
             gui::waterfall.VFOMoveSingleClick = false;
-            core::configManager.set("centerTuning", false);
+            core::configManager.edit().set("centerTuning", false);
         }
         ImGui::PopID();
     }
@@ -554,7 +555,7 @@ void MainWindow::draw() {
             tuningMode = tuner::TUNER_MODE_CENTER;
             gui::waterfall.VFOMoveSingleClick = true;
             tuner::tune(tuner::TUNER_MODE_CENTER, gui::waterfall.selectedVFO, gui::freqSelect.frequency);
-            core::configManager.set("centerTuning", true);
+            core::configManager.edit().set("centerTuning", true);
         }
         ImGui::PopID();
     }
@@ -688,7 +689,7 @@ void MainWindow::draw() {
         if (!down && grabbingMenu) {
             grabbingMenu = false;
             menuWidth = newWidth;
-            core::configManager.set("menuWidth", style::unscale(menuWidth));
+            core::configManager.edit().set("menuWidth", style::unscale(menuWidth));
 #ifdef __ANDROID__
             backend::hapticTick();
 #endif
@@ -713,14 +714,23 @@ void MainWindow::draw() {
                 arr[i]["open"] = gui::menu.order[i].open;
             }
 
-            auto txn = core::configManager.transaction();
-            txn.set("menuElements", arr);
+            // isEnabled() is plugin-owned code. Query it before taking the core
+            // config lock so a plugin cannot block the lock or attempt a nested
+            // access to its own ConfigManager.
+            std::vector<std::pair<std::string, bool>> instanceStates;
+            instanceStates.reserve(core::moduleManager.instances.size());
+            for (const auto& [_name, inst] : core::moduleManager.instances) {
+                instanceStates.emplace_back(_name, inst.instance->isEnabled());
+            }
+
+            auto configAccess = core::configManager.edit();
+            configAccess.set("menuElements", arr);
 
             // Update enabled and disabled modules
-            ConfigManager::Section instances = txn.section("moduleInstances");
-            for (auto [_name, inst] : core::moduleManager.instances) {
+            ConfigManager::EditSection instances = configAccess.section("moduleInstances");
+            for (const auto& [_name, enabled] : instanceStates) {
                 if (!instances.contains(_name)) { continue; }
-                instances.section(_name).set("enabled", inst.instance->isEnabled());
+                instances.section(_name).set("enabled", enabled);
             }
         }
         if (startedWithMenuClosed) {
@@ -815,10 +825,10 @@ void MainWindow::draw() {
                 freqChanged = true;
             }
             if (freqChanged) {
-                auto txn = core::configManager.transaction();
-                txn.set("frequency", gui::waterfall.getCenterFrequency());
+                auto configAccess = core::configManager.edit();
+                configAccess.set("frequency", gui::waterfall.getCenterFrequency());
                 if (vfo != NULL) {
-                    txn.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
+                    configAccess.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
                 }
             }
         }
@@ -859,10 +869,10 @@ void MainWindow::draw() {
             }
             tuner::tune(tuningMode, gui::waterfall.selectedVFO, nfreq);
             gui::freqSelect.setFrequency(nfreq);
-            auto txn = core::configManager.transaction();
-            txn.set("frequency", gui::waterfall.getCenterFrequency());
+            auto configAccess = core::configManager.edit();
+            configAccess.set("frequency", gui::waterfall.getCenterFrequency());
             if (vfo != NULL) {
-                txn.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
+                configAccess.section("vfoOffsets").set(gui::waterfall.selectedVFO, vfo->generalOffset);
             }
         }
     }
@@ -1032,9 +1042,9 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
     ImGui::SetItemUsingMouseWheel();
     if (rangeSliderChanged) {
         fftMax = fftMin + wfRange;
-        auto txn = core::configManager.transaction();
-        txn.set("min", fftMin);
-        txn.set("max", fftMax);
+        auto configAccess = core::configManager.edit();
+        configAccess.set("min", fftMin);
+        configAccess.set("max", fftMax);
     }
 
     if (sliderSeparators) ImGui::NewLine();
@@ -1055,9 +1065,9 @@ void MainWindow::drawWaterfallControls(ImGui::WaterfallVFO* vfo, const ImVec4& t
             float range = fftMax - fftMin; // keep the user's Range, slide the window
             fftMin = wfRef;
             fftMax = wfRef + range;
-            auto txn = core::configManager.transaction();
-            txn.set("min", fftMin);
-            txn.set("max", fftMax);
+            auto configAccess = core::configManager.edit();
+            configAccess.set("min", fftMin);
+            configAccess.set("max", fftMax);
         }
         ImGui::EndDisabled();
 

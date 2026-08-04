@@ -49,18 +49,18 @@ public:
 
         // Load config
         {
-            auto txn = config.transaction();
+            auto configAccess = config.read();
             std::string hostStr;
-            if (txn.tryGet("host", hostStr)) { strcpy(ip, hostStr.c_str()); }
-            txn.tryGet("port", port);
+            if (configAccess.tryGet("host", hostStr)) { strcpy(ip, hostStr.c_str()); }
+            configAccess.tryGet("port", port);
             double sr = 0.0;
-            if (txn.tryGet("sampleRate", sr) && samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
+            if (configAccess.tryGet("sampleRate", sr) && samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
             int mode = 0;
-            if (txn.tryGet("directSamplingMode", mode) && directSamplingModes.keyExists(mode)) { directSamplingId = directSamplingModes.keyId(mode); }
-            txn.tryGet("ppm", ppm);
-            txn.tryGet("gainIndex", gain);
-            txn.tryGet("biasTee", biasTee);
-            txn.tryGet("offsetTuning", offsetTuning);
+            if (configAccess.tryGet("directSamplingMode", mode) && directSamplingModes.keyExists(mode)) { directSamplingId = directSamplingModes.keyId(mode); }
+            configAccess.tryGet("ppm", ppm);
+            configAccess.tryGet("gainIndex", gain);
+            configAccess.tryGet("biasTee", biasTee);
+            configAccess.tryGet("offsetTuning", offsetTuning);
         }
 
         // Update samplerate
@@ -165,19 +165,19 @@ private:
         if (_this->running) { SmGui::BeginDisabled(); }
 
         if (SmGui::InputText(CONCAT("##_ip_select_", _this->name), _this->ip, 1024)) {
-            config.set("host", std::string(_this->ip));
+            config.edit().set("host", std::string(_this->ip));
         }
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(CONCAT("##_port_select_", _this->name), &_this->port, 0)) {
-            config.set("port", _this->port);
+            config.edit().set("port", _this->port);
         }
 
         SmGui::FillWidth();
         if (SmGui::Combo(CONCAT("##_rtltcp_sr_", _this->name), &_this->srId, _this->samplerates.txt)) {
             _this->sampleRate = _this->samplerates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
-            config.set("sampleRate", _this->sampleRate);
+            config.edit().set("sampleRate", _this->sampleRate);
         }
 
         if (_this->running) { SmGui::EndDisabled(); }
@@ -189,7 +189,7 @@ private:
                 _this->client->setDirectSampling(_this->directSamplingId);
                 _this->client->setGainIndex(_this->gain);
             }
-            config.set("directSamplingMode", _this->directSamplingId);
+            config.edit().set("directSamplingMode", _this->directSamplingId);
         }
 
         SmGui::LeftLabel("PPM Correction");
@@ -198,7 +198,7 @@ private:
             if (_this->running) {
                 _this->client->setPPM(_this->ppm);
             }
-            config.set("ppm", _this->ppm);
+            config.edit().set("ppm", _this->ppm);
         }
 
         if (_this->tunerAGC) { SmGui::BeginDisabled(); }
@@ -208,7 +208,7 @@ private:
             if (_this->running) {
                 _this->client->setGainIndex(_this->gain);
             }
-            config.set("gainIndex", _this->gain);
+            config.edit().set("gainIndex", _this->gain);
         }
         if (_this->tunerAGC) { SmGui::EndDisabled(); }
 
@@ -216,14 +216,14 @@ private:
             if (_this->running) {
                 _this->client->setBiasTee(_this->biasTee);
             }
-            config.set("biasTee", _this->biasTee);
+            config.edit().set("biasTee", _this->biasTee);
         }
 
         if (SmGui::Checkbox(CONCAT("Offset Tuning##_biast_select_", _this->name), &_this->offsetTuning)) {
             if (_this->running) {
                 _this->client->setOffsetTuning(_this->offsetTuning);
             }
-            config.set("offsetTuning", _this->offsetTuning);
+            config.edit().set("offsetTuning", _this->offsetTuning);
         }
 
         if (SmGui::Checkbox("RTL AGC", &_this->rtlAGC)) {
@@ -233,7 +233,7 @@ private:
                     _this->client->setGainIndex(_this->gain);
                 }
             }
-            config.set("rtlAGC", _this->rtlAGC);
+            config.edit().set("rtlAGC", _this->rtlAGC);
         }
 
         SmGui::ForceSync();
@@ -244,7 +244,7 @@ private:
                     _this->client->setGainIndex(_this->gain);
                 }
             }
-            config.set("tunerAGC", _this->tunerAGC);
+            config.edit().set("tunerAGC", _this->tunerAGC);
         }
     }
 
@@ -288,6 +288,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

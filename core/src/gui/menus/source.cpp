@@ -139,8 +139,8 @@ namespace sourcemenu {
 
         // Load custom offsets
         {
-            auto txn = core::configManager.transaction();
-            if (const json* ofs = txn.section("offsets").peek()) {
+            auto configAccess = core::configManager.read();
+            if (const json* ofs = configAccess.section("offsets").peek()) {
                 for (auto& o : ofs->items()) {
                     if (o.value().is_number()) { namedOffsets[o.key()] = (double)o.value(); }
                 }
@@ -166,19 +166,19 @@ namespace sourcemenu {
         decimations.define(32, "32x", 32);
         decimations.define(64, "64x", 64);
 
-        // Load other settings. Read under one transaction and applied after it
+        // Load other settings. Read under one access and applied after it
         // closes: selecting a source runs module code that reaches for the config.
         std::string selectedSource;
         std::string selectedOffset;
         int decimation = 1;
         {
-            auto txn = core::configManager.transaction();
-            txn.tryGet("source", selectedSource);
-            txn.tryGet("manualOffset", manualOffset);
-            txn.tryGet("selectedOffset", selectedOffset);
-            txn.tryGet("iqCorrection", iqCorrection);
-            txn.tryGet("invertIQ", invertIQ);
-            txn.tryGet("decimation", decimation);
+            auto configAccess = core::configManager.read();
+            configAccess.tryGet("source", selectedSource);
+            configAccess.tryGet("manualOffset", manualOffset);
+            configAccess.tryGet("selectedOffset", selectedOffset);
+            configAccess.tryGet("iqCorrection", iqCorrection);
+            configAccess.tryGet("invertIQ", invertIQ);
+            configAccess.tryGet("decimation", decimation);
         }
         if (decimations.keyExists(decimation)) {
             decimId = decimations.keyId(decimation);
@@ -204,10 +204,7 @@ namespace sourcemenu {
 
     void addOffset(const std::string& name, double offset) {
         // Define a new offset
-        {
-            auto txn = core::configManager.transaction();
-            txn.section("offsets").set(name, offset);
-        }
+        core::configManager.edit().section("offsets").set(name, offset);
 
         // Reload the offsets
         reloadOffsets();
@@ -218,10 +215,7 @@ namespace sourcemenu {
 
     void delOffset(const std::string& name) {
         // Drop the offset
-        {
-            auto txn = core::configManager.transaction();
-            txn.section("offsets").erase(name);
-        }
+        core::configManager.edit().section("offsets").erase(name);
 
         // Reload the offsets
         reloadOffsets();
@@ -276,7 +270,7 @@ namespace sourcemenu {
         if (ImGui::Combo("##source", &sourceId, sources.txt)) {
             std::string newSource = sources.value(sourceId);
             selectSource(newSource);
-            core::configManager.set("source", newSource);
+            core::configManager.edit().set("source", newSource);
         }
 
         if (running) { style::endDisabled(); }
@@ -285,19 +279,19 @@ namespace sourcemenu {
 
         if (ImGui::Checkbox("IQ Correction##_sdrpp_iq_corr", &iqCorrection)) {
             sigpath::iqFrontEnd.setDCBlocking(iqCorrection);
-            core::configManager.set("iqCorrection", iqCorrection);
+            core::configManager.edit().set("iqCorrection", iqCorrection);
         }
 
         if (ImGui::Checkbox("Invert IQ##_sdrpp_inv_iq", &invertIQ)) {
             sigpath::iqFrontEnd.setInvertIQ(invertIQ);
-            core::configManager.set("invertIQ", invertIQ);
+            core::configManager.edit().set("invertIQ", invertIQ);
         }
 
         ImGui::LeftLabel("Offset mode");
         ImGui::SetNextItemWidth(itemWidth - ImGui::GetCursorPosX() - 2.0f*(lineHeight + 1.5f*spacing));
         if (ImGui::Combo("##_sdrpp_offset", &offsetId, offsets.txt)) {
             selectOffsetById(offsetId);
-            core::configManager.set("selectedOffset", offsets.key(offsetId));
+            core::configManager.edit().set("selectedOffset", offsets.key(offsetId));
         }
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() - spacing);
@@ -330,7 +324,7 @@ namespace sourcemenu {
             if (offsetId == OFFSET_ID_MANUAL) {
                 if (ImGui::InputDouble("##freq_offset", &manualOffset, 1.0, 100.0)) {
                     updateOffset();
-                    core::configManager.set("manualOffset", manualOffset);
+                    core::configManager.edit().set("manualOffset", manualOffset);
                 }
             }
             else {
@@ -345,7 +339,7 @@ namespace sourcemenu {
         ImGui::FillWidth();
         if (ImGui::Combo("##source_decim", &decimId, decimations.txt)) {
             sigpath::iqFrontEnd.setDecimation(decimations.value(decimId));
-            core::configManager.set("decimation", decimations.key(decimId));
+            core::configManager.edit().set("decimation", decimations.key(decimId));
         }
         if (running) { style::endDisabled(); }
     }

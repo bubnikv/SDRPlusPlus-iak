@@ -76,7 +76,7 @@ public:
         refresh();
 
         // Select device from config
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         selectByString(devSerial);
 
         sigpath::sourceManager.registerSource(sourceName, &handler);
@@ -336,8 +336,8 @@ public:
 
         // Load config here
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedSerStr);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedSerStr);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -417,7 +417,7 @@ private:
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
-        std::string devSerial = config.value("device", std::string());
+        std::string devSerial = config.read().value("device", std::string());
         selectByString(devSerial);
         core::setInputSampleRate(sampleRate);
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
@@ -608,7 +608,7 @@ private:
             _this->selectBySerial(_this->devices[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.set("device", _this->selectedSerStr);
+                config.edit().set("device", _this->selectedSerStr);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -619,7 +619,7 @@ private:
             _this->sampleRate = _this->samplerates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("sampleRate", _this->samplerates.key(_this->srId));
+                config.edit().section("devices", _this->selectedSerStr).set("sampleRate", _this->samplerates.key(_this->srId));
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -634,7 +634,7 @@ private:
             _this->refreshAndroidSelection();
 #else
             _this->refresh();
-            std::string devSerial = config.value("device", std::string());
+            std::string devSerial = config.read().value("device", std::string());
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
 #endif
@@ -646,7 +646,7 @@ private:
         // High Definition mode checkbox (cannot be changed while running)
         if (SmGui::Checkbox(CONCAT("HD##_hydrasdr_highdef_", _this->name), &_this->highDefMode)) {
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("highDefMode", _this->highDefMode);
+                config.edit().section("devices", _this->selectedSerStr).set("highDefMode", _this->highDefMode);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -696,7 +696,7 @@ private:
                     hydrasdr_set_bandwidth(_this->openDev, _this->bandwidths[_this->bwId]);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.transaction().section("devices", _this->selectedSerStr).set("bandwidth", _this->bandwidths.key(_this->bwId));
+                    config.edit().section("devices", _this->selectedSerStr).set("bandwidth", _this->bandwidths.key(_this->bwId));
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -712,7 +712,7 @@ private:
             SmGui::FillWidth();
             if (SmGui::Combo(CONCAT("##_hydrasdr_algo_sel_", _this->name), &_this->algoId, _this->algorithms.txt)) {
                 if (_this->selectedSerStr != "") {
-                    config.transaction().section("devices", _this->selectedSerStr).set("algorithm", _this->algorithms.key(_this->algoId));
+                    config.edit().section("devices", _this->selectedSerStr).set("algorithm", _this->algorithms.key(_this->algoId));
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -781,7 +781,7 @@ private:
                 hydrasdr_set_rf_port(_this->openDev, _this->ports[_this->portId]);
             }
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("port", _this->ports.key(_this->portId));
+                config.edit().section("devices", _this->selectedSerStr).set("port", _this->ports.key(_this->portId));
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -819,7 +819,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 0);
+                        config.edit().section("devices", _this->selectedSerStr).set("gainMode", 0);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -837,7 +837,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 1);
+                        config.edit().section("devices", _this->selectedSerStr).set("gainMode", 1);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -855,7 +855,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 2);
+                        config.edit().section("devices", _this->selectedSerStr).set("gainMode", 2);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -877,7 +877,7 @@ private:
                     hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_SENSITIVITY, _this->sensitiveGain);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.transaction().section("devices", _this->selectedSerStr).set("sensitiveGain", _this->sensitiveGain);
+                    config.edit().section("devices", _this->selectedSerStr).set("sensitiveGain", _this->sensitiveGain);
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -893,7 +893,7 @@ private:
                     hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_LINEARITY, _this->linearGain);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.transaction().section("devices", _this->selectedSerStr).set("linearGain", _this->linearGain);
+                    config.edit().section("devices", _this->selectedSerStr).set("linearGain", _this->linearGain);
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -913,7 +913,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_LNA, _this->lnaGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("lnaGain", _this->lnaGain);
+                        config.edit().section("devices", _this->selectedSerStr).set("lnaGain", _this->lnaGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -933,7 +933,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_RF, _this->rfGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("rfGain", _this->rfGain);
+                        config.edit().section("devices", _this->selectedSerStr).set("rfGain", _this->rfGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -953,7 +953,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_MIXER, _this->mixerGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("mixerGain", _this->mixerGain);
+                        config.edit().section("devices", _this->selectedSerStr).set("mixerGain", _this->mixerGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -973,7 +973,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_FILTER, _this->filterGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("filterGain", _this->filterGain);
+                        config.edit().section("devices", _this->selectedSerStr).set("filterGain", _this->filterGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -992,7 +992,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_VGA, _this->vgaGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("vgaGain", _this->vgaGain);
+                        config.edit().section("devices", _this->selectedSerStr).set("vgaGain", _this->vgaGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1014,7 +1014,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("lnaAgc", _this->lnaAgc);
+                        config.edit().section("devices", _this->selectedSerStr).set("lnaAgc", _this->lnaAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1034,7 +1034,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("rfAgc", _this->rfAgc);
+                        config.edit().section("devices", _this->selectedSerStr).set("rfAgc", _this->rfAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1054,7 +1054,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("mixerAgc", _this->mixerAgc);
+                        config.edit().section("devices", _this->selectedSerStr).set("mixerAgc", _this->mixerAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1074,7 +1074,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.transaction().section("devices", _this->selectedSerStr).set("filterAgc", _this->filterAgc);
+                        config.edit().section("devices", _this->selectedSerStr).set("filterAgc", _this->filterAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1089,7 +1089,7 @@ private:
                 hydrasdr_set_rf_bias(_this->openDev, _this->biasT);
             }
             if (_this->selectedSerStr != "") {
-                config.transaction().section("devices", _this->selectedSerStr).set("biasT", _this->biasT);
+                config.edit().section("devices", _this->selectedSerStr).set("biasT", _this->biasT);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1199,6 +1199,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

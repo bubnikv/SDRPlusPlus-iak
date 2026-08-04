@@ -82,9 +82,9 @@ public:
         refresh();
 
         {
-            auto txn = config.transaction();
-            txn.ensure("device", "");
-            txn.tryGet("device", selectedDevName);
+            auto configAccess = config.edit();
+            configAccess.ensure("device", "");
+            configAccess.tryGet("device", selectedDevName);
         }
         selectByName(selectedDevName);
 
@@ -200,8 +200,8 @@ public:
         std::sort(gainList.begin(), gainList.end());
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedDevName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection dev = configAccess.section("devices", selectedDevName);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -246,8 +246,7 @@ private:
     template <class T>
     void saveDeviceSetting(std::string_view key, const T& value) {
         if (selectedDevName.empty()) { return; }
-        auto txn = config.transaction();
-        txn.section("devices", selectedDevName).set(key, value);
+        config.edit().section("devices", selectedDevName).set(key, value);
     }
 
 #ifdef __ANDROID__
@@ -402,7 +401,7 @@ private:
             _this->selectById(_this->devId);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedDevName != "") {
-                config.set("device", _this->selectedDevName);
+                config.edit().set("device", _this->selectedDevName);
             }
         }
 
@@ -603,6 +602,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

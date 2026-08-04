@@ -50,15 +50,15 @@ public:
 
         std::string selList;
         {
-            auto txn = config.transaction();
-            txn.tryGet("selectedList", selList);
-            txn.tryGet("bookmarkDisplayMode", bookmarkDisplayMode);
-            if (txn.tryGet("bookmarkRows", bookmarkRows)) {
+            auto configAccess = config.read();
+            configAccess.tryGet("selectedList", selList);
+            configAccess.tryGet("bookmarkDisplayMode", bookmarkDisplayMode);
+            if (configAccess.tryGet("bookmarkRows", bookmarkRows)) {
                 bookmarkRows = std::clamp<int>(bookmarkRows, 0, MAX_ROWS - 1);
             }
-            txn.tryGet("bookmarkRectangle", bookmarkRectangle);
-            txn.tryGet("bookmarkCentered", bookmarkCentered);
-            txn.tryGet("bookmarkNoClutter", bookmarkNoClutter);
+            configAccess.tryGet("bookmarkRectangle", bookmarkRectangle);
+            configAccess.tryGet("bookmarkCentered", bookmarkCentered);
+            configAccess.tryGet("bookmarkNoClutter", bookmarkNoClutter);
         }
 
         refreshLists();
@@ -206,13 +206,14 @@ private:
 
             // Add to the target list and switch to it
             {
-                auto txn = config.transaction();
-                txn.section("lists", targetListName, "bookmarks").set(editedBookmarkName, bookmarkToJson(editedBookmark));
+                config.edit()
+                    .section("lists", targetListName, "bookmarks")
+                    .set(editedBookmarkName, bookmarkToJson(editedBookmark));
             }
             refreshWaterfallBookmarks();
 
             loadByName(targetListName);
-            config.set("selectedList", targetListName);
+            config.edit().set("selectedList", targetListName);
         }
         else {
             // Same list: normal add or edit
@@ -366,8 +367,8 @@ private:
             // Check for a name conflict in the target list
             bool nameExists;
             if (targetListName != selectedListName) {
-                auto txn = config.transaction();
-                nameExists = txn.section("lists", targetListName, "bookmarks").contains(editedBookmarkName);
+                auto configAccess = config.read();
+                nameExists = configAccess.section("lists", targetListName, "bookmarks").contains(editedBookmarkName);
             }
             else {
                 nameExists = (bookmarks.find(editedBookmarkName) != bookmarks.end()) && (editedBookmarkName != firstEditedBookmarkName);
@@ -411,8 +412,8 @@ private:
 
             if (listDialog.applyButton("Apply", (strlen(nameBuf) == 0) || alreadyExists)) {
                 {
-                    auto txn = config.transaction();
-                    ConfigManager::Section lists = txn.section("lists");
+                    auto configAccess = config.edit();
+                    ConfigManager::EditSection lists = configAccess.section("lists");
                     if (listDialogMode == ListDialogMode::Rename) {
                         if (editedListName != firstEditedListName) {
                             lists.set(editedListName, lists.value(firstEditedListName, json::object()));
@@ -420,7 +421,7 @@ private:
                         }
                     }
                     else {
-                        ConfigManager::Section list = lists.section(editedListName);
+                        ConfigManager::EditSection list = lists.section(editedListName);
                         list.set("showOnWaterfall", true);
                         list.set("bookmarks", json::object());
                     }
@@ -451,15 +452,14 @@ private:
             // Copied out so the checkboxes below can write without the lock held.
             json lists;
             {
-                auto txn = config.transaction();
-                lists = txn.value("lists", json::object());
+                auto configAccess = config.read();
+                lists = configAccess.value("lists", json::object());
             }
             for (auto [listName, list] : lists.items()) {
                 bool shown = list.value("showOnWaterfall", true);
                 if (ImGui::Checkbox((listName + "##freq_manager_sel_list_").c_str(), &shown)) {
                     {
-                        auto txn = config.transaction();
-                        txn.section("lists", listName).set("showOnWaterfall", shown);
+                        config.edit().section("lists", listName).set("showOnWaterfall", shown);
                     }
                     refreshWaterfallBookmarks();
                 }
@@ -478,8 +478,8 @@ private:
         listNamesTxt = "";
         sortSpecsDirty = true;
 
-        auto txn = config.transaction();
-        const json* lists = txn.section("lists").peek();
+        auto configAccess = config.read();
+        const json* lists = configAccess.section("lists").peek();
         if (!lists) { return; }
         for (auto [_name, list] : lists->items()) {
             listNames.push_back(_name);
@@ -488,13 +488,16 @@ private:
         }
     }
 
-    // Takes the config lock itself, so it must be called with no transaction open.
+    // Takes the config lock itself, so it must be called with no access open.
     void refreshWaterfallBookmarks() {
-        auto txn = config.transaction();
+        json lists;
+        {
+            auto configAccess = config.read();
+            lists = configAccess.value("lists", json::object());
+        }
+
         waterfallBookmarks.clear();
-        const json* lists = txn.section("lists").peek();
-        if (!lists) { return; }
-        for (auto [listName, list] : lists->items()) {
+        for (auto [listName, list] : lists.items()) {
             if (!list.value("showOnWaterfall", false)) { continue; }
             WaterfallBookmark wbm;
             wbm.listName = listName;
@@ -534,10 +537,15 @@ private:
         }
         selectedListId = std::distance(listNames.begin(), std::find(listNames.begin(), listNames.end(), listName));
         selectedListName = listName;
-        auto txn = config.transaction();
-        const json* bms = txn.section("lists", listName, "bookmarks").peek();
-        if (!bms) { return; }
-        for (auto [bmName, bm] : bms->items()) {
+
+        json storedBookmarks;
+        {
+            auto configAccess = config.read();
+            const json* bms = configAccess.section("lists", listName, "bookmarks").peek();
+            if (bms) { storedBookmarks = *bms; }
+        }
+        if (!storedBookmarks.is_object()) { return; }
+        for (auto [bmName, bm] : storedBookmarks.items()) {
             bookmarks[bmName] = bookmarkFromJson(bm);
         }
     }
@@ -548,8 +556,7 @@ private:
             bms[bmName] = bookmarkToJson(bm);
         }
         {
-            auto txn = config.transaction();
-            txn.section("lists", listName).set("bookmarks", bms);
+            config.edit().section("lists", listName).set("bookmarks", bms);
         }
         refreshWaterfallBookmarks();
         sortSpecsDirty = true;
@@ -572,7 +579,7 @@ private:
         ImGui::SetNextItemWidth(menuWidth - btnSize - (2.0f * sqBtnSize) - (3.0f * imStyle.ItemSpacing.x));
         if (ImGui::Combo(("##freq_manager_list_sel" + _this->name).c_str(), &_this->selectedListId, _this->listNamesTxt.c_str())) {
             _this->loadByName(_this->listNames[_this->selectedListId]);
-            config.set("selectedList", _this->selectedListName);
+            config.edit().set("selectedList", _this->selectedListName);
         }
         ImGui::SameLine();
         if (_this->listNames.size() == 0) { style::beginDisabled(); }
@@ -581,9 +588,9 @@ private:
             _this->editedListName = _this->firstEditedListName;
             _this->editedListColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
             {
-                auto txn = config.transaction();
+                auto configAccess = config.read();
                 std::string color;
-                if (txn.section("lists", _this->firstEditedListName).tryGet("color", color)) {
+                if (configAccess.section("lists", _this->firstEditedListName).tryGet("color", color)) {
                     _this->editedListColor = color32ToVec4(hexStrToColor(color));
                 }
             }
@@ -621,8 +628,7 @@ private:
                 ImGui::Text("Deleting list named \"%s\". Are you sure?", _this->selectedListName.c_str());
             }) == GENERIC_DIALOG_BUTTON_YES) {
             {
-                auto txn = config.transaction();
-                txn.section("lists").erase(_this->selectedListName);
+                config.edit().section("lists").erase(_this->selectedListName);
             }
             _this->refreshWaterfallBookmarks();
             _this->refreshLists();
@@ -768,8 +774,8 @@ private:
         if (ImGui::Button(("Export##_freq_mgr_exp_" + _this->name).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 0)) && !_this->exportOpen) {
             _this->exportedBookmarks = json::object();
             {
-                auto txn = config.transaction();
-                ConfigManager::Section bms = txn.section("lists", _this->selectedListName, "bookmarks");
+                auto configAccess = config.read();
+                ConfigManager::ReadSection bms = configAccess.section("lists", _this->selectedListName, "bookmarks");
                 for (auto& _name : selectedNames) {
                     _this->exportedBookmarks["bookmarks"][_name] = bms.value(_name, json::object());
                 }
@@ -787,25 +793,25 @@ private:
         ImGui::LeftLabel("Bookmark display mode");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo(("##_freq_mgr_dms_" + _this->name).c_str(), &_this->bookmarkDisplayMode, bookmarkDisplayModesTxt)) {
-            config.set("bookmarkDisplayMode", _this->bookmarkDisplayMode);
+            config.edit().set("bookmarkDisplayMode", _this->bookmarkDisplayMode);
         }
 
         ImGui::LeftLabel("Rows of bookmarks");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo(("##_freq_mgr_rob_" + _this->name).c_str(), &_this->bookmarkRows, bookmarkRowsTxt)) {
-            config.set("bookmarkRows", _this->bookmarkRows);
+            config.edit().set("bookmarkRows", _this->bookmarkRows);
         }
 
         if (ImGui::Checkbox(("Rectangles##_freq_mgr_rect_" + _this->name).c_str(), &_this->bookmarkRectangle)) {
-            config.set("bookmarkRectangle", _this->bookmarkRectangle);
+            config.edit().set("bookmarkRectangle", _this->bookmarkRectangle);
         }
         ImGui::SameLine();
         if (ImGui::Checkbox(("Centered##_freq_mgr_cen_" + _this->name).c_str(), &_this->bookmarkCentered)) {
-            config.set("bookmarkCentered", _this->bookmarkCentered);
+            config.edit().set("bookmarkCentered", _this->bookmarkCentered);
         }
 
         if (ImGui::Checkbox(("Avoid clutter on last row##_freq_mgr_noClut_" + _this->name).c_str(), &_this->bookmarkNoClutter)) {
-            config.set("bookmarkNoClutter", _this->bookmarkNoClutter);
+            config.edit().set("bookmarkNoClutter", _this->bookmarkNoClutter);
         }
 
         if (_this->selectedListName == "") { style::endDisabled(); }
@@ -1010,7 +1016,7 @@ private:
             // If the clicked bookmark belongs to another list, switch to it
             if (hoveredBookmark.listName != _this->selectedListName) {
                 _this->loadByName(hoveredBookmark.listName);
-                config.set("selectedList", _this->selectedListName);
+                config.edit().set("selectedList", _this->selectedListName);
             }
 
             // Select the clicked bookmark in the manager list
@@ -1164,17 +1170,17 @@ MOD_EXPORT void _INIT_() {
 
     // Fill in missing options and convert lists of the old type
     {
-        auto txn = config.transaction();
-        txn.ensure("bookmarkDisplayMode", (int)BOOKMARK_DISP_MODE_TOP);
-        txn.ensure("bookmarkRows", 4);
-        txn.ensure("bookmarkRectangle", true);
-        txn.ensure("bookmarkCentered", true);
-        txn.ensure("bookmarkNoClutter", false);
+        auto configAccess = config.edit();
+        configAccess.ensure("bookmarkDisplayMode", (int)BOOKMARK_DISP_MODE_TOP);
+        configAccess.ensure("bookmarkRows", 4);
+        configAccess.ensure("bookmarkRectangle", true);
+        configAccess.ensure("bookmarkCentered", true);
+        configAccess.ensure("bookmarkNoClutter", false);
 
         // A pre-0.2.6 list was the bookmark map itself; wrap it in the current
         // {showOnWaterfall, bookmarks} shape. Collected first, since the rewrite
         // would invalidate an iterator over the document.
-        ConfigManager::Section lists = txn.section("lists");
+        ConfigManager::EditSection lists = configAccess.section("lists");
         std::vector<std::pair<std::string, json>> legacy;
         if (const json* stored = lists.peek()) {
             for (auto [listName, list] : stored->items()) {
@@ -1200,6 +1206,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

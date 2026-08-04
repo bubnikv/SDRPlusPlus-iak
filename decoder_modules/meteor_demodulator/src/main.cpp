@@ -48,8 +48,8 @@ public:
         // Load config
         std::string recPath;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection inst = configAccess.section(name);
             inst.tryGet("recPath", recPath);
             inst.tryGet("brokenModulation", brokenModulation);
             inst.tryGet("oqpsk", oqpsk);
@@ -136,18 +136,18 @@ private:
 
         if (_this->folderSelect.render("##meteor_rec" + _this->name)) {
             if (_this->folderSelect.pathIsValid()) {
-                config.transaction().section(_this->name).set("recPath", _this->folderSelect.path);
+                config.edit().section(_this->name).set("recPath", _this->folderSelect.path);
             }
         }
 
         if (ImGui::Checkbox(CONCAT("Broken modulation##meteor_rec", _this->name), &_this->brokenModulation)) {
             _this->demod.setBrokenModulation(_this->brokenModulation);
-            config.transaction().section(_this->name).set("brokenModulation", _this->brokenModulation);
+            config.edit().section(_this->name).set("brokenModulation", _this->brokenModulation);
         }
 
         if (ImGui::Checkbox(CONCAT("OQPSK##oqpsk", _this->name), &_this->oqpsk)) {
             _this->demod.setOQPSK(_this->oqpsk);
-            config.transaction().section(_this->name).set("oqpsk", _this->oqpsk);
+            config.edit().section(_this->name).set("oqpsk", _this->oqpsk);
         }
 
         if (!_this->folderSelect.pathIsValid() && _this->enabled) { style::beginDisabled(); }
@@ -272,6 +272,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

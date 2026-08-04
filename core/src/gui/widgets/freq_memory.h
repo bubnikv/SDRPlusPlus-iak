@@ -5,6 +5,7 @@
 // grid, the spectrum grid and BandStack.
 //
 //   frequencyMemory:
+//     version: 1
 //     selector: "band" | "spectrum"    which grid last set the frequency
 //     band:
 //       activeService: "other"         BandService key
@@ -17,6 +18,8 @@
 // Nothing outside this header spells those key names out.
 namespace freq_memory {
     inline constexpr const char* ROOT               = "frequencyMemory";
+    inline constexpr const char* VERSION            = "version";
+    inline constexpr int CURRENT_VERSION            = 1;
     inline constexpr const char* SELECTOR           = "selector";
     // Each selector keeps its state in a subtree named after the selector value,
     // so these double as path elements.
@@ -27,20 +30,18 @@ namespace freq_memory {
     inline constexpr const char* STACKING_REGISTERS = "stackingRegisters";
     inline constexpr const char* LAST_FREQUENCY     = "lastFrequency";
 
-    inline ConfigManager::Section root(ConfigManager::Transaction& txn) {
-        return txn.section(ROOT);
-    }
+    template <class Access>
+    inline auto root(Access& access) { return access.section(ROOT); }
 
-    inline ConfigManager::Section band(ConfigManager::Transaction& txn) {
-        return root(txn).section(SELECTOR_BAND);
-    }
+    template <class Access>
+    inline auto band(Access& access) { return root(access).section(SELECTOR_BAND); }
 
-    inline ConfigManager::Section spectrum(ConfigManager::Transaction& txn) {
-        return root(txn).section(SELECTOR_SPECTRUM);
-    }
+    template <class Access>
+    inline auto spectrum(Access& access) { return root(access).section(SELECTOR_SPECTRUM); }
 
-    inline ConfigManager::Section stackingRegisters(ConfigManager::Transaction& txn) {
-        return band(txn).section(STACKING_REGISTERS);
+    template <class Access>
+    inline auto stackingRegisters(Access& access) {
+        return band(access).section(STACKING_REGISTERS);
     }
 
     // The default subtree, for core.cpp's defConfig.
@@ -55,6 +56,7 @@ namespace freq_memory {
         spectrumDefaults[LAST_FREQUENCY] = json::object();
 
         json rootDefaults                = json::object();
+        rootDefaults[VERSION]            = CURRENT_VERSION;
         rootDefaults[SELECTOR]           = SELECTOR_BAND;
         rootDefaults[SELECTOR_BAND]      = std::move(bandDefaults);
         rootDefaults[SELECTOR_SPECTRUM]  = std::move(spectrumDefaults);

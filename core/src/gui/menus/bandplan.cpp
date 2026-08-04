@@ -24,7 +24,7 @@ namespace bandplanmenu {
         void setEnabled(bool en) {
             bandPlanEnabled = en;
             bandPlanEnabled ? gui::waterfall.showBandplan() : gui::waterfall.hideBandplan();
-            core::configManager.set("bandPlanEnabled", bandPlanEnabled);
+            core::configManager.edit().set("bandPlanEnabled", bandPlanEnabled);
         }
     };
     BandPlanToggle toggle;
@@ -42,10 +42,10 @@ namespace bandplanmenu {
 
         std::string name;
         {
-            auto txn = core::configManager.transaction();
-            txn.tryGet("bandPlan", name);
-            txn.tryGet("bandPlanEnabled", bandPlanEnabled);
-            txn.tryGet("bandPlanPos", bandPlanPos);
+            auto configAccess = core::configManager.read();
+            configAccess.tryGet("bandPlan", name);
+            configAccess.tryGet("bandPlanEnabled", bandPlanEnabled);
+            configAccess.tryGet("bandPlanPos", bandPlanPos);
         }
 
         if (bandplan::bandplans.find(name) != bandplan::bandplans.end()) {
@@ -66,7 +66,7 @@ namespace bandplanmenu {
         ImGui::PushItemWidth(menuColumnWidth);
         if (ImGui::Combo("##_bandplan_name_", &bandplanId, bandplan::bandplanNameTxt.c_str())) {
             gui::waterfall.bandplan = &bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
-            core::configManager.set("bandPlan", bandplan::bandplanNames[bandplanId]);
+            core::configManager.edit().set("bandPlan", bandplan::bandplanNames[bandplanId]);
         }
         ImGui::PopItemWidth();
 
@@ -74,7 +74,7 @@ namespace bandplanmenu {
         ImGui::SetNextItemWidth(menuColumnWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo("##_bandplan_pos_", &bandPlanPos, bandPlanPosTxt)) {
             gui::waterfall.setBandPlanPos(bandPlanPos);
-            core::configManager.set("bandPlanPos", bandPlanPos);
+            core::configManager.edit().set("bandPlanPos", bandPlanPos);
         }
 
         const bandplan::BandPlan_t& plan =

@@ -45,8 +45,8 @@ public:
         // Create config if it doesn't exist
         std::string selected;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section stream = txn.section(_streamName);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection stream = configAccess.section(_streamName);
             stream.ensure("device", "");
             stream.ensure("devices", json::object());
             stream.tryGet("device", selected);
@@ -147,7 +147,7 @@ public:
             stop();
             start();
             if (selectedDevName != "") {
-                config.transaction().section(_streamName).set("device", selectedDevName);
+                config.edit().section(_streamName).set("device", selectedDevName);
             }
         }
 
@@ -157,7 +157,7 @@ public:
             stop();
             start();
             if (selectedDevName != "") {
-                config.transaction().section(_streamName, "devices").set(selectedDevName, selectedDev.sampleRates[srId]);
+                config.edit().section(_streamName, "devices").set(selectedDevName, selectedDev.sampleRates[srId]);
             }
         }
     }
@@ -306,8 +306,8 @@ private:
         // Load config
         double selectedSr = selectedDev.sampleRates[selectedDev.defaultSrId];
         {
-            auto txn = config.transaction();
-            ConfigManager::Section devices = txn.section(_streamName, "devices");
+            auto configAccess = config.edit();
+            ConfigManager::EditSection devices = configAccess.section(_streamName, "devices");
             devices.ensure(name, selectedSr);
             devices.tryGet(name, selectedSr);
         }
@@ -437,6 +437,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

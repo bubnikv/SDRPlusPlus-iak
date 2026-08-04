@@ -46,6 +46,8 @@ itself belongs in `design/` or `todo/`. Fork surveys live in
 - [deps-build-system.md](design/deps-build-system.md) — third-party dependency build
 - [iq-file-formats.md](design/iq-file-formats.md) — IQ/baseband record, playback and interchange formats
 - [libcurl-integration.md](design/libcurl-integration.md) — libcurl is core-owned; plugins must not link it
+- [config-access.md](design/config-access.md) — config access lifetimes and
+  porting modules from the old API
 
 **Research**
 - [band-stacking.md](research/band-stacking.md) — what a band-stack register contains, when it is written, what a band boundary is

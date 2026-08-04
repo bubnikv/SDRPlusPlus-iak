@@ -86,8 +86,8 @@ public:
         bool autoStart = false;
         Mode nMode = MODE_BASEBAND;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection inst = configAccess.section(name);
             std::string modeStr;
             if (inst.tryGet("mode", modeStr) && modes.keyExists(modeStr)) { nMode = modes.value(modes.keyId(modeStr)); }
             int sr = 0;
@@ -278,7 +278,7 @@ private:
         ImGui::FillWidth();
         if (ImGui::Combo(("##iq_exporter_mode_" + _this->name).c_str(), &_this->modeId, _this->modes.txt)) {
             _this->setMode(_this->modes.value(_this->modeId));
-            config.transaction().section(_this->name).set("mode", _this->modes.key(_this->modeId));
+            config.edit().section(_this->name).set("mode", _this->modes.key(_this->modeId));
         }
 
         // In VFO mode, show samplerate selector
@@ -291,7 +291,7 @@ private:
                     _this->vfo->setBandwidthLimits(_this->samplerate, _this->samplerate, true);
                     _this->vfo->setSampleRate(_this->samplerate, _this->samplerate);
                 }
-                config.transaction().section(_this->name).set("samplerate", _this->samplerates.key(_this->srId));
+                config.edit().section(_this->name).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -300,7 +300,7 @@ private:
         ImGui::FillWidth();
         if (ImGui::Combo(("##iq_exporter_proto_" + _this->name).c_str(), &_this->protoId, _this->protocols.txt)) {
             _this->proto = _this->protocols.value(_this->protoId);
-            config.transaction().section(_this->name).set("protocol", _this->protocols.key(_this->protoId));
+            config.edit().section(_this->name).set("protocol", _this->protocols.key(_this->protoId));
         }
 
         // Sample type selector
@@ -309,7 +309,7 @@ private:
         if (ImGui::Combo(("##iq_exporter_samp_" + _this->name).c_str(), &_this->sampTypeId, _this->sampleTypes.txt)) {
             _this->sampType = _this->sampleTypes.value(_this->sampTypeId);
             _this->reshape.setKeep(_this->packetSize/_this->sampleSize());
-            config.transaction().section(_this->name).set("sampleType", _this->sampleTypes.key(_this->sampTypeId));
+            config.edit().section(_this->name).set("sampleType", _this->sampleTypes.key(_this->sampTypeId));
         }
 
         // Packet size selector
@@ -318,18 +318,18 @@ private:
         if (ImGui::Combo(("##iq_exporter_pkt_sz_" + _this->name).c_str(), &_this->packetSizeId, _this->packetSizes.txt)) {
             _this->packetSize = _this->packetSizes.value(_this->packetSizeId);
             _this->reshape.setKeep(_this->packetSize/_this->sampleSize());
-            config.transaction().section(_this->name).set("packetSize", _this->packetSizes.key(_this->packetSizeId));
+            config.edit().section(_this->name).set("packetSize", _this->packetSizes.key(_this->packetSizeId));
         }
 
         // Hostname and port field
         if (ImGui::InputText(("##iq_exporter_host_" + _this->name).c_str(), _this->hostname, sizeof(_this->hostname))) {
-            config.transaction().section(_this->name).set("host", _this->hostname);
+            config.edit().section(_this->name).set("host", _this->hostname);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt(("##iq_exporter_port_" + _this->name).c_str(), &_this->port, 0, 0)) {
             _this->port = std::clamp<int>(_this->port, 1, 65535);
-            config.transaction().section(_this->name).set("port", _this->port);
+            config.edit().section(_this->name).set("port", _this->port);
         }
 
         if (_this->running) { ImGui::EndDisabled(); }
@@ -338,13 +338,13 @@ private:
         if (_this->running || (!_this->enabled && _this->wasRunning)) {
             if (ImGui::Button(("Stop##iq_exporter_stop_" + _this->name).c_str(), ImVec2(menuWidth, 0))) {
                 _this->stop();
-                config.transaction().section(_this->name).set("running", false);
+                config.edit().section(_this->name).set("running", false);
             }
         }
         else {
             if (ImGui::Button(("Start##iq_exporter_start_" + _this->name).c_str(), ImVec2(menuWidth, 0))) {
                 _this->start();
-                config.transaction().section(_this->name).set("running", true);
+                config.edit().section(_this->name).set("running", true);
             }
         }
 
@@ -554,6 +554,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

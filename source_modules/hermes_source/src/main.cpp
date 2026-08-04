@@ -107,8 +107,8 @@ private:
         devId = devices.keyId(mac);
         selectedMac = mac;
         {
-            auto txn = config.transaction();
-            ConfigManager::Section dev = txn.section("devices", selectedMac);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection dev = configAccess.section("devices", selectedMac);
             int sr = 0;
             if (dev.tryGet("samplerate", sr) && samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
             dev.tryGet("gain", gain);
@@ -128,7 +128,7 @@ private:
             _this->refresh();
 
             // Select device
-            _this->selectedMac = config.value("device", std::string());
+            _this->selectedMac = config.read().value("device", std::string());
             _this->selectMac(_this->selectedMac);
         }
 
@@ -196,7 +196,7 @@ private:
             _this->selectMac(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedMac.empty()) {
-                config.set("device", _this->devices.key(_this->devId));
+                config.edit().set("device", _this->devices.key(_this->devId));
             }
         }
 
@@ -204,7 +204,7 @@ private:
             _this->sampleRate = _this->samplerates.key(_this->srId);
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedMac.empty()) {
-                config.transaction().section("devices", _this->selectedMac).set("samplerate", _this->samplerates.key(_this->srId));
+                config.edit().section("devices", _this->selectedMac).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -213,7 +213,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_hermes_refr_", _this->name))) {
             _this->refresh();
-            std::string mac = config.value("device", std::string());
+            std::string mac = config.read().value("device", std::string());
             _this->selectMac(mac);
             core::setInputSampleRate(_this->sampleRate);
         }
@@ -229,7 +229,7 @@ private:
                 _this->dev->setGain(_this->gain);
             }
             if (!_this->selectedMac.empty()) {
-                config.transaction().section("devices", _this->selectedMac).set("gain", _this->gain);
+                config.edit().section("devices", _this->selectedMac).set("gain", _this->gain);
             }
         }
     }
@@ -275,6 +275,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

@@ -61,10 +61,10 @@ public:
 
         // Load config
         {
-            auto txn = config.transaction();
+            auto configAccess = config.read();
             std::string hostStr;
-            if (txn.tryGet("hostname", hostStr)) { strcpy(hostname, hostStr.c_str()); }
-            txn.tryGet("port", port);
+            if (configAccess.tryGet("hostname", hostStr)) { strcpy(hostname, hostStr.c_str()); }
+            configAccess.tryGet("port", port);
         }
         loadPasswordForServer();
 
@@ -209,13 +209,13 @@ private:
 
         if (connected || connecting) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##sdrpp_srv_srv_host_", _this->name), _this->hostname, 1023)) {
-            config.set("hostname", _this->hostname);
+            config.edit().set("hostname", _this->hostname);
             _this->loadPasswordForServer();
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##sdrpp_srv_srv_port_", _this->name), &_this->port, 0, 0)) {
-            config.set("port", _this->port);
+            config.edit().set("port", _this->port);
             _this->loadPasswordForServer();
         }
         ImGui::LeftLabel("Password");
@@ -249,14 +249,14 @@ private:
                 _this->client->setSampleType(_this->sampleTypeList[_this->sampleTypeId]);
 
                 // Save config
-                config.transaction().section("servers", _this->devConfName).set("sampleType", _this->sampleTypeList.key(_this->sampleTypeId));
+                config.edit().section("servers", _this->devConfName).set("sampleType", _this->sampleTypeList.key(_this->sampleTypeId));
             }
             
             if (ImGui::Checkbox("Compression", &_this->compression)) {
                 _this->client->setCompression(_this->compression);
 
                 // Save config
-                config.transaction().section("servers", _this->devConfName).set("compression", _this->compression);
+                config.edit().section("servers", _this->devConfName).set("compression", _this->compression);
             }
 
             ImGui::LeftLabel("RX prebuffer");
@@ -264,7 +264,7 @@ private:
             if (ImGui::Combo("##sdrpp_srv_source_rx_prebuf", &_this->rxPrebufferId, _this->prebufferList.txt)) {
                 int prebufferMsec = _this->prebufferList[_this->rxPrebufferId];
                 _this->client->setRxPrebufferMsec(prebufferMsec);
-                config.transaction().section("servers", _this->devConfName).set("rxPrebuffer", prebufferMsec);
+                config.edit().section("servers", _this->devConfName).set("rxPrebuffer", prebufferMsec);
             }
 
             bool dummy = true;
@@ -374,11 +374,11 @@ private:
         // Generate the config name
         devConfName = serverConfigName();
 
-        // Load settings. The transaction unlocks on the way out of the scope,
+        // Load settings. The read access unlocks on the way out of the scope,
         // including through an exception, so no hand-written unwind is needed.
         {
-            auto txn = config.transaction();
-            ConfigManager::Section srv = txn.section("servers", devConfName);
+            auto configAccess = config.read();
+            ConfigManager::ReadSection srv = configAccess.section("servers", devConfName);
             sampleTypeId = sampleTypeList.valueId(dsp::compression::PCM_TYPE_I16);
             std::string key;
             if (srv.tryGet("sampleType", key) && sampleTypeList.keyExists(key)) { sampleTypeId = sampleTypeList.keyId(key); }
@@ -467,16 +467,17 @@ private:
     }
 
     void savePasswordForServer() {
-        auto txn = config.transaction();
-        ConfigManager::Section srv = txn.section("servers", serverConfigName());
         if (password[0] == 0) {
             clearSavedAuthKey();
-            srv.erase("password");
+            config.edit().section("servers", serverConfigName()).erase("password");
         }
         else {
+            // PBKDF2 is deliberately expensive. Derive and serialize before
+            // acquiring the config mutex; the edit itself is one JSON write.
             server::deriveAuthKey(std::string(password), savedAuthKey);
             savedAuthKeyValid = true;
-            srv.set("password", makePasswordRecord(savedAuthKey));
+            json record = makePasswordRecord(savedAuthKey);
+            config.edit().section("servers", serverConfigName()).set("password", record);
         }
     }
 
@@ -489,9 +490,8 @@ private:
         password[0] = 0;
         clearSavedAuthKey();
 
-        auto txn = config.transaction();
-        ConfigManager::Section srv = txn.section("servers", serverConfigName());
-        json record = srv.value("password", json());
+        const std::string configName = serverConfigName();
+        json record = config.read().section("servers", configName).value("password", json());
         if (record.is_null()) { return; }
 
         server::AuthKey authKey{};
@@ -503,7 +503,12 @@ private:
         }
 
         // Unreadable record: drop it rather than keep prompting against it.
-        srv.erase("password");
+        auto configAccess = config.edit();
+        ConfigManager::EditSection srv = configAccess.section("servers", configName);
+        // Do not erase a value that another thread replaced after our snapshot.
+        if (srv.value("password", json()) == record) {
+            srv.erase("password");
+        }
     }
 
     std::string name;
@@ -560,6 +565,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

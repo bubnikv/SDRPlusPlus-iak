@@ -105,8 +105,8 @@ public:
         this->name = name;
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection inst = configAccess.section(name);
             inst.ensure("sources", json::object());
 
             // Read then write back the clamped values, so a hand-edited lifetime
@@ -137,14 +137,23 @@ public:
     }
 
     void postInit() {
+        SourceSettings hamqthSettings{};
+        SourceSettings potaSettings{};
+        SourceSettings sotaSettings{};
+        SourceSettings wwffSettings{};
         {
-            auto txn = config.transaction();
-            ConfigManager::Section sources = txn.section(name, "sources");
-            addSource(sources, "hamqth", "HamQTH ClusterDX", false, IM_COL32(0x9F, 0xBB, 0xCC, 255), std::make_unique<HamQTHProvider>());
-            addSource(sources, "pota", "POTA.app spots", false, IM_COL32(0xCF, 0xFD, 0xBC, 255), std::make_unique<POTAProvider>());
-            addSource(sources, "sota", "SOTAwatch spots", false, IM_COL32(0xF9, 0x57, 0x38, 255), std::make_unique<SOTAProvider>());
-            addSource(sources, "wwff", "WWFF spots", false, IM_COL32(0x29, 0x73, 0x73, 255), std::make_unique<WWFFProvider>());
+            auto configAccess = config.edit();
+            ConfigManager::EditSection sources = configAccess.section(name, "sources");
+            hamqthSettings = loadSourceSettings(sources, "hamqth", false, IM_COL32(0x9F, 0xBB, 0xCC, 255));
+            potaSettings = loadSourceSettings(sources, "pota", false, IM_COL32(0xCF, 0xFD, 0xBC, 255));
+            sotaSettings = loadSourceSettings(sources, "sota", false, IM_COL32(0xF9, 0x57, 0x38, 255));
+            wwffSettings = loadSourceSettings(sources, "wwff", false, IM_COL32(0x29, 0x73, 0x73, 255));
         }
+
+        addSource("hamqth", "HamQTH ClusterDX", hamqthSettings, std::make_unique<HamQTHProvider>());
+        addSource("pota", "POTA.app spots", potaSettings, std::make_unique<POTAProvider>());
+        addSource("sota", "SOTAwatch spots", sotaSettings, std::make_unique<SOTAProvider>());
+        addSource("wwff", "WWFF spots", wwffSettings, std::make_unique<WWFFProvider>());
 
         if (autoStart) { start(); }
     }
@@ -189,13 +198,13 @@ private:
 
         std::string autoStartId = "Listen on startup##_spots_auto_lst_" + _this->name;
         if (ImGui::Checkbox(autoStartId.c_str(), &_this->autoStart)) {
-            config.transaction().section(_this->name).set("autoStart", _this->autoStart);
+            config.edit().section(_this->name).set("autoStart", _this->autoStart);
         }
 
         ImGui::LeftLabel("Spot Lifetime (min)");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::SliderInt(("##_spots_spotlifetime_" + _this->name).c_str(), &_this->spotLifetime, 1, _this->maxSpotLifetime)) {
-            config.transaction().section(_this->name).set("spotLifetime", _this->spotLifetime);
+            config.edit().section(_this->name).set("spotLifetime", _this->spotLifetime);
         }
 
         // The enable checkbox is a FrameHeight square (font height plus frame
@@ -221,13 +230,13 @@ private:
                 std::string colorId = "##_spots_color_" + source.name + _this->name;
                 if (ImGui::ColorEdit4(colorId.c_str(), (float*)&color, ImGuiColorEditFlags_NoInputs)) {
                     source.color = ImGui::ColorConvertFloat4ToU32(color);
-                    config.transaction().section(_this->name, "sources", source.name).set("color", source.color);
+                    config.edit().section(_this->name, "sources", source.name).set("color", source.color);
                 }
 
                 ImGui::TableSetColumnIndex(2);
                 std::string enableId = "##_spots_" + source.name + _this->name;
                 if(ImGui::Checkbox(enableId.c_str(), &(source.enabled))) {
-                    config.transaction().section(_this->name, "sources", source.name).set("enabled", source.enabled);
+                    config.edit().section(_this->name, "sources", source.name).set("enabled", source.enabled);
                     if (source.enabled) {
                         if (_this->running) {
                             source.provider->start();
@@ -454,18 +463,27 @@ private:
         );
     }
 
-    // Takes the caller's open "sources" section rather than the config itself,
-    // since postInit registers all four providers under one transaction.
-    void addSource(ConfigManager::Section& sources, std::string sourceName, std::string label, bool defaultEnabled, ImU32 defaultColor, std::unique_ptr<SpotProvider>&& provider) {
-        flog::info("initializing source {0}", sourceName);
-        ConfigManager::Section sourceConf = sources.section(sourceName);
+    struct SourceSettings {
+        bool enabled;
+        ImU32 color;
+    };
+
+    SourceSettings loadSourceSettings(ConfigManager::EditSection& sources, const std::string& sourceName,
+            bool defaultEnabled, ImU32 defaultColor) {
+        ConfigManager::EditSection sourceConf = sources.section(sourceName);
 
         ImU32 color = sourceConf.value("color", defaultColor);
         sourceConf.set("color", color);
         bool enabled = sourceConf.value("enabled", defaultEnabled);
         sourceConf.set("enabled", enabled);
 
-        spotSources.emplace_back(std::move(sourceName), std::move(label), enabled, color,
+        return { enabled, color };
+    }
+
+    void addSource(std::string sourceName, std::string label, SourceSettings settings,
+            std::unique_ptr<SpotProvider>&& provider) {
+        flog::info("initializing source {0}", sourceName);
+        spotSources.emplace_back(std::move(sourceName), std::move(label), settings.enabled, settings.color,
                 std::move(provider), &SpotsModule::addSpot, this);
     }
 
@@ -507,6 +525,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

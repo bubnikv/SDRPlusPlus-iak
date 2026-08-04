@@ -41,8 +41,8 @@ public:
 
         // Load config
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection inst = configAccess.section(name);
             inst.ensure("showLines", false);
             inst.tryGet("showLines", showLines);
         }
@@ -140,7 +140,7 @@ private:
             else {
                 _this->diag.lines.clear();
             }
-            config.transaction().section(_this->name).set("showLines", _this->showLines);
+            config.edit().section(_this->name).set("showLines", _this->showLines);
         }
 
         if (!_this->enabled) { style::endDisabled(); }
@@ -186,6 +186,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

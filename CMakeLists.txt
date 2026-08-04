@@ -4,6 +4,10 @@ project(sdrpp)
 # Backends
 option(OPT_BACKEND_GLFW "Use the GLFW backend" ON)
 option(OPT_BACKEND_ANDROID "Use the Android backend" OFF)
+option(OPT_BUILD_TESTS "Build SDR++ tests" OFF)
+if (OPT_BUILD_TESTS)
+    enable_testing()
+endif ()
 
 # Dependency build management
 # When OPT_BUILD_DEPS=ON, deps/ is configured and built as a sub-project before

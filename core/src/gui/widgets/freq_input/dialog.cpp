@@ -98,7 +98,7 @@ namespace freq_input {
             spectrum.onOpen();
             // Last-used page.
             const std::string storedPage =
-                core::configManager.value("freqEntryPage", "keypad");
+                core::configManager.read().value("freqEntryPage", "keypad");
             if (storedPage == "band") { page = 0; }
             else if (storedPage == "spectrum") { page = 1; }
             else { page = 2; }
@@ -137,7 +137,7 @@ namespace freq_input {
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
             if (page == 0) { bands.onOpen(); }
-            core::configManager.set("freqEntryPage",
+            core::configManager.edit().set("freqEntryPage",
                                     (page == 0) ? "band" :
                                     (page == 1) ? "spectrum" : "keypad");
         }

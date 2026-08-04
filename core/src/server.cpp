@@ -280,10 +280,10 @@ namespace server {
         json moduleInstances;
         std::string sourceName;
         {
-            auto txn = core::configManager.transaction();
-            txn.tryGet("modules", modules);
-            moduleInstances = txn.value("moduleInstances", json::object());
-            txn.tryGet("source", sourceName);
+            auto configAccess = core::configManager.read();
+            configAccess.tryGet("modules", modules);
+            moduleInstances = configAccess.value("moduleInstances", json::object());
+            configAccess.tryGet("source", sourceName);
         }
         auto modList = moduleInstances.items();
 
@@ -754,7 +754,7 @@ namespace server {
         SmGui::ForceSync();
         if (SmGui::Combo("##sdrpp_server_src_sel", &sourceId, sourceList.txt)) {
             sigpath::sourceManager.selectSource(sourceList[sourceId]);
-            core::configManager.set("source", sourceList.key(sourceId));
+            core::configManager.edit().set("source", sourceList.key(sourceId));
         }
         if (running) { SmGui::EndDisabled(); }
 

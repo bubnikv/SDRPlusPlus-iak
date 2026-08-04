@@ -36,8 +36,8 @@ RadiosondeDecoderModule::RadiosondeDecoderModule(std::string name)
 	activeDecoder = NULL;
 
 	{
-		auto txn = config.transaction();
-		ConfigManager::Section inst = txn.section(name);
+		auto configAccess = config.edit();
+		ConfigManager::EditSection inst = configAccess.section(name);
 		inst.ensure("gpxPath", getTempFile("radiosonde.gpx"));
 		inst.ensure("ptuPath", getTempFile("radiosonde_ptu.csv"));
 		inst.ensure("sondeType", 0);
@@ -339,7 +339,7 @@ RadiosondeDecoderModule::onGPXOutputChanged(void *ctx)
 	}
 
 	if (_this->gpxOutput) {
-		config.transaction().section(_this->name).set("gpxPath", _this->gpxFilename);
+		config.edit().section(_this->name).set("gpxPath", _this->gpxFilename);
 	}
 }
 
@@ -353,7 +353,7 @@ RadiosondeDecoderModule::onPTUOutputChanged(void *ctx)
 		_this->ptuWriter.deinit();
 	}
 	if (_this->ptuOutput) {
-		config.transaction().section(_this->name).set("ptuPath", _this->ptuFilename);
+		config.edit().section(_this->name).set("ptuPath", _this->ptuFilename);
 	}
 }
 
@@ -376,7 +376,7 @@ RadiosondeDecoderModule::onTypeSelected(void *ctx, int selection)
 	_this->selectedType = selection;
 
 	/* Save selection to config */
-	config.transaction().section(_this->name).set("sondeType", selection);
+	config.edit().section(_this->name).set("sondeType", selection);
 
 	/* Get new bandwidth */
 	bw = std::get<1>(_this->supportedTypes[selection]);
@@ -414,8 +414,7 @@ MOD_EXPORT void _DELETE_INSTANCE_(void *instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }
 
 /* }}} */

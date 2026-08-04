@@ -38,8 +38,8 @@ public:
         this->name = name;
 
         {
-            auto txn = config.transaction();
-            ConfigManager::Section inst = txn.section(name);
+            auto configAccess = config.edit();
+            ConfigManager::EditSection inst = configAccess.section(name);
 
             // Seed whatever this instance is missing, which for one never seen
             // before is the whole block.
@@ -119,12 +119,12 @@ private:
 
         if (listening) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_rigctl_srv_host_", _this->name), _this->hostname, 1023)) {
-            config.transaction().section(_this->name).set("host", std::string(_this->hostname));
+            config.edit().section(_this->name).set("host", std::string(_this->hostname));
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_rigctl_srv_port_", _this->name), &_this->port, 0, 0)) {
-            config.transaction().section(_this->name).set("port", _this->port);
+            config.edit().section(_this->name).set("port", _this->port);
         }
         if (listening) { style::endDisabled(); }
 
@@ -135,7 +135,7 @@ private:
             if (ImGui::Combo(CONCAT("##_rigctl_srv_vfo_", _this->name), &_this->vfoId, _this->vfoNamesTxt.c_str())) {
                 _this->selectVfoByName(_this->vfoNames[_this->vfoId], false);
                 if (!_this->selectedVfo.empty()) {
-                    config.transaction().section(_this->name).set("vfo", _this->selectedVfo);
+                    config.edit().section(_this->name).set("vfo", _this->selectedVfo);
                 }
             }
         }
@@ -147,7 +147,7 @@ private:
             if (ImGui::Combo(CONCAT("##_rigctl_srv_rec_", _this->name), &_this->recorderId, _this->recorderNamesTxt.c_str())) {
                 _this->selectRecorderByName(_this->recorderNames[_this->recorderId], false);
                 if (!_this->selectedRecorder.empty()) {
-                    config.transaction().section(_this->name).set("recorder", _this->selectedRecorder);
+                    config.edit().section(_this->name).set("recorder", _this->selectedRecorder);
                 }
             }
         }
@@ -156,16 +156,16 @@ private:
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         if (ImGui::Checkbox(CONCAT("Tuning##_rigctl_srv_tune_ena_", _this->name), &_this->tuningEnabled)) {
-            config.transaction().section(_this->name).set("tuning", _this->tuningEnabled);
+            config.edit().section(_this->name).set("tuning", _this->tuningEnabled);
         }
         ImGui::TableSetColumnIndex(1);
         if (ImGui::Checkbox(CONCAT("Recording##_rigctl_srv_tune_ena_", _this->name), &_this->recordingEnabled)) {
-            config.transaction().section(_this->name).set("recording", _this->recordingEnabled);
+            config.edit().section(_this->name).set("recording", _this->recordingEnabled);
         }
         ImGui::EndTable();
 
         if (ImGui::Checkbox(CONCAT("Listen on startup##_rigctl_srv_auto_lst_", _this->name), &_this->autoStart)) {
-            config.transaction().section(_this->name).set("autoStart", _this->autoStart);
+            config.edit().section(_this->name).set("autoStart", _this->autoStart);
         }
 
         if (listening && ImGui::ActionButton(CONCAT("Stop##_rigctl_srv_stop_", _this->name))) {
@@ -779,6 +779,5 @@ MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    config.disableAutoSave();
-    config.save();
+    config.shutdown();
 }

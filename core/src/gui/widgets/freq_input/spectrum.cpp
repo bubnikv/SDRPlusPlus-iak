@@ -81,7 +81,7 @@ namespace freq_input {
         }
 
         std::int64_t rememberedFrequency(
-            ConfigManager::Section memory,
+            ConfigManager::EditSection memory,
             const AvailableSpectrumRange& range)
         {
             double remembered = 0.0;
@@ -96,8 +96,8 @@ namespace freq_input {
     }
 
     void Spectrum::onOpen() {
-        auto txn = core::configManager.transaction();
-        lastRangeId = freq_memory::spectrum(txn).value(
+        auto configAccess = core::configManager.read();
+        lastRangeId = freq_memory::spectrum(configAccess).value(
             freq_memory::ACTIVE_ID,
             "");
     }
@@ -107,8 +107,8 @@ namespace freq_input {
         const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
 
         {
-            auto txn = core::configManager.transaction();
-            freq_memory::root(txn).set(
+            auto configAccess = core::configManager.edit();
+            freq_memory::root(configAccess).set(
                 freq_memory::SELECTOR,
                 freq_memory::SELECTOR_SPECTRUM);
         }
@@ -151,8 +151,8 @@ namespace freq_input {
             lastRangeId != std::string(active->rangeId))
         {
             lastRangeId = std::string(active->rangeId);
-            auto txn = core::configManager.transaction();
-            freq_memory::spectrum(txn).set(freq_memory::ACTIVE_ID, lastRangeId);
+            auto configAccess = core::configManager.edit();
+            freq_memory::spectrum(configAccess).set(freq_memory::ACTIVE_ID, lastRangeId);
         }
 
         if (ranges.empty()) {
@@ -224,9 +224,9 @@ namespace freq_input {
                 if (!selected) { continue; }
 
                 {
-                    auto txn = core::configManager.transaction();
-                    ConfigManager::Section spectrum = freq_memory::spectrum(txn);
-                    ConfigManager::Section memory =
+                    auto configAccess = core::configManager.edit();
+                    ConfigManager::EditSection spectrum = freq_memory::spectrum(configAccess);
+                    ConfigManager::EditSection memory =
                         spectrum.section(freq_memory::LAST_FREQUENCY);
 
                     // Remember the current frequency for the one non-overlapping

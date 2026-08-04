@@ -114,7 +114,7 @@ namespace module_manager_menu {
                 instances[_name]["module"] = inst.module.info->name;
                 instances[_name]["enabled"] = inst.instance->isEnabled();
             }
-            core::configManager.set("moduleInstances", instances);
+            core::configManager.edit().set("moduleInstances", instances);
         }
     }
 }

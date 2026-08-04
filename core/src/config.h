@@ -1,13 +1,13 @@
 #pragma once
 #include <json.hpp>
 #include <atomic>
-#include <cassert>
-#include <condition_variable>
 #include <cstdint>
+#include <limits>
+#include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -20,20 +20,49 @@ namespace config_detail {
     // Reported when a stored value can't be converted to the type the caller asked
     // for, i.e. a hand-edited or stale config file.
     void logTypeMismatch(std::string_view key, const char* what);
+    void logDefaultRepair(std::string_view key);
 
     // Lookup that never inserts. json::operator[] would leave a null behind on a
     // miss, which both bloats the file and flips the next run's contains() check.
     inline json* find(json& node, std::string_view key) {
         if (!node.is_object()) { return NULL; }
-        const auto it = node.find(std::string(key));
+        const auto it = node.find(key);
         return (it == node.end()) ? NULL : &(*it);
     }
 
-    // Numbers count as compatible across int/float, so a value stored as 0 isn't
-    // considered corrupt just because the caller now hands it a double.
+    inline const json* find(const json& node, std::string_view key) {
+        if (!node.is_object()) { return NULL; }
+        const auto it = node.find(key);
+        return (it == node.end()) ? NULL : &(*it);
+    }
+
+    // Floating-point fields accept stored integers, but integer fields reject
+    // stored floats so reads cannot silently truncate them.
     inline bool typeCompatible(const json& a, const json& b) {
-        if (a.is_number() && b.is_number()) { return true; }
+        // Integer fields accept either signed or unsigned JSON integers, while a
+        // floating-point default also accepts an integer. Do not accept a stored
+        // float for an integer field: get<int>() would silently truncate it.
+        if (b.is_number_float()) { return a.is_number(); }
+        if (b.is_number_integer()) { return a.is_number_integer(); }
         return a.type() == b.type();
+    }
+
+    template <class T>
+    bool integerFits(const json& value) {
+        using Integer = std::decay_t<T>;
+        if (value.is_number_unsigned()) {
+            const std::uint64_t number = value.get<std::uint64_t>();
+            return number <= static_cast<std::uint64_t>((std::numeric_limits<Integer>::max)());
+        }
+        if (!value.is_number_integer()) { return false; }
+        const std::int64_t number = value.get<std::int64_t>();
+        if constexpr (std::is_signed<Integer>::value) {
+            return number >= static_cast<std::int64_t>((std::numeric_limits<Integer>::min)()) &&
+                   number <= static_cast<std::int64_t>((std::numeric_limits<Integer>::max)());
+        }
+        return number >= 0 &&
+               static_cast<std::uint64_t>(number) <=
+                   static_cast<std::uint64_t>((std::numeric_limits<Integer>::max)());
     }
 
     // json's compatible-string trait does accept a string_view, but spell the
@@ -44,18 +73,31 @@ namespace config_detail {
     json toJson(const T& value) { return json(value); }
 
     inline bool setValue(json& node, std::string_view key, json value) {
-        const std::string k(key);
-        const auto it = node.find(k);
-        if (it != node.end() && *it == value) { return false; }
-        node[k] = std::move(value);
+        const auto it = node.find(key);
+        if (it != node.end()) {
+            if (*it == value) { return false; }
+            *it = std::move(value);
+            return true;
+        }
+        node[std::string(key)] = std::move(value);
         return true;
     }
 
-    inline bool ensureValue(json& node, std::string_view key, json def) {
-        const std::string k(key);
-        const auto it = node.find(k);
-        if (it != node.end() && typeCompatible(*it, def)) { return false; }
-        node[k] = std::move(def);
+    template <class T>
+    bool ensureValue(json& node, std::string_view key, json def) {
+        const auto it = node.find(key);
+        bool compatible = it != node.end() && typeCompatible(*it, def);
+        if constexpr (std::is_integral<std::decay_t<T>>::value &&
+                      !std::is_same<std::decay_t<T>, bool>::value) {
+            compatible = compatible && integerFits<T>(*it);
+        }
+        if (compatible) { return false; }
+        if (it != node.end()) {
+            logDefaultRepair(key);
+            *it = std::move(def);
+            return true;
+        }
+        node[std::string(key)] = std::move(def);
         return true;
     }
 
@@ -73,10 +115,16 @@ namespace config_detail {
             std::decay_t<T>>>;
 
     template <class T>
-    bool getValue(json* node, std::string_view key, T& out) {
-        json* v = node ? find(*node, key) : NULL;
+    bool getValue(const json* node, std::string_view key, T& out) {
+        const json* v = node ? find(*node, key) : NULL;
         if (!v || v->is_null()) { return false; }
         try {
+            if constexpr (std::is_integral<T>::value && !std::is_same<T, bool>::value) {
+                if (!integerFits<T>(*v)) {
+                    logTypeMismatch(key, "integer value is not representable by the destination type");
+                    return false;
+                }
+            }
             out = v->get<T>();
         }
         catch (const std::exception& e) {
@@ -87,118 +135,181 @@ namespace config_detail {
     }
 }
 
+namespace config_detail {
+    struct ConfigManagerTestAccess;
+}
+
 class ConfigManager {
 public:
     ConfigManager();
     ~ConfigManager();
     void setPath(std::string file);
-    void load(json def, bool lock = true);
-    void save(bool lock = true);
+    void load(json def);
+    bool save();
     void enableAutoSave();
     void disableAutoSave();
+    // Synchronously saves every dirty manager currently registered for
+    // autosave, without changing their lifecycle state. Intended for platforms
+    // that may resume after a save-state event. Continues after individual
+    // failures and returns true only if every attempted save succeeded.
+    static bool flushAll();
+    // Terminal operation: rejects new access, drains the autosaver, and commits
+    // the final dirty state. A failed shutdown may be retried.
+    bool shutdown();
 
-    // Scoped access to the document. Locks on construction, and on destruction
-    // unlocks while reporting whether any of its writes actually changed
-    // something. Unlike a bare acquire()/release() pair it survives an early
-    // return or a throw out of nlohmann.
-    class Transaction;
-    // A lazily resolved section of the document, named by its path. Reads never
-    // create the path; the first write materializes it.
-    class Section;
+    // A read access owns the config mutex but exposes only operations that cannot
+    // modify the document. An edit access adds writers and reports whether those
+    // writers actually changed anything. Keep either object scoped as tightly as
+    // possible; helpers should accept the existing capability by reference. No
+    // ConfigManager may be entered while another config access is active on the
+    // thread: copy values out and release the access before calling external code.
+    class ReadAccess;
+    class EditAccess;
+    class ReadSection;
+    class EditSection;
 
-    Transaction transaction();
-
-    // Single-shot helpers, each holding the lock for the duration of one call:
-    //   set("showMenu", showMenu);
-    // They reach the top level of the document only. For anything nested, open a
-    // transaction and name the path with section(), which keeps the path and the
-    // key from being confused for one another. Every writer returns true iff it
-    // modified the document.
-    template <class T> bool set(std::string_view key, const T& value);
-    template <class T> bool ensure(std::string_view key, const T& def);
-    template <class T> bool tryGet(std::string_view key, T& out);
-    template <class T>
-    config_detail::ValueType<T> value(std::string_view key, const T& def);
+    ReadAccess read();
+    EditAccess edit();
 
 private:
-    // The document and the lock around it. Reachable only through Transaction
-    // and Section, which are nested and so already have access: with the pair
-    // public, a caller could hold the lock and then call one of the single-shot
-    // helpers above, and the lock is not recursive.
     json conf;
-    void acquire();
-    void release(bool modified = false);
-
-#ifndef NDEBUG
-    // True if this thread currently holds the config lock. Exists only for the
-    // assert in transaction(): opening a transaction while already holding the
-    // lock deadlocks. Debug-only, because tracking the owner costs an atomic
-    // store on every acquire/release and nothing else reads it.
-    bool heldByCurrentThread() const;
-#endif
+    void acquire(ReadAccess* access);
+    void release(ReadAccess* access, bool modified) noexcept;
+    bool anyAccessHeldByCurrentThread() const noexcept;
+    void disableAutoSaveImpl();
 
     // Called only by the one process-wide ConfigSaver. The dirty flag is guarded
     // by mtx and is cleared only after a successful disk commit.
     bool saveIfDirty();
-    bool saveLocked();
+    bool saveImpl(bool onlyIfDirty, bool allowClosing = false);
 
     friend class ConfigSaver;
+    friend struct config_detail::ConfigManagerTestAccess;
 
     std::string path = "";
-    json persisted;
-    bool persistedValid = false;
+    enum class LifecycleState {
+        Open,
+        Closing,
+        Closed
+    };
+    LifecycleState lifecycleState = LifecycleState::Open;
+    // Baseline used to identify local changes during a multi-instance merge. It
+    // may be a default document whose first write failed, hence it is not named
+    // "persisted".
+    json baseline;
+    bool baselineValid = false;
     bool dirty = false;
+    // Generation observed only while mtx is held. Edits, load() and setPath()
+    // advance it. saveImpl() may reconcile conf without advancing it because
+    // persistenceMtx excludes every other observer of that transition.
+    std::uint64_t revision = 0;
     std::atomic<bool> autoSaveEnabled{ false };
     std::mutex mtx;
-#ifndef NDEBUG
-    std::atomic<std::thread::id> owner{ std::thread::id() };
-#endif
+    // Serializes persistence attempts for this manager, but is never taken by a
+    // read or edit access. Disk I/O therefore cannot block in-memory config use.
+    std::mutex persistenceMtx;
 };
 
-class ConfigManager::Transaction {
+class ConfigManager::ReadAccess {
     friend class ConfigManager;
-    friend class ConfigManager::Section;
+    friend class ConfigManager::EditAccess;
+    friend class ConfigManager::ReadSection;
+    friend class ConfigManager::EditSection;
 
 public:
-    Transaction(const Transaction&) = delete;
-    Transaction& operator=(const Transaction&) = delete;
-    Transaction& operator=(Transaction&&) = delete;
+    ReadAccess(const ReadAccess&) = delete;
+    ReadAccess& operator=(const ReadAccess&) = delete;
+    ReadAccess(ReadAccess&&) = delete;
+    ReadAccess& operator=(ReadAccess&&) = delete;
 
-    Transaction(Transaction&& other) noexcept : mgr(other.mgr), changed(other.changed) {
-        other.mgr = NULL;
+    ~ReadAccess() {
+        if (lifetime) { lifetime->active.store(false, std::memory_order_release); }
+        mgr->release(this, changed);
     }
 
-    ~Transaction() {
-        if (mgr) { mgr->release(changed); }
+    template <class T>
+    bool tryGet(std::string_view key, T& out) const {
+        return config_detail::getValue(&mgr->conf, key, out);
     }
 
-    // Writers, addressing the top level of the document. Nested keys go through
-    // section().
+    template <class T>
+    config_detail::ValueType<T> value(std::string_view key, const T& def) const {
+        config_detail::ValueType<T> out(def);
+        config_detail::getValue(&mgr->conf, key, out);
+        return out;
+    }
+
+    bool contains(std::string_view key) const {
+        return config_detail::find(mgr->conf, key) != NULL;
+    }
+
+    template <class... Keys>
+    ReadSection section(Keys&&... keys) const;
+
+    // Read-only escape hatch for iteration and other queries not covered above.
+    const json& peek() const { return mgr->conf; }
+
+private:
+    struct Lifetime {
+        std::atomic<bool> active{ true };
+    };
+
+    explicit ReadAccess(ConfigManager* mgr) : mgr(mgr) {
+        mgr->acquire(this);
+    }
+
+    std::shared_ptr<Lifetime> lifetimeForSection() const {
+        if (!lifetime) { lifetime = std::make_shared<Lifetime>(); }
+        return lifetime;
+    }
+
+    ConfigManager* mgr;
+    // Always false for a plain ReadAccess. EditAccess writers set it and the
+    // shared destructor consumes it to update dirty/revision state on release.
+    bool changed = false;
+    mutable std::shared_ptr<Lifetime> lifetime;
+};
+
+class ConfigManager::EditAccess : public ConfigManager::ReadAccess {
+    friend class ConfigManager;
+    friend class ConfigManager::EditSection;
+
+public:
+    EditAccess(const EditAccess&) = delete;
+    EditAccess& operator=(const EditAccess&) = delete;
+    EditAccess(EditAccess&&) = delete;
+    EditAccess& operator=(EditAccess&&) = delete;
+
     template <class T>
     bool set(std::string_view key, const T& value) {
-        const bool wrote = config_detail::setValue(mgr->conf, key, config_detail::toJson(value));
+        const bool wrote = config_detail::setValue(
+            mgr->conf, key, config_detail::toJson(value));
         changed |= wrote;
         return wrote;
     }
 
-    // Writes only when the key is missing or holds an incompatible type, which is
-    // the "seed the defaults for a device we've never seen" case.
+    // Installs a missing default or explicitly repairs an incompatible value.
     template <class T>
     bool ensure(std::string_view key, const T& def) {
-        const bool wrote = config_detail::ensureValue(mgr->conf, key, config_detail::toJson(def));
+        const bool wrote = config_detail::ensureValue<T>(
+            mgr->conf, key, config_detail::toJson(def));
         changed |= wrote;
         return wrote;
     }
 
     bool erase(std::string_view key) {
-        const bool wrote = mgr->conf.is_object() && mgr->conf.erase(std::string(key)) != 0;
+        bool wrote = false;
+        if (mgr->conf.is_object()) {
+            const auto it = mgr->conf.find(key);
+            if (it != mgr->conf.end()) {
+                mgr->conf.erase(it);
+                wrote = true;
+            }
+        }
         changed |= wrote;
         return wrote;
     }
 
-    // Replaces the whole document, for the "this config predates the current
-    // layout and can't be repaired key by key" case a few modules open with.
-    // Compares first, like set(), so re-installing the same defaults is free.
     bool reset(json doc) {
         const bool wrote = mgr->conf != doc;
         if (wrote) { mgr->conf = std::move(doc); }
@@ -206,117 +317,68 @@ public:
         return wrote;
     }
 
-    // Readers. Never insert, and leave the destination untouched when the key is
-    // absent or holds the wrong type.
-    template <class T>
-    bool tryGet(std::string_view key, T& out) {
-        return config_detail::getValue(&mgr->conf, key, out);
-    }
-
-    template <class T>
-    config_detail::ValueType<T> value(std::string_view key, const T& def) {
-        config_detail::ValueType<T> out(def);
-        config_detail::getValue(&mgr->conf, key, out);
-        return out;
-    }
-
-    bool contains(std::string_view key) {
-        return config_detail::find(mgr->conf, key) != NULL;
-    }
-
-    // Names a path, e.g. section("devices", devName).set("gain", gainId). Binds a
-    // prefix so a block of related fields reads and writes without repeating it,
-    // and keeps path elements from being mistaken for a key or a value the way a
-    // single variadic call would. A section must not outlive the transaction it
-    // came from.
+    using ReadAccess::section;
     template <class... Keys>
-    Section section(Keys&&... keys);
-
-    // Read-only escape hatch for what the readers don't cover, mainly iteration.
-    // There is deliberately no mutable counterpart: every write goes through
-    // set()/ensure()/erase(), which is what keeps modified() honest.
-    const json& peek() const { return mgr->conf; }
-
-    bool modified() const { return changed; }
+    EditSection section(Keys&&... keys);
 
 private:
-    explicit Transaction(ConfigManager* mgr) : mgr(mgr) {
-        mgr->acquire();
-    }
-
-    ConfigManager* mgr;
-    bool changed = false;
+    explicit EditAccess(ConfigManager* mgr) : ReadAccess(mgr) {}
 };
 
-class ConfigManager::Section {
-    friend class ConfigManager::Transaction;
+class ConfigManager::ReadSection {
+    friend class ConfigManager::ReadAccess;
+    friend class ConfigManager::EditAccess;
+    friend class ConfigManager::EditSection;
 
 public:
     template <class T>
-    bool set(std::string_view key, const T& value) {
-        const bool wrote = config_detail::setValue(materialize(), key, config_detail::toJson(value));
-        txn->changed |= wrote;
-        return wrote;
-    }
-
-    template <class T>
-    bool ensure(std::string_view key, const T& def) {
-        const bool wrote = config_detail::ensureValue(materialize(), key, config_detail::toJson(def));
-        txn->changed |= wrote;
-        return wrote;
-    }
-
-    bool erase(std::string_view key) {
-        json* self = resolve();
-        const bool wrote = self && self->is_object() && self->erase(std::string(key)) != 0;
-        txn->changed |= wrote;
-        return wrote;
-    }
-
-    template <class T>
-    bool tryGet(std::string_view key, T& out) {
+    bool tryGet(std::string_view key, T& out) const {
         return config_detail::getValue(resolve(), key, out);
     }
 
     template <class T>
-    config_detail::ValueType<T> value(std::string_view key, const T& def) {
+    config_detail::ValueType<T> value(std::string_view key, const T& def) const {
         config_detail::ValueType<T> out(def);
         config_detail::getValue(resolve(), key, out);
         return out;
     }
 
-    bool contains(std::string_view key) {
-        json* self = resolve();
+    bool contains(std::string_view key) const {
+        const json* self = resolve();
         return self && config_detail::find(*self, key) != NULL;
     }
 
-    // True if the path is already in the document, i.e. this device or section has
-    // been seen before.
-    bool exists() { return resolve() != NULL; }
+    bool exists() const { return resolve() != NULL; }
 
-    // Extends this section's path, so a nested block can be named in one step.
     template <class... Keys>
-    Section section(Keys&&... keys) {
-        Section sub(*this);
-        sub.path.reserve(path.size() + sizeof...(Keys));
-        (sub.path.emplace_back(std::forward<Keys>(keys)), ...);
-        return sub;
+    ReadSection section(Keys&&... keys) const {
+        std::vector<std::string> subPath = path;
+        subPath.reserve(path.size() + sizeof...(Keys));
+        (subPath.emplace_back(std::forward<Keys>(keys)), ...);
+        return ReadSection(access, lifetime, std::move(subPath));
     }
 
-    // Read-only escape hatch: the subtree as it stands, or NULL when the path
-    // doesn't exist. Never creates, so inspecting a section can't dirty the
-    // document. Writes go through set()/ensure()/erase(); to replace a subtree
-    // wholesale, build the json and hand it to set(), which compares first and
-    // so keeps the change flag accurate.
-    const json* peek() { return resolve(); }
+    const json* peek() const { return resolve(); }
 
 private:
-    Section(Transaction* txn, std::vector<std::string> path)
-        : txn(txn), path(std::move(path)) {}
+    ReadSection(const ReadAccess* access,
+                std::shared_ptr<ReadAccess::Lifetime> lifetime,
+                std::vector<std::string> path)
+        : access(access), lifetime(std::move(lifetime)), path(std::move(path)) {}
 
-    // Walks the path without touching the document.
-    json* resolve() {
-        json* node = &txn->mgr->conf;
+    const ReadAccess& checkedAccess() const {
+        if (!lifetime || !lifetime->active.load(std::memory_order_acquire)) {
+            throw std::logic_error("ConfigManager section outlived its access");
+        }
+        return *access;
+    }
+
+    const json* resolve() const {
+        return resolve(checkedAccess());
+    }
+
+    const json* resolve(const ReadAccess& owner) const {
+        const json* node = &owner.mgr->conf;
         for (const auto& key : path) {
             node = config_detail::find(*node, key);
             if (!node) { return NULL; }
@@ -324,61 +386,114 @@ private:
         return node;
     }
 
-    // Walks the path, creating the objects it's missing. Anything found along the
-    // way that isn't an object is replaced, which is how a corrupted section heals
-    // itself.
-    json& materialize() {
-        json* node = &txn->mgr->conf;
-        for (const auto& key : path) {
-            if (!node->is_object() && !node->is_null()) {
-                *node = json::object();
-                txn->changed = true;
-            }
-            const auto it = node->find(key);
-            if (it != node->end() && it->is_object()) {
-                node = &(*it);
-                continue;
-            }
-            (*node)[key] = json::object();
-            txn->changed = true;
-            node = &(*node)[key];
-        }
-        return *node;
-    }
-
-    Transaction* txn;
+    const ReadAccess* access;
+    std::shared_ptr<ReadAccess::Lifetime> lifetime;
     std::vector<std::string> path;
 };
 
+class ConfigManager::EditSection : public ConfigManager::ReadSection {
+    friend class ConfigManager::EditAccess;
+
+public:
+    template <class T>
+    bool set(std::string_view key, const T& value) {
+        EditAccess& owner = checkedEditor();
+        const bool wrote = config_detail::setValue(
+            materialize(owner), key, config_detail::toJson(value));
+        owner.changed |= wrote;
+        return wrote;
+    }
+
+    template <class T>
+    bool ensure(std::string_view key, const T& def) {
+        EditAccess& owner = checkedEditor();
+        const bool wrote = config_detail::ensureValue<T>(
+            materialize(owner), key, config_detail::toJson(def));
+        owner.changed |= wrote;
+        return wrote;
+    }
+
+    bool erase(std::string_view key) {
+        EditAccess& owner = checkedEditor();
+        json* self = resolveMutable(owner);
+        bool wrote = false;
+        if (self && self->is_object()) {
+            const auto it = self->find(key);
+            if (it != self->end()) {
+                self->erase(it);
+                wrote = true;
+            }
+        }
+        owner.changed |= wrote;
+        return wrote;
+    }
+
+    using ReadSection::section;
+    template <class... Keys>
+    EditSection section(Keys&&... keys) {
+        std::vector<std::string> subPath = path;
+        subPath.reserve(path.size() + sizeof...(Keys));
+        (subPath.emplace_back(std::forward<Keys>(keys)), ...);
+        return EditSection(&checkedEditor(), lifetime, std::move(subPath));
+    }
+
+private:
+    EditSection(EditAccess* editor,
+                std::shared_ptr<ReadAccess::Lifetime> lifetime,
+                std::vector<std::string> path)
+        : ReadSection(editor, std::move(lifetime), std::move(path)) {}
+
+    EditAccess& checkedEditor() const {
+        // Private construction always starts with an EditAccess*. Nested edit
+        // sections preserve that invariant by deriving their owner here.
+        return const_cast<EditAccess&>(
+            static_cast<const EditAccess&>(checkedAccess()));
+    }
+
+    json* resolveMutable(EditAccess& owner) const {
+        // The shared resolver exposes a const view, but an EditAccess owns the
+        // underlying non-const document.
+        return const_cast<json*>(resolve(owner));
+    }
+
+    json& materialize(EditAccess& owner) {
+        json* node = &owner.mgr->conf;
+        for (const auto& key : path) {
+            if (!node->is_object() && !node->is_null()) {
+                *node = json::object();
+                owner.changed = true;
+            }
+            json& child = (*node)[key];
+            if (!child.is_object()) {
+                child = json::object();
+                owner.changed = true;
+            }
+            node = &child;
+        }
+        return *node;
+    }
+};
+
 template <class... Keys>
-inline ConfigManager::Section ConfigManager::Transaction::section(Keys&&... keys) {
+inline ConfigManager::ReadSection ConfigManager::ReadAccess::section(Keys&&... keys) const {
     std::vector<std::string> path;
     path.reserve(sizeof...(Keys));
     (path.emplace_back(std::forward<Keys>(keys)), ...);
-    return Section(this, std::move(path));
+    return ReadSection(this, lifetimeForSection(), std::move(path));
 }
 
-inline ConfigManager::Transaction ConfigManager::transaction() {
-    assert(!heldByCurrentThread() && "nested ConfigManager transaction deadlocks");
-    return Transaction(this);
+template <class... Keys>
+inline ConfigManager::EditSection ConfigManager::EditAccess::section(Keys&&... keys) {
+    std::vector<std::string> path;
+    path.reserve(sizeof...(Keys));
+    (path.emplace_back(std::forward<Keys>(keys)), ...);
+    return EditSection(this, lifetimeForSection(), std::move(path));
 }
 
-template <class T>
-inline bool ConfigManager::set(std::string_view key, const T& value) {
-    return transaction().set(key, value);
+inline ConfigManager::ReadAccess ConfigManager::read() {
+    return ReadAccess(this);
 }
 
-template <class T>
-inline bool ConfigManager::ensure(std::string_view key, const T& def) {
-    return transaction().ensure(key, def);
-}
-
-template <class T>
-inline bool ConfigManager::tryGet(std::string_view key, T& out) {
-    return transaction().tryGet(key, out);
-}
-
-template <class T>
-inline config_detail::ValueType<T> ConfigManager::value(std::string_view key, const T& def) {
-    return transaction().value(key, def);
+inline ConfigManager::EditAccess ConfigManager::edit() {
+    return EditAccess(this);
 }

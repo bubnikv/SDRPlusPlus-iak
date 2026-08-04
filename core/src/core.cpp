@@ -45,9 +45,9 @@ namespace core {
     ModuleComManager modComManager;
     CommandArgsParser args;
 
-    void saveState() {
+    bool saveState() {
         gui::bandStack.commitCurrent();
-        configManager.save();
+        return ConfigManager::flushAll();
     }
 
     void setInputSampleRate(double samplerate) {
@@ -84,7 +84,7 @@ namespace core {
             return std::string(appdir) + "/usr/lib/sdrpp-iak/plugins";
         }
 #endif
-        return resolveConfigPath(core::configManager.value("modulesDirectory", std::string()));
+        return resolveConfigPath(core::configManager.read().value("modulesDirectory", std::string()));
     }
 
     std::string getResourcesDirectory() {
@@ -93,7 +93,7 @@ namespace core {
             return std::string(appdir) + "/usr/share/sdrpp-iak";
         }
 #endif
-        return resolveConfigPath(core::configManager.value("resourcesDirectory", std::string()));
+        return resolveConfigPath(core::configManager.read().value("resourcesDirectory", std::string()));
     }
 };
 
@@ -148,7 +148,11 @@ int sdrpp_main(int argc, char* argv[]) {
     }
 
     // ======== DEFAULT CONFIG ========
+    constexpr int CURRENT_CONFIG_VERSION = 1;
     json defConfig;
+    // Increment when a released core config needs an explicit migration. Nested
+    // subsystems may carry their own versions as frequencyMemory does below.
+    defConfig["configVersion"] = CURRENT_CONFIG_VERSION;
     defConfig["bandColors"]["amateur"] = "#FF0000FF";
     defConfig["bandColors"]["aviation"] = "#00FF00FF";
     defConfig["bandColors"]["broadcast"] = "#0000FFFF";
@@ -353,11 +357,11 @@ int sdrpp_main(int argc, char* argv[]) {
 
     float uiScaleFactor = 1.0f;
     {
-        auto txn = core::configManager.transaction();
+        auto configAccess = core::configManager.edit();
 
     // Android can't load just any .so file. This means we have to hardcode the name of the modules
 #ifdef __ANDROID__
-        txn.set("modules", json::array({
+        configAccess.set("modules", json::array({
             "airspy_source.so",
             "airspyhf_source.so",
             "hackrf_source.so",
@@ -391,26 +395,52 @@ int sdrpp_main(int argc, char* argv[]) {
         }));
 #endif
 
+        int storedConfigVersion = 0;
+        const bool validConfigVersion =
+            configAccess.tryGet("configVersion", storedConfigVersion);
+        if (!validConfigVersion || storedConfigVersion < CURRENT_CONFIG_VERSION) {
+            flog::info("Migrating core config schema from version {0} to {1}",
+                       storedConfigVersion,
+                       CURRENT_CONFIG_VERSION);
+            // Version 1 establishes the explicit schema marker. Future migrations
+            // run immediately before advancing this value.
+            configAccess.set("configVersion", CURRENT_CONFIG_VERSION);
+        }
+        else if (storedConfigVersion > CURRENT_CONFIG_VERSION) {
+            flog::warn("Core config schema version {0} is newer than supported version {1}; "
+                       "unknown keys will be preserved",
+                       storedConfigVersion, CURRENT_CONFIG_VERSION);
+        }
+
         // Fix missing elements in config
         for (auto const& item : defConfig.items()) {
-            if (txn.contains(item.key())) { continue; }
-            flog::info("Missing key in config {0}, repairing", item.key());
-            txn.set(item.key(), item.value());
+            const bool missing = !configAccess.contains(item.key());
+            if (!configAccess.ensure(item.key(), item.value())) { continue; }
+            if (missing) {
+                flog::info("Missing key in config {0}, repairing", item.key());
+            }
         }
 
-        // Remove unused elements. Collected first: erasing while iterating the
-        // document would invalidate the iterator.
-        std::vector<std::string> unused;
-        for (auto const& item : txn.peek().items()) {
-            if (!defConfig.contains(item.key())) { unused.push_back(item.key()); }
+        // Subtrees evolve independently of the flat core settings. Seed their
+        // schema marker explicitly because the top-level repair above does not
+        // recurse into an already existing object.
+        ConfigManager::EditSection frequencyMemory = freq_memory::root(configAccess);
+        int frequencyMemoryVersion = 0;
+        if (!frequencyMemory.tryGet(freq_memory::VERSION, frequencyMemoryVersion) ||
+            frequencyMemoryVersion < freq_memory::CURRENT_VERSION) {
+            frequencyMemory.set(freq_memory::VERSION, freq_memory::CURRENT_VERSION);
         }
-        for (auto const& key : unused) {
-            flog::info("Unused key in config {0}, repairing", key);
-            txn.erase(key);
+        else if (frequencyMemoryVersion > freq_memory::CURRENT_VERSION) {
+            flog::warn("Frequency-memory config schema version {0} is newer than "
+                       "supported version {1}; unknown keys will be preserved",
+                       frequencyMemoryVersion, freq_memory::CURRENT_VERSION);
         }
+
+        // Preserve unknown keys. They may belong to a newer application version;
+        // deleting them here would make a temporary downgrade destructive.
 
         // Update to new module representation in config if needed
-        ConfigManager::Section instances = txn.section("moduleInstances");
+        ConfigManager::EditSection instances = configAccess.section("moduleInstances");
         std::vector<std::pair<std::string, std::string>> legacyInstances;
         if (const json* insts = instances.peek()) {
             for (auto const& [_name, inst] : insts->items()) {
@@ -427,17 +457,17 @@ int sdrpp_main(int argc, char* argv[]) {
         // Load UI scale factor; detected scale is not known yet (backend not initialized),
         // so set a temporary scale using the factor alone. The correct effective scale is
         // applied after backend::init() below, before any font loading.
-        uiScaleFactor = txn.value("uiScaleFactor", 1.0f);
+        uiScaleFactor = configAccess.value("uiScaleFactor", 1.0f);
         style::setUIScale(uiScaleFactor);
 
         // Must be set before thememenu::init() applies the first scaled style.
         // The fallback keeps the per-platform default for configs predating the key.
-        style::touchStyle = txn.value("touchStyle", style::touchStyle);
+        style::touchStyle = configAccess.value("touchStyle", style::touchStyle);
 
-        style::migrateLogicalDimension(txn, "menuWidth", "menuWidthLogical", 250.0f, [](float value) {
+        style::migrateLogicalDimension(configAccess, "menuWidth", "menuWidthLogical", 250.0f, [](float value) {
             return style::uiScale > 1.0f && value > 300.0f;
         });
-        style::migrateLogicalDimension(txn, "fftHeight", "fftHeightLogical", 150.0f, [](float value) {
+        style::migrateLogicalDimension(configAccess, "fftHeight", "fftHeightLogical", 150.0f, [](float value) {
             return style::uiScale > 1.0f && value >= 300.0f * style::uiScale;
         });
     }
@@ -449,7 +479,7 @@ int sdrpp_main(int argc, char* argv[]) {
     }
 
     std::string resDir = core::getResourcesDirectory();
-    json bandColors = core::configManager.value("bandColors", json::object());
+    json bandColors = core::configManager.read().value("bandColors", json::object());
 
     // Check that the resource directory exists
     if (!std::filesystem::is_directory(resDir)) {
@@ -471,7 +501,7 @@ int sdrpp_main(int argc, char* argv[]) {
     }
 
     if (firstStart) {
-        core::configManager.set("menuWidth", 300);
+        core::configManager.edit().set("menuWidth", 300);
     }
 
     // Initialize SmGui in normal mode
@@ -500,11 +530,19 @@ int sdrpp_main(int argc, char* argv[]) {
     // Run render loop (TODO: CHECK RETURN VALUE)
     backend::renderLoop();
 
+    bool coreConfigSaved = true;
+
     // On android, none of this shutdown should happen due to the way the UI works
 #ifndef __ANDROID__
     // The render loop has ended but modules are still alive, so the selected
     // radio mode can still be sampled for the active band's stack.
     gui::bandStack.commitCurrent();
+
+    // Config shutdown is terminal, so destroy every module instance (and join
+    // its workers) before the module's _END_ closes its global ConfigManager.
+    while (!core::moduleManager.instances.empty()) {
+        core::moduleManager.deleteInstance(core::moduleManager.instances.begin()->first);
+    }
 
     // Shut down all modules
     for (auto& [name, mod] : core::moduleManager.modules) {
@@ -516,12 +554,15 @@ int sdrpp_main(int argc, char* argv[]) {
 
     sigpath::iqFrontEnd.stop();
 
-    core::configManager.disableAutoSave();
-    core::configManager.save();
+    coreConfigSaved = core::configManager.shutdown();
 #endif
 
     curl::cleanup();
 
-    flog::info("Exiting successfully");
-    return 0;
+    if (coreConfigSaved) {
+        flog::info("Exiting successfully");
+        return 0;
+    }
+    flog::error("Exiting after failing to save the core config");
+    return -1;
 }

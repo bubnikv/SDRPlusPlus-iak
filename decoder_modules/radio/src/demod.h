@@ -174,14 +174,14 @@ namespace demod {
     protected:
         friend struct AGCControls;
 
-        // The demodulator's own config subtree, copied out under one transaction.
+        // The demodulator's own config subtree, copied out under one read access.
         // The loadConf() readers below then work on a plain document, so the
         // config lock is held for exactly one call rather than for the whole of
         // a constructor that also builds the DSP chain. Returns an empty object
         // for a demodulator the config has never seen.
         nlohmann::json loadSection() {
-            auto txn = _config->transaction();
-            return txn.section(name).value(getName(), nlohmann::json::object());
+            auto configAccess = _config->read();
+            return configAccess.section(name).value(getName(), nlohmann::json::object());
         }
 
         // Load a value from the demodulator's config section if present
@@ -193,8 +193,8 @@ namespace demod {
         // Save a value into the demodulator's config section
         template <class T>
         void saveConf(const char* key, const T& value) {
-            auto txn = _config->transaction();
-            txn.section(name, getName()).set(key, value);
+            auto configAccess = _config->edit();
+            configAccess.section(name, getName()).set(key, value);
         }
 
         ConfigManager* _config = NULL;

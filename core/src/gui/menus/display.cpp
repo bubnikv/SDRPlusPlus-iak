@@ -71,31 +71,31 @@ namespace displaymenu {
         std::string winName = "Nuttall";
         float factor = 1.0f;
         {
-            auto txn = core::configManager.transaction();
-            txn.tryGet("showWaterfall", showWaterfall);
-            txn.tryGet("colorMap", colormapName);
-            txn.tryGet("fullWaterfallUpdate", fullWaterfallUpdate);
-            txn.tryGet("fftSize", fftSize);
-            txn.tryGet("fftRate", fftRate);
+            auto configAccess = core::configManager.edit();
+            configAccess.tryGet("showWaterfall", showWaterfall);
+            configAccess.tryGet("colorMap", colormapName);
+            configAccess.tryGet("fullWaterfallUpdate", fullWaterfallUpdate);
+            configAccess.tryGet("fftSize", fftSize);
+            configAccess.tryGet("fftRate", fftRate);
 
             // The window is stored by name; legacy configs stored an index into
             // the {Rectangular, Blackman, Nuttall} list.
-            json fftWindowConf = txn.value("fftWindow", json());
+            json fftWindowConf = configAccess.value("fftWindow", json());
             if (fftWindowConf.is_string()) {
                 winName = fftWindowConf;
             }
             else if (fftWindowConf.is_number_integer()) {
                 const char* legacyWindows[] = { "Rectangular", "Blackman", "Nuttall" };
                 winName = legacyWindows[std::clamp<int>(fftWindowConf, 0, 2)];
-                txn.set("fftWindow", winName);
+                configAccess.set("fftWindow", winName);
             }
 
-            txn.tryGet("lockMenuOrder", gui::menu.locked);
-            txn.tryGet("fftHold", fftHold);
-            txn.tryGet("fftHoldSpeed", fftHoldSpeed);
-            txn.tryGet("fftSmoothing", fftSmoothing);
-            txn.tryGet("fftSmoothingSpeed", fftSmoothingSpeed);
-            txn.tryGet("uiScaleFactor", factor);
+            configAccess.tryGet("lockMenuOrder", gui::menu.locked);
+            configAccess.tryGet("fftHold", fftHold);
+            configAccess.tryGet("fftHoldSpeed", fftHoldSpeed);
+            configAccess.tryGet("fftSmoothing", fftSmoothing);
+            configAccess.tryGet("fftSmoothingSpeed", fftSmoothingSpeed);
+            configAccess.tryGet("uiScaleFactor", factor);
         }
 
         showWaterfall ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall();
@@ -144,7 +144,7 @@ namespace displaymenu {
     void setWaterfallShown(bool shown) {
         showWaterfall = shown;
         showWaterfall ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall();
-        core::configManager.set("showWaterfall", showWaterfall);
+        core::configManager.edit().set("showWaterfall", showWaterfall);
     }
 
     void checkKeybinds() {
@@ -162,39 +162,39 @@ namespace displaymenu {
 
         if (ImGui::Checkbox("Full Waterfall Update##_sdrpp", &fullWaterfallUpdate)) {
             gui::waterfall.setFullWaterfallUpdate(fullWaterfallUpdate);
-            core::configManager.set("fullWaterfallUpdate", fullWaterfallUpdate);
+            core::configManager.edit().set("fullWaterfallUpdate", fullWaterfallUpdate);
         }
 
         if (ImGui::Checkbox("Lock Menu Order##_sdrpp", &gui::menu.locked)) {
-            core::configManager.set("lockMenuOrder", gui::menu.locked);
+            core::configManager.edit().set("lockMenuOrder", gui::menu.locked);
         }
 
         if (ImGui::Checkbox("FFT Hold##_sdrpp", &fftHold)) {
             gui::waterfall.setFFTHold(fftHold);
-            core::configManager.set("fftHold", fftHold);
+            core::configManager.edit().set("fftHold", fftHold);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt("##sdrpp_fft_hold_speed", &fftHoldSpeed)) {
             updateFFTSpeeds();
-            core::configManager.set("fftHoldSpeed", fftHoldSpeed);
+            core::configManager.edit().set("fftHoldSpeed", fftHoldSpeed);
         }
 
         if (ImGui::Checkbox("FFT Smoothing##_sdrpp", &fftSmoothing)) {
             gui::waterfall.setFFTSmoothing(fftSmoothing);
-            core::configManager.set("fftSmoothing", fftSmoothing);
+            core::configManager.edit().set("fftSmoothing", fftSmoothing);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt("##sdrpp_fft_smoothing_speed", &fftSmoothingSpeed)) {
             fftSmoothingSpeed = std::max<int>(fftSmoothingSpeed, 1);
             updateFFTSpeeds();
-            core::configManager.set("fftSmoothingSpeed", fftSmoothingSpeed);
+            core::configManager.edit().set("fftSmoothingSpeed", fftSmoothingSpeed);
         }
 
         if (ImGui::Checkbox("Touch-Friendly UI##_sdrpp", &style::touchStyle)) {
             style::applyScaledStyle(thememenu::applyTheme);
-            core::configManager.set("touchStyle", style::touchStyle);
+            core::configManager.edit().set("touchStyle", style::touchStyle);
         }
 
         ImGui::LeftLabel("UI Scale Adjustment");
@@ -222,19 +222,19 @@ namespace displaymenu {
             fftRate = std::max<int>(1, fftRate);
             sigpath::iqFrontEnd.setFFTRate(fftRate);
             updateFFTSpeeds();
-            core::configManager.set("fftRate", fftRate);
+            core::configManager.edit().set("fftRate", fftRate);
         }
 
         ImGui::LeftLabelFill("FFT Size");
         if (ImGui::Combo("##sdrpp_fft_size", &fftSizeId, fftSizes.txt)) {
             sigpath::iqFrontEnd.setFFTSize(fftSizes.value(fftSizeId));
-            core::configManager.set("fftSize", fftSizes.key(fftSizeId));
+            core::configManager.edit().set("fftSize", fftSizes.key(fftSizeId));
         }
 
         ImGui::LeftLabelFill("FFT Window");
         if (ImGui::Combo("##sdrpp_fft_window", &selectedWindow, fftWindows.txt)) {
             sigpath::iqFrontEnd.setFFTWindow(fftWindows.value(selectedWindow));
-            core::configManager.set("fftWindow", fftWindows.key(selectedWindow));
+            core::configManager.edit().set("fftWindow", fftWindows.key(selectedWindow));
         }
 
         if (colorMapNames.size() > 0) {
@@ -242,7 +242,7 @@ namespace displaymenu {
             if (ImGui::Combo("##_sdrpp_color_map_sel", &colorMapId, colorMapNamesTxt.c_str())) {
                 colormaps::Map map = colormaps::maps[colorMapNames[colorMapId]];
                 gui::waterfall.updatePalletteFromArray(map.map, map.entryCount);
-                core::configManager.set("colorMap", colorMapNames[colorMapId]);
+                core::configManager.edit().set("colorMap", colorMapNames[colorMapId]);
                 colorMapAuthor = map.author;
             }
             ImGui::Text("Color map Author: %s", colorMapAuthor.c_str());
