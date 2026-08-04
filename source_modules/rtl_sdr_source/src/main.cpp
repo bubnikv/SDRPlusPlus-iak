@@ -81,15 +81,11 @@ public:
 
         refresh();
 
-        config.acquire();
-        if (!config.conf["device"].is_string()) {
-            selectedDevName = "";
-            config.conf["device"] = "";
+        {
+            auto txn = config.transaction();
+            txn.ensure("device", "");
+            txn.getTo("device", selectedDevName);
         }
-        else {
-            selectedDevName = config.conf["device"];
-        }
-        config.release(true);
         selectByName(selectedDevName);
 
         sigpath::sourceManager.registerSource("RTL-SDR", &handler);
@@ -203,64 +199,43 @@ public:
         gainList = std::vector<int>(gains, gains + n);
         std::sort(gainList.begin(), gainList.end());
 
-        bool created = false;
-        config.acquire();
-        if (!config.conf["devices"].contains(selectedDevName)) {
-            created = true;
-            config.conf["devices"][selectedDevName]["sampleRate"] = 2400000.0;
-            config.conf["devices"][selectedDevName]["directSampling"] = directSamplingMode;
-            config.conf["devices"][selectedDevName]["ppm"] = 0;
-            config.conf["devices"][selectedDevName]["biasT"] = biasT;
-            config.conf["devices"][selectedDevName]["offsetTuning"] = offsetTuning;
-            config.conf["devices"][selectedDevName]["rtlAgc"] = rtlAgc;
-            config.conf["devices"][selectedDevName]["tunerAgc"] = tunerAgc;
-            config.conf["devices"][selectedDevName]["gain"] = gainId;
-        }
+        {
+            auto txn = config.transaction();
+            ConfigManager::Node dev = txn.node("devices", selectedDevName);
 
-        // Load config
-        if (config.conf["devices"][selectedDevName].contains("sampleRate")) {
-            int selectedSr = config.conf["devices"][selectedDevName]["sampleRate"];
-            for (int i = 0; i < 11; i++) {
-                if (sampleRates[i] == selectedSr) {
-                    srId = i;
-                    sampleRate = selectedSr;
-                    break;
+            // Seed whatever this device is missing, which for a device never seen
+            // before is the whole block.
+            dev.ensure("sampleRate", 2400000.0);
+            dev.ensure("directSampling", directSamplingMode);
+            dev.ensure("ppm", 0);
+            dev.ensure("biasT", biasT);
+            dev.ensure("offsetTuning", offsetTuning);
+            dev.ensure("rtlAgc", rtlAgc);
+            dev.ensure("tunerAgc", tunerAgc);
+            dev.ensure("gain", gainId);
+
+            // Load config
+            int selectedSr = 0;
+            if (dev.getTo("sampleRate", selectedSr)) {
+                for (int i = 0; i < 11; i++) {
+                    if (sampleRates[i] == selectedSr) {
+                        srId = i;
+                        sampleRate = selectedSr;
+                        break;
+                    }
                 }
             }
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("directSampling")) {
-            directSamplingMode = config.conf["devices"][selectedDevName]["directSampling"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("ppm")) {
-            ppm = config.conf["devices"][selectedDevName]["ppm"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("biasT")) {
-            biasT = config.conf["devices"][selectedDevName]["biasT"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("offsetTuning")) {
-            offsetTuning = config.conf["devices"][selectedDevName]["offsetTuning"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("rtlAgc")) {
-            rtlAgc = config.conf["devices"][selectedDevName]["rtlAgc"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("tunerAgc")) {
-            tunerAgc = config.conf["devices"][selectedDevName]["tunerAgc"];
-        }
-
-        if (config.conf["devices"][selectedDevName].contains("gain")) {
-            gainId = config.conf["devices"][selectedDevName]["gain"];
+            dev.getTo("directSampling", directSamplingMode);
+            dev.getTo("ppm", ppm);
+            dev.getTo("biasT", biasT);
+            dev.getTo("offsetTuning", offsetTuning);
+            dev.getTo("rtlAgc", rtlAgc);
+            dev.getTo("tunerAgc", tunerAgc);
+            dev.getTo("gain", gainId);
         }
 
         if (gainId >= gainList.size()) { gainId = gainList.size() - 1; }
         updateGainTxt();
-
-        config.release(created);
 
         rtlsdr_close(openDev);
     }
@@ -418,9 +393,7 @@ private:
             _this->selectById(_this->devId);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["device"] = _this->selectedDevName;
-                config.release(true);
+                config.set("device", _this->selectedDevName);
             }
         }
 
@@ -428,9 +401,7 @@ private:
             _this->sampleRate = sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["sampleRate"] = _this->sampleRate;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "sampleRate", _this->sampleRate);
             }
         }
 
@@ -469,9 +440,7 @@ private:
                 }
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["directSampling"] = _this->directSamplingMode;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "directSampling", _this->directSamplingMode);
             }
         }
 
@@ -483,9 +452,7 @@ private:
                 rtlsdr_set_freq_correction(_this->openDev, _this->ppm);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["ppm"] = _this->ppm;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "ppm", _this->ppm);
             }
         }
 
@@ -502,9 +469,7 @@ private:
                     rtlsdr_set_tuner_gain(_this->openDev, _this->gainList[_this->gainId]);
                 }
                 if (_this->selectedDevName != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedDevName]["gain"] = _this->gainId;
-                    config.release(true);
+                    config.set("devices", _this->selectedDevName, "gain", _this->gainId);
                 }
             }
         }
@@ -515,9 +480,7 @@ private:
                     rtlsdr_set_tuner_gain(_this->openDev, _this->gainList[_this->gainId]);
                 }
                 if (_this->selectedDevName != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedDevName]["gain"] = _this->gainId;
-                    config.release(true);
+                    config.set("devices", _this->selectedDevName, "gain", _this->gainId);
                 }
             }
         }
@@ -530,9 +493,7 @@ private:
                 rtlsdr_set_bias_tee(_this->openDev, _this->biasT);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["biasT"] = _this->biasT;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "biasT", _this->biasT);
             }
         }
 
@@ -541,9 +502,7 @@ private:
                 rtlsdr_set_offset_tuning(_this->openDev, _this->offsetTuning);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["offsetTuning"] = _this->offsetTuning;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "offsetTuning", _this->offsetTuning);
             }
         }
 
@@ -552,9 +511,7 @@ private:
                 rtlsdr_set_agc_mode(_this->openDev, _this->rtlAgc);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["rtlAgc"] = _this->rtlAgc;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "rtlAgc", _this->rtlAgc);
             }
         }
 
@@ -570,9 +527,7 @@ private:
                 }
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["tunerAgc"] = _this->tunerAgc;
-                config.release(true);
+                config.set("devices", _this->selectedDevName, "tunerAgc", _this->tunerAgc);
             }
         }
     }

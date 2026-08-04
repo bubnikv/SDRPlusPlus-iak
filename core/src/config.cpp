@@ -4,6 +4,13 @@
 
 #include <filesystem>
 
+namespace config_detail {
+    void logTypeMismatch(std::string_view key, const char* what) {
+        flog::warn("Config entry '{}' has an unexpected type, keeping the default: {}",
+                   std::string(key), what);
+    }
+}
+
 ConfigManager::ConfigManager() {
 }
 
@@ -72,11 +79,17 @@ void ConfigManager::disableAutoSave() {
 
 void ConfigManager::acquire() {
     mtx.lock();
+    owner.store(std::this_thread::get_id(), std::memory_order_relaxed);
 }
 
 void ConfigManager::release(bool modified) {
     changed |= modified;
+    owner.store(std::thread::id(), std::memory_order_relaxed);
     mtx.unlock();
+}
+
+bool ConfigManager::heldByCurrentThread() const {
+    return owner.load(std::memory_order_relaxed) == std::this_thread::get_id();
 }
 
 void ConfigManager::autoSaveWorker() {
