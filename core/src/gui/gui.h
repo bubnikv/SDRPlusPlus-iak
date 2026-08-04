@@ -6,7 +6,7 @@
 #include <module.h>
 #include <gui/main_window.h>
 #include <gui/theme_manager.h>
-#include <gui/band_stack.h>
+#include <gui/widgets/band_stack.h>
 
 namespace gui {
     SDRPP_EXPORT ImGui::WaterFall waterfall;

@@ -1,5 +1,5 @@
 #pragma once
-#include <gui/widgets/freq_input/band_mapping.h>
+#include <gui/widgets/band_mapping.h>
 #include <json.hpp>
 #include <imgui/imgui.h>
 #include <stdint.h>

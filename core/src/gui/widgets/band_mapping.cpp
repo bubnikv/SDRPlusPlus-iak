@@ -1,4 +1,4 @@
-#include <gui/widgets/freq_input/band_mapping.h>
+#include <gui/widgets/band_mapping.h>
 #include <algorithm>
 #include <array>
 #include <cctype>

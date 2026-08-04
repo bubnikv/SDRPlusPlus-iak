@@ -3,7 +3,7 @@
 #include <gui/widgets/segmented_control.h>
 #include <gui/widgets/simple_widgets.h>
 #include <gui/widgets/toggle_style.h>
-#include <gui/band_stack.h>
+#include <gui/widgets/band_stack.h>
 #include <gui/gui.h>
 #include <gui/style.h>
 #include <backend.h>
@@ -308,7 +308,8 @@ namespace freq_input {
                     cachedRevision != plan.revision ||
                     cachedMapping != band.resolved.mapping)
                 {
-                    registers = gui::bandStack.registersFor(band);
+                    registers = gui::bandStack.registersFor(
+                        band.resolved.bandId());
                     cachedPlan = &plan;
                     cachedRevision = plan.revision;
                     cachedMapping = band.resolved.mapping;
@@ -513,10 +514,19 @@ namespace freq_input {
                     }
                 }
                 if (clicked && !longPressDone) {
-                    gui::bandStack.selectBand(
-                        b,
-                        activeBandId,
-                        effectiveCategory);
+                    if (b.resolved.mapping) {
+                        gui::bandStack.selectBand(
+                            bandId,
+                            b.defFreq,
+                            activeBandId,
+                            effectiveCategory);
+                    }
+                    else {
+                        gui::bandStack.selectLegacySegment(
+                            b,
+                            activeBandId,
+                            effectiveCategory);
+                    }
                     out.close = true;
 #ifdef __ANDROID__
                     backend::hapticTick();
@@ -618,7 +628,7 @@ namespace freq_input {
 
                     if (pick) {
                         gui::bandStack.recallRegister(
-                            b,
+                            b.resolved.bandId(),
                             k,
                             activeBandId,
                             effectiveCategory);

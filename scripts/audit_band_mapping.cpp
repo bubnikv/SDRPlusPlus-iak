@@ -1,10 +1,10 @@
 // Standalone audit using the production conversion code. Example:
 //   c++ -std=c++17 -Icore/src scripts/audit_band_mapping.cpp \
-//       core/src/gui/widgets/freq_input/band_mapping.cpp -o band_mapping_audit
+//       core/src/gui/widgets/band_mapping.cpp -o band_mapping_audit
 //   ./band_mapping_audit root/res/bandplans \
 //       doc/research/legacy-band-id-audit.md
 
-#include <gui/widgets/freq_input/band_mapping.h>
+#include <gui/widgets/band_mapping.h>
 #include <json.hpp>
 
 #include <algorithm>

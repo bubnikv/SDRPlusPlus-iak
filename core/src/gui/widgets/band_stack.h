@@ -1,6 +1,8 @@
 #pragma once
+#include <gui/widgets/band_mapping.h>
 #include <radio_interface.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace bandplan {
@@ -29,16 +31,16 @@ struct BandRegister {
 //     network thread (doc/bugs/ui-thread-sync.md) never reaches this state:
 //     the current frequency is sampled, never pushed in.
 //
-// The config is the store. Each band owns three rotating optional entries;
-// entry 0 is always current, so no separate register pointer exists. The
-// instance keeps the band picker and lifecycle hooks behind one API. See
+// The config is the store. Each stable band_id owns three rotating optional
+// entries; entry 0 is always current, so no separate register pointer exists.
+// The instance keeps the band picker and lifecycle hooks behind one API. See
 // doc/design/band-stack.md.
 class BandStack {
 public:
     // The band's three rotating slots. Unpopulated entries remain present so
     // pressing the active band can rotate into an empty slot and populate it.
     // Entry 0 is always the active register.
-    std::vector<BandRegister> registersFor(const bandplan::Band_t& band) const;
+    std::vector<BandRegister> registersFor(std::string_view bandId) const;
 
     // Resolve within the visible band group. Opening/changing a group may
     // visibly select another service; it never writes a register.
@@ -50,30 +52,46 @@ public:
     // activateBandForGroup(), not a globally inferred write-back target.
     // Repeating that band stores entry 0, rotates left, and recalls the new 0.
     void selectBand(
-        const bandplan::Band_t& band,
+        std::string_view bandId,
+        double defaultFrequency,
+        const std::string& activeBandId,
+        const std::string& group);
+
+    // Navigation fallback for a legacy row which has no stable identity. It
+    // can tune the row but deliberately cannot own band-stack registers.
+    void selectLegacySegment(
+        const bandplan::Band_t& segment,
         const std::string& activeBandId,
         const std::string& group);
 
     // A register-list pick: store the visible source, rotate the picked target
     // entry to index 0 while preserving cyclic order, and recall it when set.
     void recallRegister(
-        const bandplan::Band_t& band,
+        std::string_view bandId,
         int index,
         const std::string& activeBandId,
         const std::string& group);
 
-    // Persist the current selector memory at a lifecycle boundary. Band
-    // matching is restricted to the last group and current service; shutdown
+    // Persist the current selector memory when closing or suspending the
+    // application.
+    // Band matching is restricted to the last group and current service; shutdown
     // never changes service.
     void commitCurrent();
 
-    // Mode implied by a band's service and frequency, for bands whose plan entry
-    // carries no def_mode. Keep in sync with heuristic_mode() in
-    // scripts/enrich_bandplans.py.
-    static int heuristicMode(const bandplan::Band_t& band);
-
 private:
-    void applyTarget(const bandplan::Band_t& band, double freq, int mode);
+    // Keep in sync with heuristic_mode() in scripts/enrich_bandplans.py.
+    static int heuristicMode(
+        freq_input::BandService service,
+        freq_input::BandFamily family,
+        double frequency);
+    void applyTarget(
+        const freq_input::BandMapping& mapping,
+        double freq,
+        int mode);
+    void applySegmentTarget(
+        const bandplan::Band_t& segment,
+        double freq,
+        int mode);
     void requestTune(double freq);  // the one seam onto gui::freqSelect
     int currentMode() const;        // -1 when the selected VFO is not a radio
 };

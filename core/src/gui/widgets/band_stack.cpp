@@ -1,4 +1,4 @@
-#include <gui/band_stack.h>
+#include <gui/widgets/band_stack.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/freq_input/spectrum_ranges.h>
 #include <gui/gui.h>
@@ -19,37 +19,57 @@ static bool isRadioVFO(const std::string& vfoName) {
         && core::modComManager.getModuleName(vfoName) == "radio";
 }
 
-// A stable band may be represented by several disjoint or adjacent segments in
-// a legacy plan. Revalidate a register against the union of those segments,
-// rather than only the selector row through which the register was opened.
-static bool frequencyBelongsToBand(const bandplan::Band_t& band, double freq) {
-    if (!band.resolved.mapping) {
-        return false;
-    }
-    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    if (!plan) { return false; }
-    for (const auto& candidate : plan->bands) {
-        if (candidate.resolved.mapping == band.resolved.mapping &&
-            freq >= candidate.start && freq <= candidate.end)
-        {
-            return true;
-        }
-    }
-    return false;
+static bool isBandSegment(const bandplan::Band_t& band) {
+    return band.resolved.entityKind() ==
+            freq_input::LegacyEntityKind::Band ||
+        band.resolved.entityKind() ==
+            freq_input::LegacyEntityKind::Segment;
 }
 
-// A band's three rotating optional slots. Entry 0 is always current. Invalid
-// persisted entries become empty; there is no public-release migration path.
-static std::vector<BandRegister> readRegisters(const json& mem, const bandplan::Band_t& band) {
+// Find the most specific source segment of a stable band containing the
+// frequency. Band identity is n:1: no individual Band_t represents its union.
+static const bandplan::Band_t* segmentAtFrequency(
+    const freq_input::BandMapping& mapping,
+    double freq)
+{
+    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
+    if (!plan)
+        return nullptr;
+
+    const bandplan::Band_t* result = nullptr;
+    for (const auto& candidate : plan->bands) {
+        if (candidate.resolved.mapping != &mapping ||
+            !isBandSegment(candidate) ||
+            freq < candidate.start || freq > candidate.end)
+        {
+            continue;
+        }
+        if (!result ||
+            (candidate.end - candidate.start) <
+                (result->end - result->start))
+        {
+            result = &candidate;
+        }
+    }
+    return result;
+}
+
+// One stable band_id's three rotating optional slots. Entry 0 is always
+// current. Invalid persisted entries become empty; there is no public-release
+// migration path.
+static std::vector<BandRegister> readRegisters(
+    const json& mem,
+    const freq_input::BandMapping& mapping)
+{
     std::vector<BandRegister> regs(MAX_REGISTERS);
-    if (!band.resolved.mapping || !mem.is_object()) { return regs; }
-    auto it = mem.find(std::string(band.resolved.bandId()));
+    if (!mem.is_object()) { return regs; }
+    auto it = mem.find(std::string(mapping.bandId));
     if (it == mem.end() || !it->is_array()) { return regs; }
     for (std::size_t i = 0; i < MAX_REGISTERS && i < it->size(); i++) {
         const json& o = (*it)[i];
         if (!o.is_object()) { continue; }
         double f = o.value("freq", 0.0);
-        if (!frequencyBelongsToBand(band, f)) { continue; }
+        if (!segmentAtFrequency(mapping, f)) { continue; }
         int m = o.value("mode", -1);
         if (m < 0 || m >= _RADIO_IFACE_MODE_COUNT) { m = -1; }
         regs[i] = { true, f, m };
@@ -59,12 +79,11 @@ static std::vector<BandRegister> readRegisters(const json& mem, const bandplan::
 
 static void writeRegisters(
     json& mem,
-    const bandplan::Band_t& band,
+    const freq_input::BandMapping& mapping,
     const std::vector<BandRegister>& registers)
 {
-    if (!band.resolved.mapping) { return; }
     if (!mem.is_object()) { mem = json::object(); }
-    const std::string key(band.resolved.bandId());
+    const std::string key(mapping.bandId);
     json out = json::array();
     for (std::size_t i = 0; i < MAX_REGISTERS; i++) {
         if (i >= registers.size() || !registers[i].populated) {
@@ -78,19 +97,6 @@ static void writeRegisters(
         }
     }
     mem[key] = out;
-}
-
-static bool updateTopRegister(
-    json& mem,
-    const bandplan::Band_t& band,
-    double freq,
-    int mode)
-{
-    if (!frequencyBelongsToBand(band, freq)) { return false; }
-    std::vector<BandRegister> registers = readRegisters(mem, band);
-    registers[0] = { true, freq, mode };
-    writeRegisters(mem, band, registers);
-    return true;
 }
 
 static bool serviceInGroup(
@@ -119,14 +125,9 @@ static bool serviceInGroup(
     return false;
 }
 
-struct BandCandidate {
-    const bandplan::Band_t* band = nullptr;
-    const freq_input::BandMapping* mapping = nullptr;
-};
-
 // Resolve one stable band inside a UI group. Visible resolution may fall back
 // to another service; lifecycle resolution sets lockService and never does.
-static const bandplan::Band_t* resolveBandInGroup(
+static const freq_input::BandMapping* resolveBandInGroup(
     const bandplan::BandPlan_t* plan,
     double freq,
     const std::string& group,
@@ -140,14 +141,11 @@ static const bandplan::Band_t* resolveBandInGroup(
         return nullptr;
     }
 
-    std::vector<BandCandidate> candidates;
+    std::vector<const freq_input::BandMapping*> candidates;
     for (const auto& band : plan->bands) {
         const freq_input::BandMapping* mapping = band.resolved.mapping;
         if (!mapping ||
-            (band.resolved.entityKind() !=
-                 freq_input::LegacyEntityKind::Band &&
-             band.resolved.entityKind() !=
-                 freq_input::LegacyEntityKind::Segment) ||
+            !isBandSegment(band) ||
             !serviceInGroup(band.resolved.service(), group) ||
             (lockService && band.resolved.service() != preferredService) ||
             freq < band.start || freq > band.end)
@@ -158,35 +156,30 @@ static const bandplan::Band_t* resolveBandInGroup(
         auto existing = std::find_if(
             candidates.begin(),
             candidates.end(),
-            [&](const BandCandidate& candidate) {
-                return candidate.mapping == mapping;
+            [&](const freq_input::BandMapping* candidate) {
+                return candidate == mapping;
             });
         if (existing == candidates.end()) {
-            candidates.push_back({ &band, mapping });
-        }
-        else if ((band.end - band.start) <
-                 (existing->band->end - existing->band->start))
-        {
-            existing->band = &band;
+            candidates.push_back(mapping);
         }
     }
 
-    for (const BandCandidate& candidate : candidates) {
+    for (const freq_input::BandMapping* candidate : candidates) {
         if (!preferredBandId.empty() &&
-            candidate.mapping->bandId == std::string_view(
+            candidate->bandId == std::string_view(
                 preferredBandId.data(),
                 preferredBandId.size()))
         {
-            return candidate.band;
+            return candidate;
         }
     }
 
-    const bandplan::Band_t* serviceMatch = nullptr;
+    const freq_input::BandMapping* serviceMatch = nullptr;
     int serviceMatches = 0;
     if (preferredService != freq_input::BandService::Other) {
-        for (const BandCandidate& candidate : candidates) {
-            if (candidate.mapping->service == preferredService) {
-                serviceMatch = candidate.band;
+        for (const freq_input::BandMapping* candidate : candidates) {
+            if (candidate->service == preferredService) {
+                serviceMatch = candidate;
                 serviceMatches++;
             }
         }
@@ -194,51 +187,48 @@ static const bandplan::Band_t* resolveBandInGroup(
         if (serviceMatches > 1) { return nullptr; }
     }
 
-    return candidates.size() == 1 ? candidates[0].band : nullptr;
+    return candidates.size() == 1 ? candidates[0] : nullptr;
 }
 
-static const bandplan::Band_t* bandById(const std::string& bandId) {
-    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    if (!plan || bandId.empty()) { return nullptr; }
-    const std::string_view requestedId(bandId.data(), bandId.size());
-    for (const auto& band : plan->bands) {
-        if (band.resolved.mapping &&
-            band.resolved.mapping->bandId == requestedId &&
-            (band.resolved.entityKind() ==
-                 freq_input::LegacyEntityKind::Band ||
-             band.resolved.entityKind() ==
-                 freq_input::LegacyEntityKind::Segment))
-        {
-            return &band;
-        }
-    }
-    return nullptr;
+static bool updateTopRegister(
+    json& mem,
+    const freq_input::BandMapping& mapping,
+    double freq,
+    int mode)
+{
+    if (!segmentAtFrequency(mapping, freq)) { return false; }
+    std::vector<BandRegister> registers = readRegisters(mem, mapping);
+    registers[0] = { true, freq, mode };
+    writeRegisters(mem, mapping, registers);
+    return true;
 }
 
-// Write only to the stable ID the UI visibly selected. No frequency search is
-// allowed on an explicit band/register transition.
+// Write only to the stable ID the UI visibly selected. Membership checks its
+// segment union; they must never search for a different ID opportunistically.
 static bool storeVisibleBand(
     json& mem,
     const std::string& activeBandId,
     double frequency,
     int mode)
 {
-    const bandplan::Band_t* band = bandById(activeBandId);
-    if (!band || !updateTopRegister(mem, *band, frequency, mode)) {
-        return false;
-    }
-    return true;
+    const freq_input::BandMapping* mapping =
+        freq_input::findBandMappingById(activeBandId);
+    return mapping && updateTopRegister(mem, *mapping, frequency, mode);
 }
 
-std::vector<BandRegister> BandStack::registersFor(const bandplan::Band_t& band) const {
+std::vector<BandRegister> BandStack::registersFor(
+    std::string_view bandId) const
+{
     std::vector<BandRegister> regs(MAX_REGISTERS);
-    if (!band.resolved.mapping) { return regs; }
+    const freq_input::BandMapping* mapping =
+        freq_input::findBandMappingById(bandId);
+    if (!mapping) { return regs; }
     core::configManager.acquire();
     // Bound as const so a band never visited isn't given a null entry in the
     // config as a side effect of being looked up.
     const json& conf = core::configManager.conf;
     auto it = conf.find("bandMemory");
-    if (it != conf.end()) { regs = readRegisters(*it, band); }
+    if (it != conf.end()) { regs = readRegisters(*it, *mapping); }
     core::configManager.release();
     return regs;
 }
@@ -256,7 +246,7 @@ std::string BandStack::activateBandForGroup(
     preferredBandId = conf.value("lastActiveBandId", std::string());
     core::configManager.release();
 
-    const bandplan::Band_t* active = resolveBandInGroup(
+    const freq_input::BandMapping* active = resolveBandInGroup(
         gui::waterfall.bandplan,
         frequency,
         group,
@@ -277,8 +267,8 @@ std::string BandStack::activateBandForGroup(
     }
     if (active) {
         const std::string service(
-            freq_input::bandServiceKey(active->resolved.service()));
-        const std::string bandId(active->resolved.bandId());
+            freq_input::bandServiceKey(active->service));
+        const std::string bandId(active->bandId);
         if (activeConf.value("lastActiveBandService", std::string()) != service) {
             activeConf["lastActiveBandService"] = service;
             changed = true;
@@ -291,45 +281,93 @@ std::string BandStack::activateBandForGroup(
         }
     }
     core::configManager.release(changed);
-    return active ? std::string(active->resolved.bandId()) : std::string();
+    return active ? std::string(active->bandId) : std::string();
 }
 
-// Service/frequency mode convention applied when a band carries no def_mode.
+// Service/frequency mode convention applied when the target segment carries no
+// def_mode.
 // Keep in sync with heuristic_mode() in scripts/enrich_bandplans.py.
-int BandStack::heuristicMode(const bandplan::Band_t& b) {
-    if (b.resolved.service() == freq_input::BandService::Amateur) {
-        if (b.end <= 600000.0) { return RADIO_IFACE_MODE_CW; }                             // 2200 m / 630 m
-        if (b.start >= 5200000.0 && b.start <= 5500000.0) { return RADIO_IFACE_MODE_USB; } // 60 m channels
-        if (b.start < 10000000.0) { return RADIO_IFACE_MODE_LSB; }
-        if (b.start < 100000000.0) { return RADIO_IFACE_MODE_USB; }                        // 30 m .. 6 m/4 m
+int BandStack::heuristicMode(
+    freq_input::BandService service,
+    freq_input::BandFamily family,
+    double frequency)
+{
+    if (service == freq_input::BandService::Amateur) {
+        if (frequency <= 600000.0) { return RADIO_IFACE_MODE_CW; }                         // 2200 m / 630 m
+        if (frequency >= 5200000.0 && frequency <= 5500000.0) { return RADIO_IFACE_MODE_USB; } // 60 m channels
+        if (frequency < 10000000.0) { return RADIO_IFACE_MODE_LSB; }
+        if (frequency < 100000000.0) { return RADIO_IFACE_MODE_USB; }                      // 30 m .. 6 m/4 m
         return RADIO_IFACE_MODE_NFM;                                                       // 2 m and up: repeaters
     }
-    if (b.resolved.service() == freq_input::BandService::Broadcast) {
-        if (b.resolved.family() == freq_input::BandFamily::WeatherBroadcast) {
+    if (service == freq_input::BandService::Broadcast) {
+        if (family == freq_input::BandFamily::WeatherBroadcast) {
             return RADIO_IFACE_MODE_NFM;
         }
-        if (b.resolved.family() == freq_input::BandFamily::TelevisionBroadcast) {
+        if (family == freq_input::BandFamily::TelevisionBroadcast) {
             return -1;
         }
-        return (b.start >= 30000000.0) ? RADIO_IFACE_MODE_WFM : RADIO_IFACE_MODE_AM;
+        return (frequency >= 30000000.0) ? RADIO_IFACE_MODE_WFM : RADIO_IFACE_MODE_AM;
     }
-    if (b.resolved.service() == freq_input::BandService::Aviation) {
-        if (b.resolved.family() == freq_input::BandFamily::AviationSurveillance) {
+    if (service == freq_input::BandService::Aviation) {
+        if (family == freq_input::BandFamily::AviationSurveillance) {
             return -1;
         }
-        return (b.start < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_AM;
+        return (frequency < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_AM;
     }
-    if (b.resolved.service() == freq_input::BandService::Maritime) {
-        return (b.start < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_NFM;
+    if (service == freq_input::BandService::Maritime) {
+        return (frequency < 30000000.0) ? RADIO_IFACE_MODE_USB : RADIO_IFACE_MODE_NFM;
     }
     return -1; // no mode change for other band types
 }
 
-void BandStack::selectBand(
-    const bandplan::Band_t& band,
+void BandStack::selectLegacySegment(
+    const bandplan::Band_t& segment,
     const std::string& activeBandId,
     const std::string& group)
 {
+    if (segment.resolved.mapping || !isBandSegment(segment) ||
+        segment.start > segment.end)
+    {
+        return;
+    }
+    const int curMode = currentMode();
+    const double currentFrequency = (double)gui::freqSelect.frequency;
+    double targetFrequency = segment.defFreq;
+    if (targetFrequency < segment.start || targetFrequency > segment.end) {
+        targetFrequency = (segment.start + segment.end) / 2.0;
+        const double rounded =
+            std::round(targetFrequency / 1000.0) * 1000.0;
+        if (rounded >= segment.start && rounded <= segment.end) {
+            targetFrequency = rounded;
+        }
+    }
+
+    core::configManager.acquire();
+    json& conf = core::configManager.conf;
+    storeVisibleBand(
+        conf["bandMemory"],
+        activeBandId,
+        currentFrequency,
+        curMode);
+    conf["lastActiveBandService"] = std::string(
+        freq_input::bandServiceKey(segment.resolved.service()));
+    conf["lastActiveBandId"] = "";
+    conf["freqEntryCategory"] = group;
+    conf["lastMemorySelector"] = "band";
+    core::configManager.release(true);
+
+    applySegmentTarget(segment, targetFrequency, -1);
+}
+
+void BandStack::selectBand(
+    std::string_view bandId,
+    double defaultFrequency,
+    const std::string& activeBandId,
+    const std::string& group)
+{
+    const freq_input::BandMapping* mapping =
+        freq_input::findBandMappingById(bandId);
+    if (!mapping) { return; }
     const int curMode = currentMode();
     const double currentFrequency = (double)gui::freqSelect.frequency;
     double targetFreq = 0.0;
@@ -345,23 +383,23 @@ void BandStack::selectBand(
         activeBandId,
         currentFrequency,
         curMode);
-    const std::string bandId(band.resolved.bandId());
+    const std::string targetBandId(mapping->bandId);
     const bool repeatTap =
-        storedSource && !bandId.empty() && activeBandId == bandId;
+        storedSource && activeBandId == targetBandId;
 
     conf["lastActiveBandService"] =
-        std::string(freq_input::bandServiceKey(band.resolved.service()));
-    conf["lastActiveBandId"] = bandId;
+        std::string(freq_input::bandServiceKey(mapping->service));
+    conf["lastActiveBandId"] = targetBandId;
     conf["freqEntryCategory"] = group;
     conf["lastMemorySelector"] = "band";
 
-    std::vector<BandRegister> registers = readRegisters(mem, band);
+    std::vector<BandRegister> registers = readRegisters(mem, *mapping);
     if (repeatTap) {
         std::rotate(
             registers.begin(),
             registers.begin() + 1,
             registers.end());
-        writeRegisters(mem, band, registers);
+        writeRegisters(mem, *mapping, registers);
     }
 
     if (!registers.empty() && registers[0].populated) {
@@ -369,25 +407,32 @@ void BandStack::selectBand(
         targetMode = registers[0].mode;
         applyStoredTarget = true;
     }
-    else if (!repeatTap) {
+    else if (!repeatTap && defaultFrequency > 0.0 &&
+             segmentAtFrequency(*mapping, defaultFrequency))
+    {
+        targetFreq = defaultFrequency;
         applyDefaultTarget = true;
     }
     core::configManager.release(true);
 
     if (applyStoredTarget) {
-        applyTarget(band, targetFreq, targetMode);
+        applyTarget(*mapping, targetFreq, targetMode);
     }
     else if (applyDefaultTarget) {
-        applyTarget(band, 0.0, -1);
+        applyTarget(*mapping, targetFreq, -1);
     }
 }
 
 void BandStack::recallRegister(
-    const bandplan::Band_t& band,
+    std::string_view bandId,
     int index,
     const std::string& activeBandId,
     const std::string& group)
 {
+    const freq_input::BandMapping* mapping =
+        freq_input::findBandMappingById(bandId);
+    if (!mapping) { return; }
+    // Could be -1 if current VFO is a decoder or there is no VFO active.
     const int curMode = currentMode();
     const double currentFrequency = (double)gui::freqSelect.frequency;
     double targetFreq = 0.0;
@@ -403,13 +448,13 @@ void BandStack::recallRegister(
         currentFrequency,
         curMode);
 
-    std::vector<BandRegister> registers = readRegisters(mem, band);
+    std::vector<BandRegister> registers = readRegisters(mem, *mapping);
     if (index >= 0 && index < (int)registers.size()) {
         std::rotate(
             registers.begin(),
             registers.begin() + index,
             registers.end());
-        writeRegisters(mem, band, registers);
+        writeRegisters(mem, *mapping, registers);
         if (registers[0].populated) {
             targetFreq = registers[0].freq;
             targetMode = registers[0].mode;
@@ -417,20 +462,21 @@ void BandStack::recallRegister(
         }
     }
     conf["lastActiveBandService"] =
-        std::string(freq_input::bandServiceKey(band.resolved.service()));
-    conf["lastActiveBandId"] = std::string(band.resolved.bandId());
+        std::string(freq_input::bandServiceKey(mapping->service));
+    conf["lastActiveBandId"] = std::string(mapping->bandId);
     conf["freqEntryCategory"] = group;
     conf["lastMemorySelector"] = "band";
     core::configManager.release(true);
 
     if (applyStoredTarget) {
-        applyTarget(band, targetFreq, targetMode);
+        applyTarget(*mapping, targetFreq, targetMode);
     }
 }
 
 void BandStack::commitCurrent() {
+    // Could be -1 if current VFO is a decoder or there is no VFO active.
     const int mode = currentMode();
-    const double currentFrequency = (double)gui::freqSelect.frequency;
+    const auto currentFrequency = double(gui::freqSelect.frequency);
     core::configManager.acquire();
     json& conf = core::configManager.conf;
 
@@ -457,9 +503,10 @@ void BandStack::commitCurrent() {
             conf.value("lastActiveBandService", "other"));
     const std::string preferredBandId =
         conf.value("lastActiveBandId", std::string());
+    // Shutdown may search only the last visible group and the current service.
     const std::string group =
         conf.value("freqEntryCategory", "Ham");
-    const bandplan::Band_t* current = resolveBandInGroup(
+    const freq_input::BandMapping* current = resolveBandInGroup(
         gui::waterfall.bandplan,
         currentFrequency,
         group,
@@ -471,7 +518,7 @@ void BandStack::commitCurrent() {
     {
         // The stable band may follow manual tuning inside the current service;
         // the service itself is deliberately never changed on save.
-        conf["lastActiveBandId"] = std::string(current->resolved.bandId());
+        conf["lastActiveBandId"] = std::string(current->bandId);
         core::configManager.release(true);
     }
     else {
@@ -479,16 +526,34 @@ void BandStack::commitCurrent() {
     }
 }
 
-// Tune to a resolved register, filling in the band's defaults for anything the
-// register did not carry.
-void BandStack::applyTarget(const bandplan::Band_t& band, double freq, int mode) {
-    if (freq <= 0.0) {
-        freq = (band.defFreq > 0.0) ? band.defFreq
-                                    : round((band.start + band.end) / 2.0 / 1000.0) * 1000.0;
-    }
+// Tune to a resolved register. Mode and channel spacing belong to the source
+// segment containing the target frequency, not to an arbitrary Band_t sharing
+// the stable identity.
+void BandStack::applyTarget(
+    const freq_input::BandMapping& mapping,
+    double freq,
+    int mode)
+{
+    if (freq <= 0.0) { return; }
+    const bandplan::Band_t* segment = segmentAtFrequency(mapping, freq);
+    if (!segment) { return; }
+    applySegmentTarget(*segment, freq, mode);
+}
+
+void BandStack::applySegmentTarget(
+    const bandplan::Band_t& segment,
+    double freq,
+    int mode)
+{
+    if (freq <= 0.0 || freq < segment.start || freq > segment.end) { return; }
     if (mode < 0) {
-        mode = radioModeFromName(band.defMode.c_str());
-        if (mode < 0) { mode = heuristicMode(band); }
+        mode = radioModeFromName(segment.defMode.c_str());
+        if (mode < 0) {
+            mode = heuristicMode(
+                segment.resolved.service(),
+                segment.resolved.family(),
+                freq);
+        }
     }
 
     requestTune(freq);
@@ -502,9 +567,11 @@ void BandStack::applyTarget(const bandplan::Band_t& band, double freq, int mode)
     }
     // Channelized bands set the VFO snap after the mode change, which would
     // otherwise reset the snap to the mode default.
-    if (band.chan > 0.0 && !vfoName.empty()) {
+    if (segment.chan > 0.0 && !vfoName.empty()) {
         auto vit = gui::waterfall.vfos.find(vfoName);
-        if (vit != gui::waterfall.vfos.end() && vit->second) { vit->second->setSnapInterval(band.chan); }
+        if (vit != gui::waterfall.vfos.end() && vit->second) {
+            vit->second->setSnapInterval(segment.chan);
+        }
     }
 }
 
@@ -516,6 +583,7 @@ void BandStack::requestTune(double freq) {
     gui::freqSelect.frequencyChanged = true;
 }
 
+// Resolve current VFO's demodulator mode. Return -1 for non-radio VFO (such as some decoder like Radiosonde)
 int BandStack::currentMode() const {
     std::string vfoName = gui::waterfall.selectedVFO;
     if (!isRadioVFO(vfoName)) { return -1; }

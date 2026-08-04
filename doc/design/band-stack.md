@@ -21,7 +21,7 @@ landed before that interim subset:
 
 | Commit | What |
 |---|---|
-| `a78257ef` | `gui/band_stack.{h,cpp}` — the data layer, §8.4–8.7, plus the `SET_MODE` guard (§8.10 folded commits 1 and 2 together) |
+| `a78257ef` | `gui/widgets/band_stack.{h,cpp}` — the data layer, §8.4–8.7, plus the `SET_MODE` guard (§8.10 folded commits 1 and 2 together) |
 | `5813127d`, `bf8edcf6` | one canonical mode-name table in `radio_interface.h`, §8.13–8.14 — see `doc/design/radio-modes.md` |
 | `d33bde8f` | the F-INP dialog split out of the digit widget — `gui/widgets/freq_input.h` + `freq_input/{dialog,keypad,bands}.cpp` |
 | `2693030f` | rigctl advertises `CWR` in its mode capability list, closing the half of §8.14 that commit 3 missed |
@@ -83,7 +83,7 @@ table below is the map from there to the tree today.
 | F-INP keypad page | `gui/widgets/freq_input/keypad.cpp` |
 | Band grid page | `gui/widgets/freq_input/bands.cpp` |
 | Modal shell, page toggle | `gui/widgets/freq_input/dialog.cpp` |
-| Band stack store | `gui/band_stack.{h,cpp}` |
+| Band stack store | `gui/widgets/band_stack.{h,cpp}` |
 
 The dialog's three parts share one module header, `gui/widgets/freq_input.h`,
 which defines what a page is handed (`Context`, `Metrics`) and what it returns
@@ -210,7 +210,9 @@ open and belong to P1 or later.
    first) avoids it without touching module ABI. *Shipped as that guard in
    `band_stack.cpp:176`, inside the extraction commit rather than the separate
    commit §8.10 planned.*
-3. **[open] `band.chan` snap bypasses the radio module.** `selectBand()` calls
+3. **[open] `band.chan` snap bypasses the radio module.** This is one confirmed
+   instance of the systematic ownership problem tracked in
+   `doc/bugs/state-ownership-bypass.md`. `selectBand()` calls
    `vit->second->setSnapInterval(band.chan)` (`:1020`, now
    `band_stack.cpp:183`) directly on the waterfall VFO while
    `RadioModule::snapInterval` (`radio_module.h:915`) keeps its old value. Two
@@ -219,7 +221,8 @@ open and belong to P1 or later.
    override survives only until the next `SET_MODE`, so on a band with no mode
    (`targetMode < 0`, e.g. any `utility`-type band) the channel snap **leaks
    into the next band**. The honest fix is an append-only
-   `RADIO_IFACE_CMD_SET_SNAP_INTERVAL` so the module stays authoritative.
+   `RADIO_IFACE_CMD_SET_BAND_SNAP_INTERVAL` with explicit apply/clear semantics
+   so the module stays authoritative without overwriting the per-mode setting.
 4. **[open] `mode = -1` conflates "no mode" with "no radio module".** `curMode`
    stays −1 when the selected VFO is not a radio (`:970–974`, now
    `BandStack::currentMode()`), and that −1 is stored. Coming back to the band
@@ -791,7 +794,7 @@ the architecture to copy.
 
 ### 5.1 Files
 
-**New — `core/src/gui/band_stack.{h,cpp}`.** The bucket table, `bucketOf()`, the
+**New — `core/src/gui/widgets/band_stack.{h,cpp}`.** The bucket table, `bucketOf()`, the
 store with load/save/migrate, both machines, `commit`/`recall`, display state,
 the mode convention, and the mode/snap application helpers. One instance
 exported from `gui.h` alongside `gui::freqSelect`. Header carries an explicit
@@ -1213,9 +1216,9 @@ timer and is driven from the frame loop.
 
 ### 8.6 Instance and build wiring
 
-- `core/src/gui/band_stack.{h,cpp}` — beside `waterfall_autorange.{h,cpp}`,
-  which is the right precedent: a non-widget GUI-layer helper class driven from
-  the frame loop. Not `widgets/`; it draws nothing.
+- `core/src/gui/widgets/band_stack.{h,cpp}` — beside `bandplan.{h,cpp}` and
+  `band_mapping.{h,cpp}` because all three jointly interpret band-plan rows,
+  stable identities and the selector's band-memory behavior.
 - `gui.h`: `SDRPP_EXPORT BandStack bandStack;` alongside `freqSelect`. Exported
   because out-of-tree consumers will want it (rigctl band select, §5.2).
 - `core/CMakeLists.txt` needs no change — `file(GLOB_RECURSE SRC "src/*.cpp")`

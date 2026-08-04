@@ -211,7 +211,8 @@ exact-variant matrix in a shipping radio, and it is exactly the convention
 
 ## 5. Where this fork stands
 
-Implemented in `core/src/gui/band_stack.cpp`: `bandMemory[<stable band_id>]` is
+Implemented in `core/src/gui/widgets/band_stack.cpp`:
+`bandMemory[<stable band_id>]` is
 an array of exactly three optional `{freq, mode}` entries, revalidated against
 the stable band's segment union on read. Entry 0 is always current. Leaving a
 band overwrites entry 0 without reordering; tapping the active band stores it

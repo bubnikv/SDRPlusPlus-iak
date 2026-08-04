@@ -111,7 +111,7 @@ with the name used elsewhere.
 | freq_manager | `frequency_manager/src/main.cpp` — `radioModeName()`, combo over `RADIO_IFACE_MODE_NAMES` | `demodModeList[]`, `demodModeListTxt` in `bookmark.cpp` |
 | recorder | `recorder/src/main.cpp:577` — `radioModeName()` | `radioModeToString` map |
 | discord | `discord_integration/src/main.cpp:97` — `radioModeName()` | if/else chain |
-| band stack | `core/src/gui/band_stack.*`, `gui/widgets/freq_input/bands.cpp` — `radioModeName()` | `kRadioModeNames` |
+| band stack | `core/src/gui/widgets/band_stack.*`, `gui/widgets/freq_input/bands.cpp` — `radioModeName()` | `kRadioModeNames` |
 | QMX wire | `libqmx/src/QmxCatStatus.cpp:57,95` — `decodeModeChar`, `encodeModeCommand` | unchanged (own enum, rig-defined digits) |
 | QMX panel label | `qmx_source/src/main.cpp:582` — `qmxModeToRadioIface()` + `radioModeName()`; `FSK`/`FSKR` local | own switch, spelled `CW-R` |
 | band plan `def_mode` | `root/res/bandplans/*.json` + `scripts/enrich_bandplans.py:117` | unchanged (already canonical) |

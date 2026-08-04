@@ -62,4 +62,5 @@ itself belongs in `design/` or `todo/`. Fork surveys live in
 
 **Bugs**
 - [ui-thread-sync.md](bugs/ui-thread-sync.md) — cross-thread GUI/DSP mutation; full fix postponed
+- [state-ownership-bypass.md](bugs/state-ownership-bypass.md) — split module/VFO/UI/config ownership and bypass audit
 - [code-review-2026-07.md](bugs/code-review-2026-07.md) — whole-app review at `765bf8a9`
