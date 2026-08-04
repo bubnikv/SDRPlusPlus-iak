@@ -45,7 +45,7 @@ namespace freq_input {
             const bandplan::Band_t& band,
             const Context& ctx)
         {
-            if (band.start > band.end) { return false; }
+            if (!band.hasValidFrequencySpan()) { return false; }
             if (!ctx.limited) { return true; }
             return band.end >= (double)ctx.rangeLo() &&
                 band.start <= (double)ctx.rangeHi();
@@ -60,26 +60,14 @@ namespace freq_input {
                  frequency <= (double)ctx.rangeHi());
         }
 
-        static const bandplan::Band_t* segmentContaining(
-            const Entry& entry,
-            double frequency,
-            const Context& ctx)
-        {
-            if (!frequencyIsTunable(frequency, ctx)) { return nullptr; }
-            for (const bandplan::Band_t* segment : entry.segments) {
-                if (segment && segment->start <= frequency &&
-                    frequency <= segment->end)
-                {
-                    return segment;
-                }
-            }
-            return nullptr;
-        }
-
         // A canonical Band can be represented by many adjacent or disjoint
         // legacy rows. Pick a deterministic first-visit frequency inside their
         // union. Identity probes are deliberately not tuning defaults.
-        static void chooseDefaults(Entry& entry, const Context& ctx) {
+        static void chooseDefaults(
+            Entry& entry,
+            const bandplan::BandPlan_t& plan,
+            const Context& ctx)
+        {
             entry.band.defFreq = 0.0;
             entry.band.defMode.clear();
             entry.band.chan = 0.0;
@@ -89,8 +77,7 @@ namespace freq_input {
 
             for (const bandplan::Band_t* segment : entry.segments) {
                 if (!segment || segment->defFreq <= 0.0) { continue; }
-                if (segment->defFreq < segment->start ||
-                    segment->defFreq > segment->end ||
+                if (!segment->containsFrequency(segment->defFreq) ||
                     !frequencyIsTunable(segment->defFreq, ctx))
                 {
                     continue;
@@ -103,14 +90,20 @@ namespace freq_input {
             if (!targetSegment) {
                 const double center =
                     (entry.band.start + entry.band.end) / 2.0;
-                targetSegment = segmentContaining(entry, center, ctx);
+                if (entry.band.resolved.mapping &&
+                    frequencyIsTunable(center, ctx))
+                {
+                    targetSegment = plan.findMappedSegmentAtFrequency(
+                        *entry.band.resolved.mapping,
+                        center);
+                }
                 if (targetSegment) { targetFrequency = center; }
             }
 
             if (!targetSegment) {
                 double bestWidth = -1.0;
                 for (const bandplan::Band_t* segment : entry.segments) {
-                    if (!segment || segment->start > segment->end) {
+                    if (!segment || !segment->hasValidFrequencySpan()) {
                         continue;
                     }
                     double lo = segment->start;
@@ -129,8 +122,7 @@ namespace freq_input {
             if (!targetSegment || targetFrequency <= 0.0) { return; }
             double rounded =
                 std::round(targetFrequency / 1000.0) * 1000.0;
-            if (rounded >= targetSegment->start &&
-                rounded <= targetSegment->end &&
+            if (targetSegment->containsFrequency(rounded) &&
                 frequencyIsTunable(rounded, ctx))
             {
                 targetFrequency = rounded;
@@ -175,9 +167,7 @@ namespace freq_input {
                 byMapping.reserve(plan.bands.size());
 
                 for (const bandplan::Band_t& source : plan.bands) {
-                    if (source.resolved.entityKind() != LegacyEntityKind::Band &&
-                        source.resolved.entityKind() != LegacyEntityKind::Segment)
-                    {
+                    if (!source.resolved.isBandOrSegment()) {
                         continue;
                     }
 
@@ -228,7 +218,7 @@ namespace freq_input {
 
                 for (Entry& entry : entries) {
                     if (entry.available && entry.band.resolved.mapping) {
-                        chooseDefaults(entry, ctx);
+                        chooseDefaults(entry, plan, ctx);
                     }
                 }
                 entries.erase(

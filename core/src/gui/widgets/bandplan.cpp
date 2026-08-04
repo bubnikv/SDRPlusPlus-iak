@@ -4,6 +4,8 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <cassert>
+#include <cmath>
 
 namespace bandplan {
     namespace {
@@ -14,6 +16,32 @@ namespace bandplan {
     std::vector<std::string> bandplanNames;
     std::string bandplanNameTxt;
     std::map<std::string, BandPlanColor_t> colorTable;
+
+    bool Band_t::hasValidFrequencySpan() const noexcept {
+        assert(std::isfinite(start) && std::isfinite(end));
+        return start <= end;
+    }
+
+    bool Band_t::containsFrequency(double frequency) const noexcept {
+        assert(std::isfinite(frequency));
+        return hasValidFrequencySpan() &&
+            frequency >= start && frequency <= end;
+    }
+
+    const Band_t* BandPlan_t::findMappedSegmentAtFrequency(
+        const freq_input::BandMapping& mapping,
+        double frequency) const
+    {
+        for (const Band_t& candidate : bands) {
+            if (candidate.resolved.mapping == &mapping &&
+                candidate.resolved.isBandOrSegment() &&
+                candidate.containsFrequency(frequency))
+            {
+                return &candidate;
+            }
+        }
+        return nullptr;
+    }
 
     void generateTxt() {
         bandplanNameTxt = "";

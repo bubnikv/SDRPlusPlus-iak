@@ -87,6 +87,11 @@ namespace freq_input {
         BandService service = BandService::Other;
         BandFamily family = BandFamily::Unknown;
         LegacyEntityKind entityKind = LegacyEntityKind::Band;
+
+        bool isBandOrSegment() const noexcept {
+            return entityKind == LegacyEntityKind::Band ||
+                entityKind == LegacyEntityKind::Segment;
+        }
     };
 
     struct BandMapping {

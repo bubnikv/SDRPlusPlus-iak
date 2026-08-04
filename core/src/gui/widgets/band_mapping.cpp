@@ -1629,9 +1629,7 @@ namespace freq_input {
         double startHz,
         double endHz)
     {
-        if (classification.entityKind != LegacyEntityKind::Band &&
-            classification.entityKind != LegacyEntityKind::Segment)
-        {
+        if (!classification.isBandOrSegment()) {
             return nullptr;
         }
 

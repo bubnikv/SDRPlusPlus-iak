@@ -25,8 +25,8 @@ namespace bandplan {
             return mapping ? mapping->family : legacy.family;
         }
 
-        freq_input::LegacyEntityKind entityKind() const {
-            return legacy.entityKind;
+        bool isBandOrSegment() const noexcept {
+            return legacy.isBandOrSegment();
         }
     };
 
@@ -43,6 +43,9 @@ namespace bandplan {
         double defFreq = 0;
         std::string defMode;
         double chan = 0;
+
+        bool hasValidFrequencySpan() const noexcept;
+        bool containsFrequency(double frequency) const noexcept;
     };
 
     void from_json(const json& j, Band_t& b);
@@ -58,6 +61,13 @@ namespace bandplan {
         // A newly loaded plan receives a new revision even if its map address,
         // name, row count, and vector allocation happen to be reused.
         uint64_t revision = 0;
+
+        // A stable band may be represented by adjacent or disjoint source
+        // segments. Return the first eligible segment containing the
+        // frequency, preserving source order.
+        const Band_t* findMappedSegmentAtFrequency(
+            const freq_input::BandMapping& mapping,
+            double frequency) const;
     };
 
     void from_json(const json& j, BandPlan_t& b);

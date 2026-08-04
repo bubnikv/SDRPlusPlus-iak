@@ -8,6 +8,7 @@
 #include <version.h>
 #include <utils/flog.h>
 #include <gui/widgets/bandplan.h>
+#include <gui/widgets/band_stack.h>
 #include <stb_image.h>
 #include <config.h>
 #include <core.h>

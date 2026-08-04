@@ -1,5 +1,6 @@
 #pragma once
 #include <gui/widgets/band_mapping.h>
+#include <module.h>
 #include <radio_interface.h>
 #include <string>
 #include <string_view>
@@ -95,3 +96,7 @@ private:
     void requestTune(double freq);  // the one seam onto gui::freqSelect
     int currentMode() const;        // -1 when the selected VFO is not a radio
 };
+
+namespace gui {
+    SDRPP_EXPORT BandStack bandStack;
+}
