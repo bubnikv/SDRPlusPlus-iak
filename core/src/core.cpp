@@ -84,7 +84,7 @@ namespace core {
             return std::string(appdir) + "/usr/lib/sdrpp-iak/plugins";
         }
 #endif
-        return resolveConfigPath(core::configManager.conf["modulesDirectory"]);
+        return resolveConfigPath(core::configManager.value("modulesDirectory", std::string()));
     }
 
     std::string getResourcesDirectory() {
@@ -93,7 +93,7 @@ namespace core {
             return std::string(appdir) + "/usr/share/sdrpp-iak";
         }
 #endif
-        return resolveConfigPath(core::configManager.conf["resourcesDirectory"]);
+        return resolveConfigPath(core::configManager.value("resourcesDirectory", std::string()));
     }
 };
 
@@ -350,96 +350,97 @@ int sdrpp_main(int argc, char* argv[]) {
 
 
     core::configManager.enableAutoSave();
-    core::configManager.acquire();
+
+    float uiScaleFactor = 1.0f;
+    {
+        auto txn = core::configManager.transaction();
 
     // Android can't load just any .so file. This means we have to hardcode the name of the modules
 #ifdef __ANDROID__
-    int modCount = 0;
-    core::configManager.conf["modules"] = json::array();
+        txn.set("modules", json::array({
+            "airspy_source.so",
+            "airspyhf_source.so",
+            "hackrf_source.so",
+            "hermes_source.so",
+            "hydrasdr_source.so",
+            "plutosdr_source.so",
+            "qmx_source.so",
+            "qmxserver_source.so",
+            "rfspace_source.so",
+            "rtl_sdr_source.so",
+            "rtl_tcp_source.so",
+            "sdrpp_server_source.so",
+            "spyserver_source.so",
+            "kiwisdr_source.so",
 
-    core::configManager.conf["modules"][modCount++] = "airspy_source.so";
-    core::configManager.conf["modules"][modCount++] = "airspyhf_source.so";
-    core::configManager.conf["modules"][modCount++] = "hackrf_source.so";
-    core::configManager.conf["modules"][modCount++] = "hermes_source.so";
-    core::configManager.conf["modules"][modCount++] = "hydrasdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "plutosdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "qmx_source.so";
-    core::configManager.conf["modules"][modCount++] = "qmxserver_source.so";
-    core::configManager.conf["modules"][modCount++] = "rfspace_source.so";
-    core::configManager.conf["modules"][modCount++] = "rtl_sdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "rtl_tcp_source.so";
-    core::configManager.conf["modules"][modCount++] = "sdrpp_server_source.so";
-    core::configManager.conf["modules"][modCount++] = "spyserver_source.so";
-    core::configManager.conf["modules"][modCount++] = "kiwisdr_source.so";
+            "network_sink.so",
+            "audio_sink.so",
 
-    core::configManager.conf["modules"][modCount++] = "network_sink.so";
-    core::configManager.conf["modules"][modCount++] = "audio_sink.so";
+            "m17_decoder.so",
+            "meteor_demodulator.so",
+            "radio.so",
+            "radiosonde_decoder.so",
 
-    core::configManager.conf["modules"][modCount++] = "m17_decoder.so";
-    core::configManager.conf["modules"][modCount++] = "meteor_demodulator.so";
-    core::configManager.conf["modules"][modCount++] = "radio.so";
-    core::configManager.conf["modules"][modCount++] = "radiosonde_decoder.so";
-
-    core::configManager.conf["modules"][modCount++] = "frequency_manager.so";
-    core::configManager.conf["modules"][modCount++] = "noise_reduction_logmmse.so";
-    core::configManager.conf["modules"][modCount++] = "recorder.so";
-    core::configManager.conf["modules"][modCount++] = "rigctl_server.so";
-    core::configManager.conf["modules"][modCount++] = "scanner.so";
-    core::configManager.conf["modules"][modCount++] = "spots.so";
-    core::configManager.conf["modules"][modCount++] = "websdr_view.so";
+            "frequency_manager.so",
+            "noise_reduction_logmmse.so",
+            "recorder.so",
+            "rigctl_server.so",
+            "scanner.so",
+            "spots.so",
+            "websdr_view.so",
+        }));
 #endif
 
-    // Fix missing elements in config
-    for (auto const& item : defConfig.items()) {
-        if (!core::configManager.conf.contains(item.key())) {
+        // Fix missing elements in config
+        for (auto const& item : defConfig.items()) {
+            if (txn.contains(item.key())) { continue; }
             flog::info("Missing key in config {0}, repairing", item.key());
-            core::configManager.conf[item.key()] = defConfig[item.key()];
+            txn.set(item.key(), item.value());
         }
-    }
 
-    // Remove unused elements
-    auto items = core::configManager.conf.items();
-    auto newConf = core::configManager.conf;
-    bool configCorrected = false;
-    for (auto const& item : items) {
-        if (!defConfig.contains(item.key())) {
-            flog::info("Unused key in config {0}, repairing", item.key());
-            newConf.erase(item.key());
-            configCorrected = true;
+        // Remove unused elements. Collected first: erasing while iterating the
+        // document would invalidate the iterator.
+        std::vector<std::string> unused;
+        for (auto const& item : txn.peek().items()) {
+            if (!defConfig.contains(item.key())) { unused.push_back(item.key()); }
         }
+        for (auto const& key : unused) {
+            flog::info("Unused key in config {0}, repairing", key);
+            txn.erase(key);
+        }
+
+        // Update to new module representation in config if needed
+        ConfigManager::Section instances = txn.section("moduleInstances");
+        std::vector<std::pair<std::string, std::string>> legacyInstances;
+        if (const json* insts = instances.peek()) {
+            for (auto const& [_name, inst] : insts->items()) {
+                if (inst.is_string()) { legacyInstances.emplace_back(_name, inst.get<std::string>()); }
+            }
+        }
+        for (auto const& [_name, mod] : legacyInstances) {
+            json newMod;
+            newMod["module"] = mod;
+            newMod["enabled"] = true;
+            instances.set(_name, newMod);
+        }
+
+        // Load UI scale factor; detected scale is not known yet (backend not initialized),
+        // so set a temporary scale using the factor alone. The correct effective scale is
+        // applied after backend::init() below, before any font loading.
+        uiScaleFactor = txn.value("uiScaleFactor", 1.0f);
+        style::setUIScale(uiScaleFactor);
+
+        // Must be set before thememenu::init() applies the first scaled style.
+        // The fallback keeps the per-platform default for configs predating the key.
+        style::touchStyle = txn.value("touchStyle", style::touchStyle);
+
+        style::migrateLogicalDimension(txn, "menuWidth", "menuWidthLogical", 250.0f, [](float value) {
+            return style::uiScale > 1.0f && value > 300.0f;
+        });
+        style::migrateLogicalDimension(txn, "fftHeight", "fftHeightLogical", 150.0f, [](float value) {
+            return style::uiScale > 1.0f && value >= 300.0f * style::uiScale;
+        });
     }
-    if (configCorrected) {
-        core::configManager.conf = newConf;
-    }
-
-    // Update to new module representation in config if needed
-    for (auto [_name, inst] : core::configManager.conf["moduleInstances"].items()) {
-        if (!inst.is_string()) { continue; }
-        std::string mod = inst;
-        json newMod;
-        newMod["module"] = mod;
-        newMod["enabled"] = true;
-        core::configManager.conf["moduleInstances"][_name] = newMod;
-    }
-
-    // Load UI scale factor; detected scale is not known yet (backend not initialized),
-    // so set a temporary scale using the factor alone. The correct effective scale is
-    // applied after backend::init() below, before any font loading.
-    float uiScaleFactor = core::configManager.conf["uiScaleFactor"];
-    style::setUIScale(uiScaleFactor);
-
-    // Must be set before thememenu::init() applies the first scaled style.
-    // The fallback keeps the per-platform default for configs predating the key.
-    style::touchStyle = core::configManager.conf.value("touchStyle", style::touchStyle);
-
-    style::migrateLogicalDimension(core::configManager.conf, "menuWidth", "menuWidthLogical", 250.0f, [](float value) {
-        return style::uiScale > 1.0f && value > 300.0f;
-    });
-    style::migrateLogicalDimension(core::configManager.conf, "fftHeight", "fftHeightLogical", 150.0f, [](float value) {
-        return style::uiScale > 1.0f && value >= 300.0f * style::uiScale;
-    });
-
-    core::configManager.release(true);
 
     if (serverMode) {
         int rc = server::main();
@@ -447,10 +448,8 @@ int sdrpp_main(int argc, char* argv[]) {
         return rc;
     }
 
-    core::configManager.acquire();
     std::string resDir = core::getResourcesDirectory();
-    json bandColors = core::configManager.conf["bandColors"];
-    core::configManager.release();
+    json bandColors = core::configManager.value("bandColors", json::object());
 
     // Check that the resource directory exists
     if (!std::filesystem::is_directory(resDir)) {
@@ -472,9 +471,7 @@ int sdrpp_main(int argc, char* argv[]) {
     }
 
     if (firstStart) {
-        core::configManager.acquire();
-        core::configManager.conf["menuWidth"] = 300;
-        core::configManager.release(true);
+        core::configManager.set("menuWidth", 300);
     }
 
     // Initialize SmGui in normal mode

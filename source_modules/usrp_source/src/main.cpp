@@ -119,11 +119,10 @@ public:
 
         // Select channel
         std::string chan = "";
-        config.acquire();
-        if (config.conf["devices"][selectedSer].contains("channel")) {
-            chan = config.conf["devices"][selectedSer]["channel"];
+        {
+            auto txn = config.transaction();
+            txn.section("devices", selectedSer).tryGet("channel", chan);
         }
-        config.release();
         selectChannel(dev, chan);
     }
 
@@ -184,31 +183,21 @@ public:
         bwId = 0;
         csId = 0;
         gain = gainRange.start();
-        config.acquire();
-        if (config.conf["devices"][selectedSer].contains("channels") && config.conf["devices"][selectedSer]["channels"].contains(selectedChan)) {
-            auto cconf = config.conf["devices"][selectedSer]["channels"][selectedChan];
-            if (cconf.contains("samplerate")) {
-                int sr = cconf["samplerate"];
-                if (samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
-            }
-            if (cconf.contains("antenna")) {
-                std::string ant = cconf["antenna"];
-                if (antennas.keyExists(ant)) { antId = antennas.keyId(ant); }
-            }
-            if (cconf.contains("bandwidth")) {
-                int bw = cconf["bandwidth"];
-                if (bandwidths.keyExists(bw)) { bwId = bandwidths.keyId(bw); }
-            }
-            if (cconf.contains("clock")) {
-                std::string clk = cconf["clock"];
-                if (clockSources.keyExists(clk)) { csId = clockSources.keyId(clk); }
-            }
-            if (cconf.contains("gain")) {
-                gain = cconf["gain"];
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section cconf = txn.section("devices", selectedSer, "channels", selectedChan);
+            int sr = 0;
+            if (cconf.tryGet("samplerate", sr) && samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
+            std::string ant;
+            if (cconf.tryGet("antenna", ant) && antennas.keyExists(ant)) { antId = antennas.keyId(ant); }
+            int bw = 0;
+            if (cconf.tryGet("bandwidth", bw) && bandwidths.keyExists(bw)) { bwId = bandwidths.keyId(bw); }
+            std::string clk;
+            if (cconf.tryGet("clock", clk) && clockSources.keyExists(clk)) { csId = clockSources.keyId(clk); }
+            if (cconf.tryGet("gain", gain)) {
                 gain = std::clamp<float>(gain, gainRange.start(), gainRange.stop());
             }
         }
-        config.release();
 
         // Apply samplerate
         sampleRate = samplerates.key(srId);
@@ -243,9 +232,7 @@ private:
             _this->refresh();
 
             // Select device
-            config.acquire();
-            _this->selectedSer = config.conf["device"];
-            config.release();
+            _this->selectedSer = config.value("device", std::string());
             _this->select(_this->selectedSer);
         }
 
@@ -323,9 +310,7 @@ private:
             _this->select(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedSer.empty()) {
-                config.acquire();
-                config.conf["device"] = _this->devices.key(_this->devId);
-                config.release(true);
+                config.set("device", _this->devices.key(_this->devId));
             }
         }
 
@@ -333,9 +318,7 @@ private:
             _this->sampleRate = _this->samplerates.key(_this->srId);
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedSer.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedSer]["channels"][_this->selectedChan]["samplerate"] = _this->samplerates.key(_this->srId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSer, "channels", _this->selectedChan).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -354,9 +337,7 @@ private:
             SmGui::ForceSync();
             if (SmGui::Combo(CONCAT("##_usrp_ch_sel_", _this->name), &_this->chanId, _this->channels.txt)) {
                 if (!_this->selectedSer.empty()) {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSer]["channel"] = _this->channels.key(_this->chanId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSer).set("channel", _this->channels.key(_this->chanId));
                 }
                 _this->select(_this->devices.key(_this->devId));
             }
@@ -372,9 +353,7 @@ private:
                     _this->dev->set_rx_antenna(_this->antennas.key(_this->antId), _this->chanId);
                 }
                 if (!_this->selectedSer.empty() && !_this->selectedChan.empty()) {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSer]["channels"][_this->selectedChan]["antenna"] = _this->antennas.key(_this->antId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSer, "channels", _this->selectedChan).set("antenna", _this->antennas.key(_this->antId));
                 }
             }
         }
@@ -387,9 +366,7 @@ private:
                     _this->setBandwidth(_this->bandwidths[_this->bwId]);
                 }
                 if (!_this->selectedSer.empty() && !_this->selectedChan.empty()) {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSer]["channels"][_this->selectedChan]["bandwidth"] = _this->bandwidths.key(_this->bwId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSer, "channels", _this->selectedChan).set("bandwidth", _this->bandwidths.key(_this->bwId));
                 }
             }
         }
@@ -402,9 +379,7 @@ private:
                     _this->dev->set_clock_source(_this->clockSources.key(_this->csId));
                 }
                 if (!_this->selectedSer.empty()) {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSer]["channels"][_this->selectedChan]["clock"] = _this->clockSources.key(_this->csId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSer, "channels", _this->selectedChan).set("clock", _this->clockSources.key(_this->csId));
                 }
             }
         }
@@ -416,9 +391,7 @@ private:
                 _this->dev->set_rx_gain(_this->gain, _this->chanId);
             }
             if (!_this->selectedSer.empty() && !_this->selectedChan.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedSer]["channels"][_this->selectedChan]["gain"] = _this->gain;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSer, "channels", _this->selectedChan).set("gain", _this->gain);
             }
         }
     }

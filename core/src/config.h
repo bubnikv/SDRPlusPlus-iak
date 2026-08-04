@@ -93,16 +93,6 @@ public:
     void save(bool lock = true);
     void enableAutoSave();
     void disableAutoSave();
-    void acquire();
-    void release(bool modified = false);
-
-#ifndef NDEBUG
-    // True if this thread currently holds the config lock. Exists only for the
-    // assert in transaction(): the lock isn't recursive, so opening a transaction
-    // while already holding it deadlocks. Debug-only, because tracking the owner
-    // costs an atomic store on every acquire/release and nothing else reads it.
-    bool heldByCurrentThread() const;
-#endif
 
     // Scoped access to the document. Locks on construction, and on destruction
     // unlocks while reporting whether any of its writes actually changed
@@ -127,9 +117,23 @@ public:
     template <class T>
     config_detail::ValueType<T> value(std::string_view key, const T& def);
 
-    json conf;
-
 private:
+    // The document and the lock around it. Reachable only through Transaction
+    // and Section, which are nested and so already have access: with the pair
+    // public, a caller could hold the lock and then call one of the single-shot
+    // helpers above, and the lock is not recursive.
+    json conf;
+    void acquire();
+    void release(bool modified = false);
+
+#ifndef NDEBUG
+    // True if this thread currently holds the config lock. Exists only for the
+    // assert in transaction(): opening a transaction while already holding the
+    // lock deadlocks. Debug-only, because tracking the owner costs an atomic
+    // store on every acquire/release and nothing else reads it.
+    bool heldByCurrentThread() const;
+#endif
+
     void autoSaveWorker();
 
     std::string path = "";
@@ -183,6 +187,16 @@ public:
 
     bool erase(std::string_view key) {
         const bool wrote = mgr->conf.is_object() && mgr->conf.erase(std::string(key)) != 0;
+        changed |= wrote;
+        return wrote;
+    }
+
+    // Replaces the whole document, for the "this config predates the current
+    // layout and can't be repaired key by key" case a few modules open with.
+    // Compares first, like set(), so re-installing the same defaults is free.
+    bool reset(json doc) {
+        const bool wrote = mgr->conf != doc;
+        if (wrote) { mgr->conf = std::move(doc); }
         changed |= wrote;
         return wrote;
     }

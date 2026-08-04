@@ -110,33 +110,28 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
         // in the streamed (remote client) UI.
         if (core::args["server"].b()) { return; }
 
-        config.acquire();
-        if (config.conf.contains("kiwisdr_host")) {
-            std::string host = config.conf["kiwisdr_host"];
-            std::strncpy(kiwisdrHost, host.c_str(), sizeof(kiwisdrHost) - 1);
-            kiwisdrHost[sizeof(kiwisdrHost) - 1] = '\0';
-        }
-        if (config.conf.contains("kiwisdr_port")) {
-            kiwisdrPort = config.conf["kiwisdr_port"];
-        }
-        if (config.conf.contains("kiwisdr_loc")) {
-            kiwisdrLoc = config.conf["kiwisdr_loc"];
-        }
-        if (config.conf.contains("kiwisdr_band_start") && config.conf.contains("kiwisdr_band_end")) {
+        {
+            auto txn = config.transaction();
+            std::string host;
+            if (txn.tryGet("kiwisdr_host", host)) {
+                std::strncpy(kiwisdrHost, host.c_str(), sizeof(kiwisdrHost) - 1);
+                kiwisdrHost[sizeof(kiwisdrHost) - 1] = '\0';
+            }
+            txn.tryGet("kiwisdr_port", kiwisdrPort);
+            txn.tryGet("kiwisdr_loc", kiwisdrLoc);
             ServerEntry::FrequencyBand b;
-            b.startHz = config.conf["kiwisdr_band_start"];
-            b.endHz = config.conf["kiwisdr_band_end"];
-            if (b.startHz <= b.endHz) {
+            if (txn.tryGet("kiwisdr_band_start", b.startHz) &&
+                txn.tryGet("kiwisdr_band_end", b.endHz) &&
+                b.startHz <= b.endHz) {
                 selectedBand = b;
             }
+            int storedBufferMs = 0;
+            if (txn.tryGet("kiwisdr_buffer_ms", storedBufferMs)) {
+                bufferMs = std::clamp<int>(storedBufferMs, BUFFER_MS_MIN, BUFFER_MS_MAX);
+            }
+            json recent = txn.value("kiwisdr_recent", json());
+            if (!recent.is_null()) { loadRecent(recent); }
         }
-        if (config.conf.contains("kiwisdr_buffer_ms")) {
-            bufferMs = std::clamp<int>(config.conf["kiwisdr_buffer_ms"], BUFFER_MS_MIN, BUFFER_MS_MAX);
-        }
-        if (config.conf.contains("kiwisdr_recent")) {
-            loadRecent(config.conf["kiwisdr_recent"]);
-        }
-        config.release(false);
 
         kiwiSdrClient.init(kiwisdrHostPort());
         chain.init(&rawStream, &stream);
@@ -297,20 +292,21 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
         kiwisdrLoc = loc;
         selectedBand = band;
         touchRecent(RecentServer{ host, port, loc, band });
-        config.acquire();
-        config.conf["kiwisdr_host"] = host;
-        config.conf["kiwisdr_port"] = port;
-        config.conf["kiwisdr_loc"] = loc;
-        if (band) {
-            config.conf["kiwisdr_band_start"] = band->startHz;
-            config.conf["kiwisdr_band_end"] = band->endHz;
+        {
+            auto txn = config.transaction();
+            txn.set("kiwisdr_host", host);
+            txn.set("kiwisdr_port", port);
+            txn.set("kiwisdr_loc", loc);
+            if (band) {
+                txn.set("kiwisdr_band_start", band->startHz);
+                txn.set("kiwisdr_band_end", band->endHz);
+            }
+            else {
+                txn.erase("kiwisdr_band_start");
+                txn.erase("kiwisdr_band_end");
+            }
+            txn.set("kiwisdr_recent", recentToJson());
         }
-        else {
-            config.conf.erase("kiwisdr_band_start");
-            config.conf.erase("kiwisdr_band_end");
-        }
-        config.conf["kiwisdr_recent"] = recentToJson();
-        config.release(true);
         applyFreqLimits();
         kiwiSdrClient.init(kiwisdrHostPort());
     }
@@ -338,9 +334,7 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
     void removeRecent(int idx) {
         if (idx < 0 || idx >= (int)recentServers.size()) { return; }
         recentServers.erase(recentServers.begin() + idx);
-        config.acquire();
-        config.conf["kiwisdr_recent"] = recentToJson();
-        config.release(true);
+        config.set("kiwisdr_recent", recentToJson());
     }
 
     static void menuSelected(void* ctx) {
@@ -470,17 +464,13 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
         ImGui::BeginDisabled(playing);
         if (SmGui::InputText(("##_kiwisdr_host_" + _this->name).c_str(),
                              _this->kiwisdrHost, sizeof(_this->kiwisdrHost))) {
-            config.acquire();
-            config.conf["kiwisdr_host"] = std::string(_this->kiwisdrHost);
-            config.release(true);
+            config.set("kiwisdr_host", std::string(_this->kiwisdrHost));
         }
         bool hostCommitted = ImGui::IsItemDeactivatedAfterEdit();
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(("##_kiwisdr_port_" + _this->name).c_str(), &_this->kiwisdrPort, 0, 0)) {
-            config.acquire();
-            config.conf["kiwisdr_port"] = _this->kiwisdrPort;
-            config.release(true);
+            config.set("kiwisdr_port", _this->kiwisdrPort);
         }
         bool portCommitted = ImGui::IsItemDeactivatedAfterEdit();
         if (hostCommitted || portCommitted) {
@@ -548,9 +538,7 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
         if (SmGui::SliderInt(("##_kiwisdr_buffer_ms_" + _this->name).c_str(), &bufMs, BUFFER_MS_MIN, BUFFER_MS_MAX)) {
             _this->bufferMs.store(bufMs);
             _this->applyBufferMode(true);
-            config.acquire();
-            config.conf["kiwisdr_buffer_ms"] = bufMs;
-            config.release(true);
+            config.set("kiwisdr_buffer_ms", bufMs);
         }
 
         KiwiSDRClient::AgcSettings agc = _this->kiwiSdrClient.getAgc();

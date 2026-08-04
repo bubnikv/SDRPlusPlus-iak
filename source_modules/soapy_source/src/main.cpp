@@ -36,9 +36,7 @@ public:
         refresh();
 
         // Select default device
-        config.acquire();
-        std::string devName = config.conf["device"];
-        config.release();
+        std::string devName = config.value("device", std::string());
         selectDevice(devName);
 
         handler.ctx = this;
@@ -226,58 +224,33 @@ private:
 
         SoapySDR::Device::unmake(dev);
 
-        config.acquire();
-        if (config.conf["devices"].contains(name)) {
-            if (config.conf["devices"][name].contains("antenna")) {
-                uiAntennaId = config.conf["devices"][name]["antenna"];
-            }
-            else {
-                uiAntennaId = 0;
-            }
-            int i = 0;
-            for (auto gain : gainList) {
-                if (config.conf["devices"][name]["gains"].contains(gain)) {
-                    uiGains[i] = config.conf["devices"][name]["gains"][gain];
-                }
-                else {
-                    uiGains[i] = gainRanges[i].minimum();
-                }
-                i++;
-            }
-            if (config.conf["devices"][name].contains("bandwidth")) {
-                uiBandwidthId = config.conf["devices"][name]["bandwidth"];
-            }
-            else if (bandwidthList.size() > 2) {
-                uiBandwidthId = 0;
-            }
-            if (hasAgc && config.conf["devices"][name].contains("agc")) {
-                agc = config.conf["devices"][name]["agc"];
-            }
-            else {
-                agc = false;
-            }
-            if (config.conf["devices"][name].contains("sampleRate")) {
-                selectSampleRate(config.conf["devices"][name]["sampleRate"]);
-            }
-            else {
-                selectSampleRate(sampleRates[0]);
-            }
-        }
-        else {
+        // Read the whole block first, then apply: selectSampleRate() reaches
+        // back into the core, and the defaults path is the same either way.
+        double storedSampleRate = sampleRates[0];
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", name);
+            ConfigManager::Section gains = dev.section("gains");
+
             uiAntennaId = 0;
+            dev.tryGet("antenna", uiAntennaId);
+
             int i = 0;
             for (auto gain : gainList) {
                 uiGains[i] = gainRanges[i].minimum();
+                gains.tryGet(gain, uiGains[i]);
                 i++;
             }
-            if (bandwidthList.size() > 2)
-                uiBandwidthId = 0;
-            if (hasAgc) {
-                agc = false;
-            }
-            selectSampleRate(sampleRates[0]); // Select default
+
+            if (bandwidthList.size() > 2) { uiBandwidthId = 0; }
+            dev.tryGet("bandwidth", uiBandwidthId);
+
+            agc = false;
+            if (hasAgc) { dev.tryGet("agc", agc); }
+
+            dev.tryGet("sampleRate", storedSampleRate);
         }
-        config.release();
+        selectSampleRate(storedSampleRate);
     }
 
     void saveCurrent() {
@@ -294,9 +267,8 @@ private:
         if (hasAgc) {
             conf["agc"] = agc;
         }
-        config.acquire();
-        config.conf["devices"][devArgs["label"]] = conf;
-        config.release(true);
+        auto txn = config.transaction();
+        txn.section("devices").set(devArgs["label"], conf);
     }
 
     static void menuSelected(void* ctx) {
@@ -391,7 +363,7 @@ private:
             SmGui::ForceSync();
             if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
                 _this->refresh();
-                _this->selectDevice(config.conf["device"]);
+                _this->selectDevice(config.value("device", std::string()));
             }
             return;
         }
@@ -402,9 +374,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_dev_select_", _this->name), &_this->devId, _this->txtDevList.c_str())) {
             _this->selectDevice(_this->devList[_this->devId]["label"]);
-            config.acquire();
-            config.conf["device"] = _this->devList[_this->devId]["label"];
-            config.release(true);
+            config.set("device", _this->devList[_this->devId]["label"]);
         }
 
         if (SmGui::Combo(CONCAT("##_sr_select_", _this->name), &_this->srId, _this->txtSrList.c_str())) {
@@ -418,7 +388,7 @@ private:
         SmGui::FillWidth();
         if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
             _this->refresh();
-            _this->selectDevice(config.conf["device"]);
+            _this->selectDevice(config.value("device", std::string()));
         }
 
         if (_this->running) { SmGui::EndDisabled(); }

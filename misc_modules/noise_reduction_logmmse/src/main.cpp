@@ -39,10 +39,11 @@ class NRModule : public ModuleManager::Instance {
 public:
     NRModule(std::string name) {
         this->name = name;
-        config.acquire();
-        if (config.conf.contains("IFNR")) ifnr = config.conf["IFNR"];
-        if (config.conf.contains("DisableCpuDeactivation")) disableCpuDeactivation = config.conf["DisableCpuDeactivation"];
-        config.release(true);
+        {
+            auto txn = config.transaction();
+            txn.tryGet("IFNR", ifnr);
+            txn.tryGet("DisableCpuDeactivation", disableCpuDeactivation);
+        }
 
         ifnrProcessor.setDisableCpuDeactivation(disableCpuDeactivation);
 
@@ -90,10 +91,7 @@ private:
         afnrProcessors2[instanceName] = afnromlsa;
         afnromlsa->setAudioSampleRate((int)sigpath::sinkManager.getStreamSampleRate(instanceName));
 
-        config.acquire();
-        bool afnr2 = false;
-        if (config.conf.contains("AF_NR2_" + instanceName)) afnr2 = config.conf["AF_NR2_" + instanceName];
-        config.release(true);
+        bool afnr2 = config.value("AF_NR2_" + instanceName, false);
         afnromlsa->allowed = afnr2;
 
         // Only splice the block into the running AF chain when the feature is
@@ -167,9 +165,7 @@ private:
         if (!enabled) { style::beginDisabled(); }
 
         if (ImGui::Checkbox("Baseband NR##_sdrpp_if_nr", &ifnr)) {
-            config.acquire();
-            config.conf["IFNR"] = ifnr;
-            config.release(true);
+            config.set("IFNR", ifnr);
             if (ifnr) { // toggled on - attempt to run.
                 ifnrProcessor.stopReason = nullptr;
             }
@@ -185,9 +181,7 @@ private:
         const char* stopReason = ifnrProcessor.stopReason;
         if (stopReason && ifnr) { // wants to stop -> stop it.
             ifnr = false;
-            config.acquire();
-            config.conf["IFNR"] = ifnr;
-            config.release(true);
+            config.set("IFNR", ifnr);
             actuateIFNR();
         }
         if (stopReason) { // stopped because reason -> show it.
@@ -213,9 +207,7 @@ private:
                 if (clicked) {
                     disableCpuDeactivation = !disableCpuDeactivation;
                     ifnrProcessor.setDisableCpuDeactivation(disableCpuDeactivation);
-                    config.acquire();
-                    config.conf["DisableCpuDeactivation"] = disableCpuDeactivation;
-                    config.release(true);
+                    config.set("DisableCpuDeactivation", disableCpuDeactivation);
                 }
                 if (disableCpuDeactivation) {
                     auto drawList = ImGui::GetWindowDrawList();
@@ -237,9 +229,7 @@ private:
                 // Disabling joins the block's worker thread, so the buffer can
                 // be cleared here; otherwise stale audio would flush on re-enable.
                 if (!v->allowed) { v->buffer.clear(); }
-                config.acquire();
-                config.conf["AF_NR2_" + k] = v->allowed;
-                config.release(true);
+                config.set("AF_NR2_" + k, v->allowed);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("OMLSA-MCRA speech denoiser on this radio's audio output.\n"

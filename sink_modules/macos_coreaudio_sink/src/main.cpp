@@ -42,16 +42,14 @@ public:
 
         enumerateDevices();
 
-        bool created = false;
         std::string device = "";
-        config.acquire();
-        if (!config.conf.contains(_streamName)) {
-            created = true;
-            config.conf[_streamName]["device"] = "";
-            config.conf[_streamName]["devices"] = json({});
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section stream = txn.section(_streamName);
+            stream.ensure("device", "");
+            stream.ensure("devices", json::object());
+            stream.tryGet("device", device);
         }
-        device = config.conf[_streamName]["device"];
-        config.release(created);
 
         // On a machine with no audio output devices, keep a valid sample rate
         // so the upstream resampler has a target. The pipeline is kept draining
@@ -98,14 +96,12 @@ public:
         devId = id;
         auto& dev = devices[id];
 
-        bool created = false;
-        config.acquire();
-        if (!config.conf[_streamName]["devices"].contains(dev.name)) {
-            created = true;
-            config.conf[_streamName]["devices"][dev.name] = dev.preferredSampleRate;
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section devices = txn.section(_streamName, "devices");
+            devices.ensure(dev.name, dev.preferredSampleRate);
+            devices.tryGet(dev.name, sampleRate);
         }
-        sampleRate = config.conf[_streamName]["devices"][dev.name];
-        config.release(created);
 
         bool found = false;
         int defaultId = 0;
@@ -142,9 +138,7 @@ public:
         ImGui::SetNextItemWidth(menuWidth);
         if (ImGui::Combo(("##_coreaudio_sink_dev_" + _streamName).c_str(), &devId, txtDevList.c_str())) {
             selectById(devId);
-            config.acquire();
-            config.conf[_streamName]["device"] = devices[devId].name;
-            config.release(true);
+            config.transaction().section(_streamName).set("device", devices[devId].name);
         }
 
         ImGui::SetNextItemWidth(menuWidth);
@@ -155,9 +149,7 @@ public:
                 doStop();
                 doStart();
             }
-            config.acquire();
-            config.conf[_streamName]["devices"][devices[devId].name] = sampleRate;
-            config.release(true);
+            config.transaction().section(_streamName, "devices").set(devices[devId].name, sampleRate);
         }
     }
 

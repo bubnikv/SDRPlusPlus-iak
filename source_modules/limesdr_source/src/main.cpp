@@ -128,19 +128,11 @@ public:
             channelNamesTxt += '\0';
         }
 
-        config.acquire();
-        if (config.conf["devices"].contains(selectedDevName)) {
-            if (config.conf["devices"][selectedDevName].contains("channel")) {
-                chanId = config.conf["devices"][selectedDevName]["channel"];
-            }
-            else {
-                chanId = 0;
-            }
+        chanId = 0;
+        {
+            auto txn = config.transaction();
+            txn.section("devices", selectedDevName).tryGet("channel", chanId);
         }
-        else {
-            chanId = 0;
-        }
-        config.release();
 
         chanId = std::clamp<int>(chanId, 0, channelCount - 1);
 
@@ -191,91 +183,58 @@ public:
         bandwidthsTxt += "Auto";
         bandwidthsTxt += '\0';
 
-        config.acquire();
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedDevName);
 
-        if (!config.conf["devices"].contains(selectedDevName)) {
-            config.conf["devices"][selectedDevName]["sampleRate"] = sampleRates[0];
-            config.conf["devices"][selectedDevName]["channel"] = 0;
-            config.conf["devices"][selectedDevName]["antenna"] = "LNAW";
-            config.conf["devices"][selectedDevName]["bandwidth"] = bandwidths.size();
-            config.conf["devices"][selectedDevName]["gain"] = 0;
-        }
+            // Seed whatever this device is missing, which for a device never seen
+            // before is the whole block.
+            dev.ensure("sampleRate", sampleRates[0]);
+            dev.ensure("channel", 0);
+            dev.ensure("antenna", "LNAW");
+            dev.ensure("bandwidth", (int)bandwidths.size());
+            dev.ensure("gain", 0);
 
-        // Load sample rate
-        if (config.conf["devices"][selectedDevName].contains("sampleRate")) {
-            bool found = false;
-            int sr = config.conf["devices"][selectedDevName]["sampleRate"];
-            for (int i = 0; i < sampleRates.size(); i++) {
-                if (sr == sampleRates[i]) {
-                    srId = i;
-                    sampleRate = sampleRates[i];
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                srId = 0;
-                sampleRate = sampleRates[0];
-            }
-        }
-        else {
+            // Load sample rate
             srId = 0;
             sampleRate = sampleRates[0];
-        }
-
-        // Load antenna
-        if (config.conf["devices"][selectedDevName].contains("antenna")) {
-            std::string antName = config.conf["devices"][selectedDevName]["antenna"];
-            bool found = false;
-            for (int i = 0; i < antennaCount; i++) {
-                if (antennaNames[i] == antName) {
-                    antennaId = i;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                for (int i = 0; i < antennaCount; i++) {
-                    if (antennaNames[i] == "LNAW") {
-                        antennaId = i;
-                        found = true;
+            int sr = 0;
+            if (dev.tryGet("sampleRate", sr)) {
+                for (int i = 0; i < sampleRates.size(); i++) {
+                    if (sr == sampleRates[i]) {
+                        srId = i;
+                        sampleRate = sampleRates[i];
                         break;
                     }
                 }
-                if (!found) { antennaId = 0; }
             }
-        }
-        else {
-            bool found = false;
+
+            // Load antenna, falling back to LNAW then to the first entry
+            std::string antName;
+            dev.tryGet("antenna", antName);
+            antennaId = 0;
             for (int i = 0; i < antennaCount; i++) {
-                if (antennaNames[i] == "LNAW") {
+                if (antennaNames[i] == std::string("LNAW")) { antennaId = i; }
+            }
+            for (int i = 0; i < antennaCount; i++) {
+                if (antennaNames[i] == antName) {
                     antennaId = i;
-                    found = true;
                     break;
                 }
             }
-            if (!found) { antennaId = 0; }
-        }
 
-        // Load bandwidth
-        if (config.conf["devices"][selectedDevName].contains("bandwidth")) {
-            bwId = config.conf["devices"][selectedDevName]["bandwidth"];
-            bwId = std::clamp<int>(bwId, 0, bandwidths.size());
-        }
-        else {
+            // Load bandwidth
             bwId = bandwidths.size();
-        }
+            if (dev.tryGet("bandwidth", bwId)) {
+                bwId = std::clamp<int>(bwId, 0, bandwidths.size());
+            }
 
-        // Load gain
-        if (config.conf["devices"][selectedDevName].contains("gain")) {
-            gain = config.conf["devices"][selectedDevName]["gain"];
-            gain = std::clamp<int>(gain, 0, 73);
-        }
-        else {
+            // Load gain
             gain = 0;
+            if (dev.tryGet("gain", gain)) {
+                gain = std::clamp<int>(gain, 0, 73);
+            }
         }
-
-        config.release(true);
 
         LMS_Close(dev);
     }
@@ -402,18 +361,14 @@ private:
         if (SmGui::Combo("##limesdr_dev_sel", &_this->devId, _this->devListTxt.c_str())) {
             _this->selectByInfoStr(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
-            config.acquire();
-            config.conf["device"] = _this->selectedDevName;
-            config.release(true);
+            config.set("device", _this->selectedDevName);
         }
 
         if (SmGui::Combo(CONCAT("##_limesdr_sr_sel_", _this->name), &_this->srId, _this->sampleRatesTxt.c_str())) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["sampleRate"] = _this->sampleRates[_this->srId];
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevName).set("sampleRate", _this->sampleRates[_this->srId]);
             }
         }
 
@@ -431,9 +386,7 @@ private:
             SmGui::LeftLabel("RX Channel");
             SmGui::FillWidth();
             if (SmGui::Combo("##limesdr_ch_sel", &_this->chanId, _this->channelNamesTxt.c_str()) && _this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["channel"] = _this->chanId;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevName).set("channel", _this->chanId);
             }
         }
 
@@ -446,9 +399,7 @@ private:
                 LMS_SetAntenna(_this->openDev, false, _this->chanId, _this->antennaId);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["antenna"] = _this->antennaNameList[_this->antennaId];
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevName).set("antenna", _this->antennaNameList[_this->antennaId]);
             }
         }
 
@@ -459,9 +410,7 @@ private:
                 LMS_SetLPFBW(_this->openDev, false, _this->chanId, (_this->bwId == _this->bandwidths.size()) ? _this->getBestBandwidth(_this->sampleRate) : _this->bandwidths[_this->bwId]);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["bandwidth"] = _this->bwId;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevName).set("bandwidth", _this->bwId);
             }
         }
 
@@ -472,9 +421,7 @@ private:
                 LMS_SetGaindB(_this->openDev, false, _this->chanId, _this->gain);
             }
             if (_this->selectedDevName != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevName]["gain"] = _this->gain;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevName).set("gain", _this->gain);
             }
         }
     }

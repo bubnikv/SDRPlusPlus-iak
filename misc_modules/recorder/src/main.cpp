@@ -66,47 +66,41 @@ public:
         containerId = containers.valueId(wav::FORMAT_WAV);
 
         // Load config
-        config.acquire();
-        if (config.conf[name].contains("mode")) {
-            recMode = config.conf[name]["mode"];
-        }
-        if (config.conf[name].contains("recPath")) {
-            folderSelect.setPath(config.conf[name]["recPath"]);
-        }
-        if (config.conf[name].contains("timezone") && timezones.keyExists(config.conf[name]["timezone"])) {
-            timezoneId = timezones.keyId(config.conf[name]["timezone"]);
-        }
-        if (config.conf[name].contains("container") && containers.keyExists(config.conf[name]["container"])) {
-            containerId = containers.keyId(config.conf[name]["container"]);
-        }
-        refreshSampleTypes();
-        if (config.conf[name].contains("sampleType") && sampleTypes.keyExists(config.conf[name]["sampleType"])) {
-            sampleTypeId = sampleTypes.keyId(config.conf[name]["sampleType"]);
-        }
-        if (config.conf[name].contains("opusBitrate")) {
-            opusBitrate = config.conf[name]["opusBitrate"];
-            opusBitrate = std::clamp<int>(opusBitrate, 16, 256);
-        }
-        if (config.conf[name].contains("audioStream")) {
-            selectedStreamName = config.conf[name]["audioStream"];
-        }
-        if (config.conf[name].contains("audioVolume")) {
-            audioVolume = config.conf[name]["audioVolume"];
-        }
-        if (config.conf[name].contains("stereo")) {
-            stereo = config.conf[name]["stereo"];
-        }
-        if (config.conf[name].contains("ignoreSilence")) {
-            ignoreSilence = config.conf[name]["ignoreSilence"];
-        }
-        if (config.conf[name].contains("nameTemplate")) {
-            std::string _nameTemplate = config.conf[name]["nameTemplate"];
-            if (_nameTemplate.length() > sizeof(nameTemplate)-1) {
-                _nameTemplate = _nameTemplate.substr(0, sizeof(nameTemplate)-1);
+        std::string recPath;
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(name);
+            inst.tryGet("mode", recMode);
+            inst.tryGet("recPath", recPath);
+            std::string timezone;
+            if (inst.tryGet("timezone", timezone) && timezones.keyExists(timezone)) {
+                timezoneId = timezones.keyId(timezone);
             }
-            strcpy(nameTemplate, _nameTemplate.c_str());
+            std::string container;
+            if (inst.tryGet("container", container) && containers.keyExists(container)) {
+                containerId = containers.keyId(container);
+            }
+            refreshSampleTypes();
+            std::string sampleType;
+            if (inst.tryGet("sampleType", sampleType) && sampleTypes.keyExists(sampleType)) {
+                sampleTypeId = sampleTypes.keyId(sampleType);
+            }
+            if (inst.tryGet("opusBitrate", opusBitrate)) {
+                opusBitrate = std::clamp<int>(opusBitrate, 16, 256);
+            }
+            inst.tryGet("audioStream", selectedStreamName);
+            inst.tryGet("audioVolume", audioVolume);
+            inst.tryGet("stereo", stereo);
+            inst.tryGet("ignoreSilence", ignoreSilence);
+            std::string _nameTemplate;
+            if (inst.tryGet("nameTemplate", _nameTemplate)) {
+                if (_nameTemplate.length() > sizeof(nameTemplate)-1) {
+                    _nameTemplate = _nameTemplate.substr(0, sizeof(nameTemplate)-1);
+                }
+                strcpy(nameTemplate, _nameTemplate.c_str());
+            }
         }
-        config.release();
+        if (!recPath.empty()) { folderSelect.setPath(recPath); }
 
         // Init audio path
         volume.init(NULL, audioVolume, false);
@@ -267,16 +261,12 @@ private:
         ImGui::Columns(2, CONCAT("RecorderModeColumns##_", _this->name), false);
         if (ImGui::RadioButton(CONCAT("Baseband##_recorder_mode_", _this->name), _this->recMode == RECORDER_MODE_BASEBAND)) {
             _this->recMode = RECORDER_MODE_BASEBAND;
-            config.acquire();
-            config.conf[_this->name]["mode"] = _this->recMode;
-            config.release(true);
+            config.transaction().section(_this->name).set("mode", _this->recMode);
         }
         ImGui::NextColumn();
         if (ImGui::RadioButton(CONCAT("Audio##_recorder_mode_", _this->name), _this->recMode == RECORDER_MODE_AUDIO)) {
             _this->recMode = RECORDER_MODE_AUDIO;
-            config.acquire();
-            config.conf[_this->name]["mode"] = _this->recMode;
-            config.release(true);
+            config.transaction().section(_this->name).set("mode", _this->recMode);
         }
         ImGui::Columns(1, CONCAT("EndRecorderModeColumns##_", _this->name), false);
         ImGui::EndGroup();
@@ -284,26 +274,20 @@ private:
         // Recording path
         if (_this->folderSelect.render("##_recorder_fold_" + _this->name)) {
             if (_this->folderSelect.pathIsValid()) {
-                config.acquire();
-                config.conf[_this->name]["recPath"] = _this->folderSelect.path;
-                config.release(true);
+                config.transaction().section(_this->name).set("recPath", _this->folderSelect.path);
             }
         }
 
         ImGui::LeftLabel("Name template");
         ImGui::FillWidth();
         if (ImGui::InputText(CONCAT("##_recorder_name_template_", _this->name), _this->nameTemplate, 1023)) {
-            config.acquire();
-            config.conf[_this->name]["nameTemplate"] = _this->nameTemplate;
-            config.release(true);
+            config.transaction().section(_this->name).set("nameTemplate", _this->nameTemplate);
         }
 
         ImGui::LeftLabel("Time zone");
         ImGui::FillWidth();
         if (ImGui::Combo(CONCAT("##_recorder_timezone_", _this->name), &_this->timezoneId, _this->timezones.txt)) {
-            config.acquire();
-            config.conf[_this->name]["timezone"] = _this->timezones.key(_this->timezoneId);
-            config.release(true);
+            config.transaction().section(_this->name).set("timezone", _this->timezones.key(_this->timezoneId));
         }
 
         ImGui::LeftLabel("Container");
@@ -312,10 +296,10 @@ private:
             // The sample type choices depend on the container; save the
             // (possibly remapped) sample type along with the container.
             _this->refreshSampleTypes();
-            config.acquire();
-            config.conf[_this->name]["container"] = _this->containers.key(_this->containerId);
-            config.conf[_this->name]["sampleType"] = _this->sampleTypes.key(_this->sampleTypeId);
-            config.release(true);
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(_this->name);
+            inst.set("container", _this->containers.key(_this->containerId));
+            inst.set("sampleType", _this->sampleTypes.key(_this->sampleTypeId));
         }
 
         // Opus quality is set by bitrate, not sample type — swap the control.
@@ -324,18 +308,14 @@ private:
             ImGui::FillWidth();
             if (ImGui::SliderInt(CONCAT("##_recorder_opus_br_", _this->name), &_this->opusBitrate, 16, 256, "%d kbps")) {
                 _this->opusBitrate = std::clamp<int>(_this->opusBitrate, 16, 256);
-                config.acquire();
-                config.conf[_this->name]["opusBitrate"] = _this->opusBitrate;
-                config.release(true);
+                config.transaction().section(_this->name).set("opusBitrate", _this->opusBitrate);
             }
         }
         else {
             ImGui::LeftLabel("Sample type");
             ImGui::FillWidth();
             if (ImGui::Combo(CONCAT("##_recorder_st_", _this->name), &_this->sampleTypeId, _this->sampleTypes.txt)) {
-                config.acquire();
-                config.conf[_this->name]["sampleType"] = _this->sampleTypes.key(_this->sampleTypeId);
-                config.release(true);
+                config.transaction().section(_this->name).set("sampleType", _this->sampleTypes.key(_this->sampleTypeId));
             }
         }
 
@@ -348,9 +328,7 @@ private:
             ImGui::FillWidth();
             if (ImGui::Combo(CONCAT("##_recorder_stream_", _this->name), &_this->streamId, _this->audioStreams.txt)) {
                 _this->selectStream(_this->audioStreams.value(_this->streamId));
-                config.acquire();
-                config.conf[_this->name]["audioStream"] = _this->audioStreams.key(_this->streamId);
-                config.release(true);
+                config.transaction().section(_this->name).set("audioStream", _this->audioStreams.key(_this->streamId));
             }
             if (_this->recording) { style::endDisabled(); }
 
@@ -363,23 +341,17 @@ private:
             ImGui::FillWidth();
             if (ImGui::SliderFloat(CONCAT("##_recorder_vol_", _this->name), &_this->audioVolume, 0, 1, "")) {
                 _this->volume.setVolume(_this->audioVolume);
-                config.acquire();
-                config.conf[_this->name]["audioVolume"] = _this->audioVolume;
-                config.release(true);
+                config.transaction().section(_this->name).set("audioVolume", _this->audioVolume);
             }
 
             if (_this->recording) { style::beginDisabled(); }
             if (ImGui::Checkbox(CONCAT("Stereo##_recorder_stereo_", _this->name), &_this->stereo)) {
-                config.acquire();
-                config.conf[_this->name]["stereo"] = _this->stereo;
-                config.release(true);
+                config.transaction().section(_this->name).set("stereo", _this->stereo);
             }
             if (_this->recording) { style::endDisabled(); }
 
             if (ImGui::Checkbox(CONCAT("Ignore silence##_recorder_ignore_silence_", _this->name), &_this->ignoreSilence)) {
-                config.acquire();
-                config.conf[_this->name]["ignoreSilence"] = _this->ignoreSilence;
-                config.release(true);
+                config.transaction().section(_this->name).set("ignoreSilence", _this->ignoreSilence);
             }
         }
 

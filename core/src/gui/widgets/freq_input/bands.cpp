@@ -402,9 +402,7 @@ namespace freq_input {
         {
             groupId = std::string(groupLayout.groups[groupIndex].id);
             scrollActiveIntoView = true;
-            core::configManager.acquire();
-            core::configManager.conf["bandPickerGroupId"] = groupId;
-            core::configManager.release(true);
+            core::configManager.set("bandPickerGroupId", groupId);
         }
         const band_groups::Group& activeGroup =
             groupLayout.groups[groupIndex];

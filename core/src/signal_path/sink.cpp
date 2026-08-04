@@ -153,10 +153,7 @@ void SinkManager::registerStream(std::string name, SinkManager::Stream* stream) 
     streamNames.push_back(name);
 
     // Load config
-    core::configManager.acquire();
-    bool available = core::configManager.conf["streams"].contains(name);
-    core::configManager.release();
-    if (available) { loadStreamConfig(name); }
+    loadStreamConfig(name);
 
     onStreamRegistered.emit(name);
 }
@@ -285,9 +282,7 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
         ImGui::PushID(ImGui::GetID(("sdrpp_unmute_btn_" + name).c_str()));
         if (ImGui::ImageButton(icons::MUTED, ImVec2(height, height), ImVec2(0, 0), ImVec2(1, 1), btnBorder, ImVec4(0, 0, 0, 0), ImGui::GetStyleColorVec4(ImGuiCol_Text))) {
             stream->volumeAjust.setMuted(false);
-            core::configManager.acquire();
             saveStreamConfig(name);
-            core::configManager.release(true);
         }
         ImGui::PopID();
     }
@@ -295,9 +290,7 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
         ImGui::PushID(ImGui::GetID(("sdrpp_mute_btn_" + name).c_str()));
         if (ImGui::ImageButton(icons::UNMUTED, ImVec2(height, height), ImVec2(0, 0), ImVec2(1, 1), btnBorder, ImVec4(0, 0, 0, 0), ImGui::GetStyleColorVec4(ImGuiCol_Text))) {
             stream->volumeAjust.setMuted(true);
-            core::configManager.acquire();
             saveStreamConfig(name);
-            core::configManager.release(true);
         }
         ImGui::PopID();
     }
@@ -308,18 +301,25 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
     ImGui::SetCursorPosY(ypos + sliderYOfs);
     if (ImGui::SliderFloat((prefix + name).c_str(), &stream->guiVolume, 0.0f, 1.0f, "")) {
         stream->setVolume(stream->guiVolume);
-        core::configManager.acquire();
         saveStreamConfig(name);
-        core::configManager.release(true);
     }
     if (sameLine) { ImGui::SetCursorPosY(ypos); }
     //ImGui::SetCursorPosY(ypos);
 }
 
 void SinkManager::loadStreamConfig(std::string name) {
-    json conf = core::configManager.conf["streams"][name];
+    // Read the stored block under its own lock and let go of it before applying:
+    // creating and starting a sink runs module code, which reaches for the config
+    // itself and would deadlock on the non-recursive lock.
+    json conf;
+    {
+        auto txn = core::configManager.transaction();
+        conf = txn.section("streams").value(name, json());
+    }
+    if (!conf.is_object()) { return; }
+
     SinkManager::Stream* stream = streams[name];
-    std::string provName = conf["sink"];
+    std::string provName = conf.value("sink", providerNames[0]);
     if (providers.find(provName) == providers.end()) {
         provName = providerNames[0];
     }
@@ -334,8 +334,8 @@ void SinkManager::loadStreamConfig(std::string name) {
     if (stream->running) {
         stream->sink->start();
     }
-    stream->setVolume(conf["volume"]);
-    stream->volumeAjust.setMuted(conf["muted"]);
+    stream->setVolume(conf.value("volume", stream->getVolume()));
+    stream->volumeAjust.setMuted(conf.value("muted", false));
 }
 
 void SinkManager::saveStreamConfig(std::string name) {
@@ -344,13 +344,12 @@ void SinkManager::saveStreamConfig(std::string name) {
     conf["sink"] = providerNames[stream->providerId];
     conf["volume"] = stream->getVolume();
     conf["muted"] = stream->volumeAjust.getMuted();
-    core::configManager.conf["streams"][name] = conf;
+    auto txn = core::configManager.transaction();
+    txn.section("streams").set(name, conf);
 }
 
-// Note: acquire and release config before running this
 void SinkManager::loadSinksFromConfig() {
     for (auto const& [name, stream] : streams) {
-        if (!core::configManager.conf["streams"].contains(name)) { continue; }
         loadStreamConfig(name);
     }
 }
@@ -373,9 +372,7 @@ void SinkManager::showMenu() {
         ImGui::SetNextItemWidth(menuWidth);
         if (ImGui::Combo(CONCAT("##_sdrpp_sink_select_", name), &stream->providerId, provStr.c_str())) {
             setStreamSink(name, providerNames[stream->providerId]);
-            core::configManager.acquire();
             saveStreamConfig(name);
-            core::configManager.release(true);
         }
 
         stream->sink->menuHandler();

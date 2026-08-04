@@ -11,9 +11,7 @@ namespace thememenu {
     void init(std::string resDir) {
         // TODO: Not hardcode theme directory
         gui::themeManager.loadThemesFromDir(resDir + "/themes/");
-        core::configManager.acquire();
-        std::string selectedThemeName = core::configManager.conf["theme"];
-        core::configManager.release();
+        std::string selectedThemeName = core::configManager.value("theme", std::string("Dark"));
 
         // Select theme by name, if not available, apply Dark theme
         themeNames = gui::themeManager.getThemeNames();
@@ -42,9 +40,7 @@ namespace thememenu {
             // Through applyScaledStyle: applyTheme() alone resets rounding/sizes
             // that the scaled style and touch overlay set.
             style::applyScaledStyle(applyTheme);
-            core::configManager.acquire();
-            core::configManager.conf["theme"] = themeNames[themeId];
-            core::configManager.release(true);
+            core::configManager.set("theme", themeNames[themeId]);
         }
     }
 }

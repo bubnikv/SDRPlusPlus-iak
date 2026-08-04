@@ -56,9 +56,7 @@ public:
         refresh();
 
         // Select device here
-        config.acquire();
-        std::string serial = config.conf["device"];
-        config.release();
+        std::string serial = config.value("device", std::string());
         selectBySerial(serial);
 
         sigpath::sourceManager.registerSource("BladeRF", &handler);
@@ -155,19 +153,11 @@ public:
 
         // Load the channelId if there are more than 1 channel
         if (reloadChannelId) {
-            config.acquire();
-            if (channelCount > 1 && config.conf["devices"].contains(info->serial)) {
-                if (config.conf["devices"][info->serial].contains("channelId")) {
-                    chanId = config.conf["devices"][info->serial]["channelId"];
-                }
-                else {
-                    chanId = 0;
-                }
+            chanId = 0;
+            if (channelCount > 1) {
+                auto txn = config.transaction();
+                txn.section("devices", info->serial).tryGet("channelId", chanId);
             }
-            else {
-                chanId = 0;
-            }
-            config.release();
         }
 
         chanId = std::clamp<int>(chanId, 0, channelCount - 1);
@@ -230,102 +220,68 @@ public:
         }
 
         // Load settings here
-        config.acquire();
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedSerial);
 
-        if (!config.conf["devices"].contains(selectedSerial)) {
-            config.conf["devices"][info->serial]["channelId"] = 0;
-            config.conf["devices"][selectedSerial]["sampleRate"] = sampleRates[0];
-            config.conf["devices"][selectedSerial]["bandwidth"] = bandwidths.size(); // Auto
-            config.conf["devices"][selectedSerial]["gainMode"] = "Manual";
-            config.conf["devices"][selectedSerial]["overallGain"] = gainRange->min;
-        }
+            // Seed whatever this device is missing, which for a device never seen
+            // before is the whole block.
+            dev.ensure("channelId", 0);
+            dev.ensure("sampleRate", sampleRates[0]);
+            dev.ensure("bandwidth", (int)bandwidths.size()); // Auto
+            dev.ensure("gainMode", "Manual");
+            dev.ensure("overallGain", gainRange->min);
 
-        // Load sample rate
-        if (config.conf["devices"][selectedSerial].contains("sampleRate")) {
-            bool found = false;
-            uint64_t sr = config.conf["devices"][selectedSerial]["sampleRate"];
-            for (int i = 0; i < sampleRates.size(); i++) {
-                if (sr == sampleRates[i]) {
-                    srId = i;
-                    sampleRate = sampleRates[i];
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                srId = 0;
-                sampleRate = sampleRates[0];
-            }
-        }
-        else {
+            // Load sample rate
             srId = 0;
             sampleRate = sampleRates[0];
-        }
-
-        // Load bandwidth
-        if (config.conf["devices"][selectedSerial].contains("bandwidth")) {
-            bwId = config.conf["devices"][selectedSerial]["bandwidth"];
-            bwId = std::clamp<int>(bwId, 0, bandwidths.size());
-        }
-        else {
-            bwId = 0;
-        }
-        config.release(true);
-
-        // Load clock source
-        clkId = clocks.keyId("onboard");
-        if (config.conf["devices"][selectedSerial].contains("clock")) {
-            std::string clkStr = config.conf["devices"][selectedSerial]["clock"];
-            if (clocks.keyExists(clkStr)) {
-                clkId = clocks.keyId(clkStr);
-            }
-        }
-
-        // Load gain mode
-        if (config.conf["devices"][selectedSerial].contains("gainMode")) {
-            std::string gm = config.conf["devices"][selectedSerial]["gainMode"];
-            bool found = false;
-            for (int i = 0; i < gainModeNames.size(); i++) {
-                if (gainModeNames[i] == gm) {
-                    gainMode = i;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                for (int i = 0; i < gainModeNames.size(); i++) {
-                    if (gainModeNames[i] == "Manual") {
-                        gainMode = i;
+            uint64_t sr = 0;
+            if (dev.tryGet("sampleRate", sr)) {
+                for (int i = 0; i < sampleRates.size(); i++) {
+                    if (sr == sampleRates[i]) {
+                        srId = i;
+                        sampleRate = sampleRates[i];
                         break;
                     }
                 }
             }
-        }
-        else {
+
+            // Load bandwidth
+            bwId = 0;
+            if (dev.tryGet("bandwidth", bwId)) {
+                bwId = std::clamp<int>(bwId, 0, bandwidths.size());
+            }
+
+            // Load clock source
+            clkId = clocks.keyId("onboard");
+            std::string clkStr;
+            if (dev.tryGet("clock", clkStr) && clocks.keyExists(clkStr)) {
+                clkId = clocks.keyId(clkStr);
+            }
+
+            // Load gain mode, falling back to Manual when the stored name is gone
+            std::string gm;
+            dev.tryGet("gainMode", gm);
             for (int i = 0; i < gainModeNames.size(); i++) {
-                if (gainModeNames[i] == "Manual") {
+                if (gainModeNames[i] == "Manual") { gainMode = i; }
+            }
+            for (int i = 0; i < gainModeNames.size(); i++) {
+                if (gainModeNames[i] == gm) {
                     gainMode = i;
                     break;
                 }
             }
-        }
 
-        // Load gain
-        if (config.conf["devices"][selectedSerial].contains("overallGain")) {
-            overallGain = config.conf["devices"][selectedSerial]["overallGain"];
-            overallGain = std::clamp<int>(overallGain, gainRange->min, gainRange->max);
-        }
-        else {
+            // Load gain
             overallGain = gainRange->min;
-        }
-
-        // Load Bias-T
-        if (selectedBladeType == BLADERF_TYPE_V2) {
-            if (config.conf["devices"][selectedSerial].contains("biasT")) {
-                biasT = config.conf["devices"][selectedSerial]["biasT"];
+            if (dev.tryGet("overallGain", overallGain)) {
+                overallGain = std::clamp<int>(overallGain, gainRange->min, gainRange->max);
             }
-            else {
+
+            // Load Bias-T
+            if (selectedBladeType == BLADERF_TYPE_V2) {
                 biasT = false;
+                dev.tryGet("biasT", biasT);
             }
         }
 
@@ -449,18 +405,14 @@ private:
             bladerf_devinfo info = _this->devInfoList[_this->devId];
             _this->selectByInfo(&info);
             core::setInputSampleRate(_this->sampleRate);
-            config.acquire();
-            config.conf["device"] = _this->selectedSerial;
-            config.release(true);
+            config.set("device", _this->selectedSerial);
         }
 
         if (SmGui::Combo(CONCAT("##_balderf_sr_sel_", _this->name), &_this->srId, _this->sampleRatesTxt.c_str())) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["sampleRate"] = _this->sampleRates[_this->srId];
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("sampleRate", _this->sampleRates[_this->srId]);
             }
         }
 
@@ -480,9 +432,7 @@ private:
             SmGui::FillWidth();
             SmGui::Combo(CONCAT("##_balderf_ch_sel_", _this->name), &_this->chanId, _this->channelNamesTxt.c_str());
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["channelId"] = _this->chanId;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("channelId", _this->chanId);
             }
         }
 
@@ -495,9 +445,7 @@ private:
                 bladerf_set_bandwidth(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), (_this->bwId == _this->bandwidths.size()) ? std::clamp<uint64_t>(_this->sampleRate, _this->bwRange->min, _this->bwRange->max) : _this->bandwidths[_this->bwId], NULL);
             }
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["bandwidth"] = _this->bwId;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("bandwidth", _this->bwId);
             }
         }
 
@@ -508,9 +456,7 @@ private:
                 _this->setClockSource(_this->clocks[_this->clkId]);
             }
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["clock"] = _this->clocks.key(_this->clkId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("clock", _this->clocks.key(_this->clkId));
             }
         }
 
@@ -527,9 +473,7 @@ private:
                 bladerf_set_gain(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->overallGain);
             }
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["gainMode"] = _this->gainModeNames[_this->gainMode];
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("gainMode", _this->gainModeNames[_this->gainMode]);
             }
         }
 
@@ -544,9 +488,7 @@ private:
                 bladerf_set_gain(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->overallGain);
             }
             if (_this->selectedSerial != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["overallGain"] = _this->overallGain;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("overallGain", _this->overallGain);
             }
         }
         if (_this->selectedSerial != "") {
@@ -558,9 +500,7 @@ private:
                 if (_this->running) {
                     bladerf_set_bias_tee(_this->openDev, BLADERF_CHANNEL_RX(_this->chanId), _this->biasT);
                 }
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["biasT"] = _this->biasT;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("biasT", _this->biasT);
             }
         }
     }

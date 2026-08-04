@@ -43,13 +43,14 @@ public:
         _streamName = streamName;
 
         // Create config if it doesn't exist
-        config.acquire();
-        if (!config.conf.contains(_streamName)) {
-            config.conf[_streamName]["device"] = "";
-            config.conf[_streamName]["devices"] = json::object();
+        std::string selected;
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section stream = txn.section(_streamName);
+            stream.ensure("device", "");
+            stream.ensure("devices", json::object());
+            stream.tryGet("device", selected);
         }
-        std::string selected = config.conf[_streamName]["device"];
-        config.release(true);
 
         // Register the play state handler
         playStateHandler.handler = playStateChangeHandler;
@@ -146,9 +147,7 @@ public:
             stop();
             start();
             if (selectedDevName != "") {
-                config.acquire();
-                config.conf[_streamName]["device"] = selectedDevName;
-                config.release(true);
+                config.transaction().section(_streamName).set("device", selectedDevName);
             }
         }
 
@@ -158,9 +157,7 @@ public:
             stop();
             start();
             if (selectedDevName != "") {
-                config.acquire();
-                config.conf[_streamName]["devices"][selectedDevName] = selectedDev.sampleRates[srId];
-                config.release(true);
+                config.transaction().section(_streamName, "devices").set(selectedDevName, selectedDev.sampleRates[srId]);
             }
         }
     }
@@ -307,15 +304,16 @@ private:
         devId = std::distance(deviceNames.begin(), devIt);
 
         // Load config
-        config.acquire();
-        if (!config.conf[_streamName]["devices"].contains(name)) {
-            config.conf[_streamName]["devices"][name] = selectedDev.sampleRates[selectedDev.defaultSrId];
+        double selectedSr = selectedDev.sampleRates[selectedDev.defaultSrId];
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section devices = txn.section(_streamName, "devices");
+            devices.ensure(name, selectedSr);
+            devices.tryGet(name, selectedSr);
         }
-        config.release(true);
 
         // Find the sample rate ID, if not use default
         bool found = false;
-        double selectedSr = config.conf[_streamName]["devices"][name];
         for (int i = 0; i < selectedDev.sampleRates.size(); i++) {
             if (selectedDev.sampleRates[i] != selectedSr) { continue; }
             srId = i;

@@ -31,19 +31,14 @@ public:
         strcpy(host, "127.0.0.1");
 
         // Load config
-        config.acquire();
-        if (config.conf[name].contains("host")) {
-            std::string h = config.conf[name]["host"];
-            strcpy(host, h.c_str());
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(name);
+            std::string h;
+            if (inst.tryGet("host", h)) { strcpy(host, h.c_str()); }
+            if (inst.tryGet("port", port)) { port = std::clamp<int>(port, 1, 65535); }
+            inst.tryGet("ifFreq", ifFreq);
         }
-        if (config.conf[name].contains("port")) {
-            port = config.conf[name]["port"];
-            port = std::clamp<int>(port, 1, 65535);
-        }
-        if (config.conf[name].contains("ifFreq")) {
-            ifFreq = config.conf[name]["ifFreq"];
-        }
-        config.release();
 
         _retuneHandler.ctx = this;
         _retuneHandler.handler = retuneHandler;
@@ -115,16 +110,12 @@ private:
 
         if (_this->running) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_rigctl_cli_host_", _this->name), _this->host, 1023)) {
-            config.acquire();
-            config.conf[_this->name]["host"] = std::string(_this->host);
-            config.release(true);
+            config.transaction().section(_this->name).set("host", std::string(_this->host));
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_rigctl_cli_port_", _this->name), &_this->port, 0, 0)) {
-            config.acquire();
-            config.conf[_this->name]["port"] = _this->port;
-            config.release(true);
+            config.transaction().section(_this->name).set("port", _this->port);
         }
         if (_this->running) { style::endDisabled(); }
 
@@ -134,9 +125,7 @@ private:
             if (_this->running) {
                 sigpath::sourceManager.setPanadapterIF(_this->ifFreq);
             }
-            config.acquire();
-            config.conf[_this->name]["ifFreq"] = _this->ifFreq;
-            config.release(true);
+            config.transaction().section(_this->name).set("ifFreq", _this->ifFreq);
         }
 
         if (_this->running && ImGui::ActionButton(CONCAT("Stop##_rigctl_cli_stop_", _this->name))) {

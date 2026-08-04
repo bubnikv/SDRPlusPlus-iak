@@ -24,9 +24,7 @@ namespace bandplanmenu {
         void setEnabled(bool en) {
             bandPlanEnabled = en;
             bandPlanEnabled ? gui::waterfall.showBandplan() : gui::waterfall.hideBandplan();
-            core::configManager.acquire();
-            core::configManager.conf["bandPlanEnabled"] = bandPlanEnabled;
-            core::configManager.release(true);
+            core::configManager.set("bandPlanEnabled", bandPlanEnabled);
         }
     };
     BandPlanToggle toggle;
@@ -42,8 +40,15 @@ namespace bandplanmenu {
             return;
         }
 
-        if (bandplan::bandplans.find(core::configManager.conf["bandPlan"]) != bandplan::bandplans.end()) {
-            std::string name = core::configManager.conf["bandPlan"];
+        std::string name;
+        {
+            auto txn = core::configManager.transaction();
+            txn.tryGet("bandPlan", name);
+            txn.tryGet("bandPlanEnabled", bandPlanEnabled);
+            txn.tryGet("bandPlanPos", bandPlanPos);
+        }
+
+        if (bandplan::bandplans.find(name) != bandplan::bandplans.end()) {
             bandplanId = std::distance(bandplan::bandplanNames.begin(), std::find(bandplan::bandplanNames.begin(),
                                                                                   bandplan::bandplanNames.end(), name));
             gui::waterfall.bandplan = &bandplan::bandplans[name];
@@ -52,9 +57,7 @@ namespace bandplanmenu {
             gui::waterfall.bandplan = &bandplan::bandplans[bandplan::bandplanNames[0]];
         }
 
-        bandPlanEnabled = core::configManager.conf["bandPlanEnabled"];
         bandPlanEnabled ? gui::waterfall.showBandplan() : gui::waterfall.hideBandplan();
-        bandPlanPos = core::configManager.conf["bandPlanPos"];
         gui::waterfall.setBandPlanPos(bandPlanPos);
     }
 
@@ -63,9 +66,7 @@ namespace bandplanmenu {
         ImGui::PushItemWidth(menuColumnWidth);
         if (ImGui::Combo("##_bandplan_name_", &bandplanId, bandplan::bandplanNameTxt.c_str())) {
             gui::waterfall.bandplan = &bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
-            core::configManager.acquire();
-            core::configManager.conf["bandPlan"] = bandplan::bandplanNames[bandplanId];
-            core::configManager.release(true);
+            core::configManager.set("bandPlan", bandplan::bandplanNames[bandplanId]);
         }
         ImGui::PopItemWidth();
 
@@ -73,9 +74,7 @@ namespace bandplanmenu {
         ImGui::SetNextItemWidth(menuColumnWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo("##_bandplan_pos_", &bandPlanPos, bandPlanPosTxt)) {
             gui::waterfall.setBandPlanPos(bandPlanPos);
-            core::configManager.acquire();
-            core::configManager.conf["bandPlanPos"] = bandPlanPos;
-            core::configManager.release(true);
+            core::configManager.set("bandPlanPos", bandPlanPos);
         }
 
         const bandplan::BandPlan_t& plan =

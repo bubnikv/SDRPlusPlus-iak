@@ -109,9 +109,7 @@ public:
 
         if (core::args["server"].b()) { return; }
 
-        config.acquire();
-        fileSelect.setPath(config.conf["path"], true);
-        config.release();
+        fileSelect.setPath(config.value("path", std::string()), true);
 
         handler.ctx = this;
         handler.selectHandler = menuSelected;
@@ -241,9 +239,7 @@ private:
                 }
             }
             _this->updateFormatStr();
-            config.acquire();
-            config.conf["path"] = _this->fileSelect.path;
-            config.release(true);
+            config.set("path", _this->fileSelect.path);
         }
 
         if (!_this->formatStr.empty()) {

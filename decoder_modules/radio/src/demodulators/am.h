@@ -18,8 +18,7 @@ namespace demod {
             _config = config;
 
             // Load config
-            config->acquire();
-            auto& cfg = config->conf[name][getName()];
+            nlohmann::json cfg = loadSection();
             if (cfg.contains("agcMode")) {
                 agcMode = std::clamp<int>(cfg["agcMode"], 0, 2);
             }
@@ -31,7 +30,6 @@ namespace demod {
             loadConf(cfg, "agcGain", agcGain);
             loadConf(cfg, "agcAttack", agcAttack);
             loadConf(cfg, "agcDecay", agcDecay);
-            config->release();
 
             // Define structure
             demod.init(input, (dsp::demod::AM<dsp::stereo_t>::AGCMode)agcMode, bandwidth, agcAttack / getIFSampleRate(), agcDecay / getIFSampleRate(), 100.0 / getIFSampleRate(), getIFSampleRate());

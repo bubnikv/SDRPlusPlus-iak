@@ -63,9 +63,7 @@ public:
         refresh();
 
         // Select device
-        config.acquire();
-        devDesc = config.conf["device"];
-        config.release();
+        devDesc = config.value("device", std::string());
         select(devDesc);
 
         // Register source
@@ -198,38 +196,28 @@ private:
         rfId = 0;
 
         // Load device config
-        config.acquire();
-        if (config.conf["devices"][devDesc].contains("samplerate")) {
-            samplerate = config.conf["devices"][devDesc]["samplerate"];
-        }
-        if (config.conf["devices"][devDesc].contains("bandwidth")) {
-            bandwidth = config.conf["devices"][devDesc]["bandwidth"];
-        }
-        if (config.conf["devices"][devDesc].contains("gainMode")) {
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", devDesc);
+            dev.tryGet("samplerate", samplerate);
+            dev.tryGet("bandwidth", bandwidth);
+
             // Select given gain mode or default if invalid
-            std::string gm = config.conf["devices"][devDesc]["gainMode"];
-            if (gainModes.keyExists(gm)) {
+            std::string gm;
+            if (dev.tryGet("gainMode", gm) && gainModes.keyExists(gm)) {
                 gmId = gainModes.keyId(gm);
             }
-            else {
-                gmId = 0;
+
+            if (dev.tryGet("gain", gain)) {
+                gain = std::clamp<int>(gain, -1.0f, 73.0f);
             }
-        }
-        if (config.conf["devices"][devDesc].contains("gain")) {
-            gain = config.conf["devices"][devDesc]["gain"];
-            gain = std::clamp<int>(gain, -1.0f, 73.0f);
-        }
-        if (config.conf["devices"][devDesc].contains("rfInput")) {
+
             // Select given RF input or default if invalid
-            std::string rf = config.conf["devices"][devDesc]["rfInput"];
-            if (rfInputs.keyExists(rf)) {
+            std::string rf;
+            if (dev.tryGet("rfInput", rf) && rfInputs.keyExists(rf)) {
                 rfId = rfInputs.keyId(rf);
             }
-            else {
-                rfId = 0;
-            }
         }
-        config.release();
 
         // Update samplerate ID
         if (samplerates.keyExists(samplerate)) {
@@ -370,18 +358,14 @@ private:
         if (SmGui::Combo("##plutosdr_dev_sel", &_this->devId, _this->devices.txt)) {
             _this->select(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->samplerate);
-            config.acquire();
-            config.conf["device"] = _this->devices.key(_this->devId);
-            config.release(true);
+            config.set("device", _this->devices.key(_this->devId));
         }
 
         if (SmGui::Combo(CONCAT("##_pluto_sr_", _this->name), &_this->srId, _this->samplerates.txt)) {
             _this->samplerate = _this->samplerates.value(_this->srId);
             core::setInputSampleRate(_this->samplerate);
             if (!_this->devDesc.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->devDesc]["samplerate"] = _this->samplerate;
-                config.release(true);
+                config.transaction().section("devices", _this->devDesc).set("samplerate", _this->samplerate);
             }
         }
 
@@ -404,9 +388,7 @@ private:
                 _this->setBandwidth(_this->bandwidth);
             }
             if (!_this->devDesc.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->devDesc]["bandwidth"] = _this->bandwidth;
-                config.release(true);
+                config.transaction().section("devices", _this->devDesc).set("bandwidth", _this->bandwidth);
             }
         }
 
@@ -418,9 +400,7 @@ private:
                 iio_channel_attr_write(_this->rxChan, "gain_control_mode", _this->gainModes.value(_this->gmId).c_str());
             }
             if (!_this->devDesc.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->devDesc]["gainMode"] = _this->gainModes.key(_this->gmId);
-                config.release(true);
+                config.transaction().section("devices", _this->devDesc).set("gainMode", _this->gainModes.key(_this->gmId));
             }
         }
 
@@ -432,9 +412,7 @@ private:
                 iio_channel_attr_write_double(_this->rxChan, "hardwaregain", _this->gain);
             }
             if (!_this->devDesc.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->devDesc]["gain"] = _this->gain;
-                config.release(true);
+                config.transaction().section("devices", _this->devDesc).set("gain", _this->gain);
             }
         }
         if (_this->gmId) { SmGui::EndDisabled(); }
@@ -446,9 +424,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_pluto_rfinput_", _this->name), &_this->rfId, _this->rfInputs.txt)) {
             if (!_this->devDesc.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->devDesc]["rfInput"] = _this->rfInputs.key(_this->rfId);
-                config.release(true);
+                config.transaction().section("devices", _this->devDesc).set("rfInput", _this->rfInputs.key(_this->rfId));
             }
         }
         if (_this->running) { SmGui::EndDisabled(); }
@@ -599,13 +575,11 @@ MOD_EXPORT void _INIT_() {
     config.enableAutoSave();
 
     // Reset the configuration if the old format is still used
-    config.acquire();
-    if (!config.conf.contains("device") || !config.conf.contains("devices")) {
-        config.conf = defConf;
-        config.release(true);
-    }
-    else {
-        config.release();
+    {
+        auto txn = config.transaction();
+        if (!txn.contains("device") || !txn.contains("devices")) {
+            txn.reset(defConf);
+        }
     }
 }
 

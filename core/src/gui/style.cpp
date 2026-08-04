@@ -114,15 +114,15 @@ namespace style {
         if (touchStyle) { applyTouchOverlay(); }
     }
 
-    void migrateLogicalDimension(nlohmann::json& conf, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical) {
-        if (conf.value(markerKey, false)) { return; }
+    void migrateLogicalDimension(ConfigManager::Transaction& txn, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical) {
+        if (txn.value(markerKey, false)) { return; }
 
-        float value = conf[valueKey].get<float>();
+        float value = txn.value(valueKey, minLogical);
         if (valueLooksPhysical(value)) {
             value = (float)unscale(value);
         }
-        conf[valueKey] = (int)std::round(std::max(value, minLogical));
-        conf[markerKey] = true;
+        txn.set(valueKey, (int)std::round(std::max(value, minLogical)));
+        txn.set(markerKey, true);
     }
 
     float menuButtonInset() {

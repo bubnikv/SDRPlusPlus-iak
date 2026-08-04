@@ -28,25 +28,23 @@ ConfigManager config;
 RadiosondeDecoderModule::RadiosondeDecoderModule(std::string name)
 {
 	float bw;
-	bool created = false;
-	int typeToSelect;
+	int typeToSelect = 0;
 	std::string gpxPath, ptuPath;
 
 	this->name = name;
 	selectedType = -1;
 	activeDecoder = NULL;
 
-	config.acquire();
-	if (!config.conf.contains(name)) {
-		config.conf[name]["gpxPath"] = getTempFile("radiosonde.gpx");
-		config.conf[name]["ptuPath"] = getTempFile("radiosonde_ptu.csv");
-		config.conf[name]["sondeType"] = 0;
-		created = true;
+	{
+		auto txn = config.transaction();
+		ConfigManager::Section inst = txn.section(name);
+		inst.ensure("gpxPath", getTempFile("radiosonde.gpx"));
+		inst.ensure("ptuPath", getTempFile("radiosonde_ptu.csv"));
+		inst.ensure("sondeType", 0);
+		inst.tryGet("gpxPath", gpxPath);
+		inst.tryGet("ptuPath", ptuPath);
+		inst.tryGet("sondeType", typeToSelect);
 	}
-	gpxPath = config.conf[name]["gpxPath"];
-	ptuPath = config.conf[name]["ptuPath"];
-	typeToSelect = config.conf[name]["sondeType"];
-	config.release(created);
 
 	strncpy(gpxFilename, gpxPath.c_str(), sizeof(gpxFilename)-1);
 	strncpy(ptuFilename, ptuPath.c_str(), sizeof(ptuFilename)-1);
@@ -341,9 +339,7 @@ RadiosondeDecoderModule::onGPXOutputChanged(void *ctx)
 	}
 
 	if (_this->gpxOutput) {
-		config.acquire();
-		config.conf[_this->name]["gpxPath"] = _this->gpxFilename;
-		config.release(true);
+		config.transaction().section(_this->name).set("gpxPath", _this->gpxFilename);
 	}
 }
 
@@ -357,9 +353,7 @@ RadiosondeDecoderModule::onPTUOutputChanged(void *ctx)
 		_this->ptuWriter.deinit();
 	}
 	if (_this->ptuOutput) {
-		config.acquire();
-		config.conf[_this->name]["ptuPath"] = _this->ptuFilename;
-		config.release(true);
+		config.transaction().section(_this->name).set("ptuPath", _this->ptuFilename);
 	}
 }
 
@@ -382,9 +376,7 @@ RadiosondeDecoderModule::onTypeSelected(void *ctx, int selection)
 	_this->selectedType = selection;
 
 	/* Save selection to config */
-	config.acquire();
-	config.conf[_this->name]["sondeType"] = selection;
-	config.release(true);
+	config.transaction().section(_this->name).set("sondeType", selection);
 
 	/* Get new bandwidth */
 	bw = std::get<1>(_this->supportedTypes[selection]);

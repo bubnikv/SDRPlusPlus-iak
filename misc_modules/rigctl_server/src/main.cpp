@@ -37,25 +37,29 @@ public:
     SigctlServerModule(std::string name) {
         this->name = name;
 
-        config.acquire();
-        if (!config.conf.contains(name)) {
-            config.conf[name]["host"] = "localhost";
-            config.conf[name]["port"] = 4532;
-            config.conf[name]["tuning"] = true;
-            config.conf[name]["recording"] = false;
-            config.conf[name]["autoStart"] = false;
-            config.conf[name]["vfo"] = "";
-            config.conf[name]["recorder"] = "";
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(name);
+
+            // Seed whatever this instance is missing, which for one never seen
+            // before is the whole block.
+            inst.ensure("host", "localhost");
+            inst.ensure("port", 4532);
+            inst.ensure("tuning", true);
+            inst.ensure("recording", false);
+            inst.ensure("autoStart", false);
+            inst.ensure("vfo", "");
+            inst.ensure("recorder", "");
+
+            std::string host;
+            if (inst.tryGet("host", host)) { strcpy(hostname, host.c_str()); }
+            inst.tryGet("port", port);
+            inst.tryGet("tuning", tuningEnabled);
+            inst.tryGet("recording", recordingEnabled);
+            inst.tryGet("autoStart", autoStart);
+            inst.tryGet("vfo", selectedVfo);
+            inst.tryGet("recorder", selectedRecorder);
         }
-        std::string host = config.conf[name]["host"];
-        strcpy(hostname, host.c_str());
-        port = config.conf[name]["port"];
-        tuningEnabled = config.conf[name]["tuning"];
-        recordingEnabled = config.conf[name]["recording"];
-        autoStart = config.conf[name]["autoStart"];
-        selectedVfo = config.conf[name]["vfo"];
-        selectedRecorder = config.conf[name]["recorder"];
-        config.release(true);
 
         gui::menu.registerEntry(name, menuHandler, this, NULL);
     }
@@ -115,16 +119,12 @@ private:
 
         if (listening) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_rigctl_srv_host_", _this->name), _this->hostname, 1023)) {
-            config.acquire();
-            config.conf[_this->name]["host"] = std::string(_this->hostname);
-            config.release(true);
+            config.transaction().section(_this->name).set("host", std::string(_this->hostname));
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_rigctl_srv_port_", _this->name), &_this->port, 0, 0)) {
-            config.acquire();
-            config.conf[_this->name]["port"] = _this->port;
-            config.release(true);
+            config.transaction().section(_this->name).set("port", _this->port);
         }
         if (listening) { style::endDisabled(); }
 
@@ -135,9 +135,7 @@ private:
             if (ImGui::Combo(CONCAT("##_rigctl_srv_vfo_", _this->name), &_this->vfoId, _this->vfoNamesTxt.c_str())) {
                 _this->selectVfoByName(_this->vfoNames[_this->vfoId], false);
                 if (!_this->selectedVfo.empty()) {
-                    config.acquire();
-                    config.conf[_this->name]["vfo"] = _this->selectedVfo;
-                    config.release(true);
+                    config.transaction().section(_this->name).set("vfo", _this->selectedVfo);
                 }
             }
         }
@@ -149,9 +147,7 @@ private:
             if (ImGui::Combo(CONCAT("##_rigctl_srv_rec_", _this->name), &_this->recorderId, _this->recorderNamesTxt.c_str())) {
                 _this->selectRecorderByName(_this->recorderNames[_this->recorderId], false);
                 if (!_this->selectedRecorder.empty()) {
-                    config.acquire();
-                    config.conf[_this->name]["recorder"] = _this->selectedRecorder;
-                    config.release(true);
+                    config.transaction().section(_this->name).set("recorder", _this->selectedRecorder);
                 }
             }
         }
@@ -160,22 +156,16 @@ private:
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         if (ImGui::Checkbox(CONCAT("Tuning##_rigctl_srv_tune_ena_", _this->name), &_this->tuningEnabled)) {
-            config.acquire();
-            config.conf[_this->name]["tuning"] = _this->tuningEnabled;
-            config.release(true);
+            config.transaction().section(_this->name).set("tuning", _this->tuningEnabled);
         }
         ImGui::TableSetColumnIndex(1);
         if (ImGui::Checkbox(CONCAT("Recording##_rigctl_srv_tune_ena_", _this->name), &_this->recordingEnabled)) {
-            config.acquire();
-            config.conf[_this->name]["recording"] = _this->recordingEnabled;
-            config.release(true);
+            config.transaction().section(_this->name).set("recording", _this->recordingEnabled);
         }
         ImGui::EndTable();
 
         if (ImGui::Checkbox(CONCAT("Listen on startup##_rigctl_srv_auto_lst_", _this->name), &_this->autoStart)) {
-            config.acquire();
-            config.conf[_this->name]["autoStart"] = _this->autoStart;
-            config.release(true);
+            config.transaction().section(_this->name).set("autoStart", _this->autoStart);
         }
 
         if (listening && ImGui::ActionButton(CONCAT("Stop##_rigctl_srv_stop_", _this->name))) {

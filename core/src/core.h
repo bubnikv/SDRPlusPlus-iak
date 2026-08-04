@@ -18,11 +18,12 @@ namespace core {
     // process may be terminated before the auto-save interval expires.
     SDRPP_CPP_EXPORT void saveState();
 
-    // Effective resource paths. Returns the value from configManager.conf,
+    // Effective resource paths. Returns the value from the config,
     // except under AppImage builds (BUILD_APPIMAGE) on Linux when $APPDIR
     // is set — in which case the bundled paths inside the AppImage mount
     // are returned. The accessor pattern keeps the FUSE mount point out
-    // of the persisted config file.
+    // of the persisted config file. Both take the config lock themselves, so
+    // they must not be called with a transaction open.
     SDRPP_CPP_EXPORT std::string getModulesDirectory();
     SDRPP_CPP_EXPORT std::string getResourcesDirectory();
 

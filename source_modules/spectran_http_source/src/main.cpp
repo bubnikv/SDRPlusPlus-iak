@@ -124,16 +124,12 @@ private:
         if (connected) { SmGui::BeginDisabled(); }
 
         if (SmGui::InputText(CONCAT("##spectran_http_host_", _this->name), _this->hostname, 1023)) {
-            config.acquire();
-            config.conf["hostname"] = _this->hostname;
-            config.release(true);
+            config.set("hostname", _this->hostname);
         }
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(CONCAT("##spectran_http_port_", _this->name), &_this->port, 0, 0)) {
-            config.acquire();
-            config.conf["port"] = _this->port;
-            config.release(true);
+            config.set("port", _this->port);
         }
 
         if (connected) { SmGui::EndDisabled(); }

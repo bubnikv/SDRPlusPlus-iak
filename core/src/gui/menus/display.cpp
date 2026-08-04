@@ -54,9 +54,51 @@ namespace displaymenu {
         fftSizes.define(2048, "2048", 2048);
         fftSizes.define(1024, "1024", 1024);
 
-        showWaterfall = core::configManager.conf["showWaterfall"];
+        // Define FFT windows, in order of increasing dynamic range
+        fftWindows.define("Rectangular", "Rectangular", IQFrontEnd::FFTWindow::RECTANGULAR);
+        fftWindows.define("Hamming", "Hamming", IQFrontEnd::FFTWindow::HAMMING);
+        fftWindows.define("Hann", "Hann", IQFrontEnd::FFTWindow::HANN);
+        fftWindows.define("Blackman", "Blackman", IQFrontEnd::FFTWindow::BLACKMAN);
+        fftWindows.define("Nuttall", "Nuttall", IQFrontEnd::FFTWindow::NUTTALL);
+        fftWindows.define("Blackman-Harris 4", "Blackman-Harris 4", IQFrontEnd::FFTWindow::BLACKMAN_HARRIS4);
+        fftWindows.define("Blackman-Harris 7", "Blackman-Harris 7", IQFrontEnd::FFTWindow::BLACKMAN_HARRIS7);
+
+        // Everything the menu remembers is read in one pass and applied below,
+        // so the config lock is never held across a call into the waterfall or
+        // the front end.
+        std::string colormapName;
+        int fftSize = 65536;
+        std::string winName = "Nuttall";
+        float factor = 1.0f;
+        {
+            auto txn = core::configManager.transaction();
+            txn.tryGet("showWaterfall", showWaterfall);
+            txn.tryGet("colorMap", colormapName);
+            txn.tryGet("fullWaterfallUpdate", fullWaterfallUpdate);
+            txn.tryGet("fftSize", fftSize);
+            txn.tryGet("fftRate", fftRate);
+
+            // The window is stored by name; legacy configs stored an index into
+            // the {Rectangular, Blackman, Nuttall} list.
+            json fftWindowConf = txn.value("fftWindow", json());
+            if (fftWindowConf.is_string()) {
+                winName = fftWindowConf;
+            }
+            else if (fftWindowConf.is_number_integer()) {
+                const char* legacyWindows[] = { "Rectangular", "Blackman", "Nuttall" };
+                winName = legacyWindows[std::clamp<int>(fftWindowConf, 0, 2)];
+                txn.set("fftWindow", winName);
+            }
+
+            txn.tryGet("lockMenuOrder", gui::menu.locked);
+            txn.tryGet("fftHold", fftHold);
+            txn.tryGet("fftHoldSpeed", fftHoldSpeed);
+            txn.tryGet("fftSmoothing", fftSmoothing);
+            txn.tryGet("fftSmoothingSpeed", fftSmoothingSpeed);
+            txn.tryGet("uiScaleFactor", factor);
+        }
+
         showWaterfall ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall();
-        std::string colormapName = core::configManager.conf["colorMap"];
         if (colormaps::maps.find(colormapName) != colormaps::maps.end()) {
             colormaps::Map map = colormaps::maps[colormapName];
             gui::waterfall.updatePalletteFromArray(map.map, map.entryCount);
@@ -72,52 +114,17 @@ namespace displaymenu {
             }
         }
 
-        fullWaterfallUpdate = core::configManager.conf["fullWaterfallUpdate"];
         gui::waterfall.setFullWaterfallUpdate(fullWaterfallUpdate);
 
-        fftSizeId = fftSizes.valueId(65536);
-        int size = core::configManager.conf["fftSize"];
-        if (fftSizes.keyExists(size)) {
-            fftSizeId = fftSizes.keyId(size);
-        }
+        fftSizeId = fftSizes.keyExists(fftSize) ? fftSizes.keyId(fftSize) : fftSizes.valueId(65536);
         sigpath::iqFrontEnd.setFFTSize(fftSizes.value(fftSizeId));
 
-        fftRate = core::configManager.conf["fftRate"];
         sigpath::iqFrontEnd.setFFTRate(fftRate);
 
-        // Define FFT windows, in order of increasing dynamic range
-        fftWindows.define("Rectangular", "Rectangular", IQFrontEnd::FFTWindow::RECTANGULAR);
-        fftWindows.define("Hamming", "Hamming", IQFrontEnd::FFTWindow::HAMMING);
-        fftWindows.define("Hann", "Hann", IQFrontEnd::FFTWindow::HANN);
-        fftWindows.define("Blackman", "Blackman", IQFrontEnd::FFTWindow::BLACKMAN);
-        fftWindows.define("Nuttall", "Nuttall", IQFrontEnd::FFTWindow::NUTTALL);
-        fftWindows.define("Blackman-Harris 4", "Blackman-Harris 4", IQFrontEnd::FFTWindow::BLACKMAN_HARRIS4);
-        fftWindows.define("Blackman-Harris 7", "Blackman-Harris 7", IQFrontEnd::FFTWindow::BLACKMAN_HARRIS7);
-
-        // The window is stored by name; legacy configs stored an index into
-        // the {Rectangular, Blackman, Nuttall} list.
-        std::string winName = "Nuttall";
-        json fftWindowConf = core::configManager.conf["fftWindow"];
-        if (fftWindowConf.is_string()) {
-            winName = fftWindowConf;
-        }
-        else if (fftWindowConf.is_number_integer()) {
-            const char* legacyWindows[] = { "Rectangular", "Blackman", "Nuttall" };
-            winName = legacyWindows[std::clamp<int>(fftWindowConf, 0, 2)];
-            core::configManager.acquire();
-            core::configManager.conf["fftWindow"] = winName;
-            core::configManager.release(true);
-        }
         selectedWindow = fftWindows.keyExists(winName) ? fftWindows.keyId(winName) : fftWindows.keyId("Nuttall");
         sigpath::iqFrontEnd.setFFTWindow(fftWindows.value(selectedWindow));
 
-        gui::menu.locked = core::configManager.conf["lockMenuOrder"];
-
-        fftHold = core::configManager.conf["fftHold"];
-        fftHoldSpeed = core::configManager.conf["fftHoldSpeed"];
         gui::waterfall.setFFTHold(fftHold);
-        fftSmoothing = core::configManager.conf["fftSmoothing"];
-        fftSmoothingSpeed = core::configManager.conf["fftSmoothingSpeed"];
         gui::waterfall.setFFTSmoothing(fftSmoothing);
         updateFFTSpeeds();
 
@@ -131,16 +138,13 @@ namespace displaymenu {
         uiScaleFactors.define(2.00f, "200%", 2.00f);
         // valueId() throws on unknown values (it never returns negative), so a
         // hand-edited config must be checked first or it aborts startup.
-        float factor = core::configManager.conf["uiScaleFactor"];
         uiScaleFactorId = uiScaleFactors.valueExists(factor) ? uiScaleFactors.valueId(factor) : uiScaleFactors.valueId(1.00f);
     }
 
     void setWaterfallShown(bool shown) {
         showWaterfall = shown;
         showWaterfall ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall();
-        core::configManager.acquire();
-        core::configManager.conf["showWaterfall"] = showWaterfall;
-        core::configManager.release(true);
+        core::configManager.set("showWaterfall", showWaterfall);
     }
 
     void checkKeybinds() {
@@ -158,53 +162,39 @@ namespace displaymenu {
 
         if (ImGui::Checkbox("Full Waterfall Update##_sdrpp", &fullWaterfallUpdate)) {
             gui::waterfall.setFullWaterfallUpdate(fullWaterfallUpdate);
-            core::configManager.acquire();
-            core::configManager.conf["fullWaterfallUpdate"] = fullWaterfallUpdate;
-            core::configManager.release(true);
+            core::configManager.set("fullWaterfallUpdate", fullWaterfallUpdate);
         }
 
         if (ImGui::Checkbox("Lock Menu Order##_sdrpp", &gui::menu.locked)) {
-            core::configManager.acquire();
-            core::configManager.conf["lockMenuOrder"] = gui::menu.locked;
-            core::configManager.release(true);
+            core::configManager.set("lockMenuOrder", gui::menu.locked);
         }
 
         if (ImGui::Checkbox("FFT Hold##_sdrpp", &fftHold)) {
             gui::waterfall.setFFTHold(fftHold);
-            core::configManager.acquire();
-            core::configManager.conf["fftHold"] = fftHold;
-            core::configManager.release(true);
+            core::configManager.set("fftHold", fftHold);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt("##sdrpp_fft_hold_speed", &fftHoldSpeed)) {
             updateFFTSpeeds();
-            core::configManager.acquire();
-            core::configManager.conf["fftHoldSpeed"] = fftHoldSpeed;
-            core::configManager.release(true);
+            core::configManager.set("fftHoldSpeed", fftHoldSpeed);
         }
 
         if (ImGui::Checkbox("FFT Smoothing##_sdrpp", &fftSmoothing)) {
             gui::waterfall.setFFTSmoothing(fftSmoothing);
-            core::configManager.acquire();
-            core::configManager.conf["fftSmoothing"] = fftSmoothing;
-            core::configManager.release(true);
+            core::configManager.set("fftSmoothing", fftSmoothing);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt("##sdrpp_fft_smoothing_speed", &fftSmoothingSpeed)) {
             fftSmoothingSpeed = std::max<int>(fftSmoothingSpeed, 1);
             updateFFTSpeeds();
-            core::configManager.acquire();
-            core::configManager.conf["fftSmoothingSpeed"] = fftSmoothingSpeed;
-            core::configManager.release(true);
+            core::configManager.set("fftSmoothingSpeed", fftSmoothingSpeed);
         }
 
         if (ImGui::Checkbox("Touch-Friendly UI##_sdrpp", &style::touchStyle)) {
             style::applyScaledStyle(thememenu::applyTheme);
-            core::configManager.acquire();
-            core::configManager.conf["touchStyle"] = style::touchStyle;
-            core::configManager.release(true);
+            core::configManager.set("touchStyle", style::touchStyle);
         }
 
         ImGui::LeftLabel("UI Scale Adjustment");
@@ -232,25 +222,19 @@ namespace displaymenu {
             fftRate = std::max<int>(1, fftRate);
             sigpath::iqFrontEnd.setFFTRate(fftRate);
             updateFFTSpeeds();
-            core::configManager.acquire();
-            core::configManager.conf["fftRate"] = fftRate;
-            core::configManager.release(true);
+            core::configManager.set("fftRate", fftRate);
         }
 
         ImGui::LeftLabelFill("FFT Size");
         if (ImGui::Combo("##sdrpp_fft_size", &fftSizeId, fftSizes.txt)) {
             sigpath::iqFrontEnd.setFFTSize(fftSizes.value(fftSizeId));
-            core::configManager.acquire();
-            core::configManager.conf["fftSize"] = fftSizes.key(fftSizeId);
-            core::configManager.release(true);
+            core::configManager.set("fftSize", fftSizes.key(fftSizeId));
         }
 
         ImGui::LeftLabelFill("FFT Window");
         if (ImGui::Combo("##sdrpp_fft_window", &selectedWindow, fftWindows.txt)) {
             sigpath::iqFrontEnd.setFFTWindow(fftWindows.value(selectedWindow));
-            core::configManager.acquire();
-            core::configManager.conf["fftWindow"] = fftWindows.key(selectedWindow);
-            core::configManager.release(true);
+            core::configManager.set("fftWindow", fftWindows.key(selectedWindow));
         }
 
         if (colorMapNames.size() > 0) {
@@ -258,9 +242,7 @@ namespace displaymenu {
             if (ImGui::Combo("##_sdrpp_color_map_sel", &colorMapId, colorMapNamesTxt.c_str())) {
                 colormaps::Map map = colormaps::maps[colorMapNames[colorMapId]];
                 gui::waterfall.updatePalletteFromArray(map.map, map.entryCount);
-                core::configManager.acquire();
-                core::configManager.conf["colorMap"] = colorMapNames[colorMapId];
-                core::configManager.release(true);
+                core::configManager.set("colorMap", colorMapNames[colorMapId]);
                 colorMapAuthor = map.author;
             }
             ImGui::Text("Color map Author: %s", colorMapAuthor.c_str());

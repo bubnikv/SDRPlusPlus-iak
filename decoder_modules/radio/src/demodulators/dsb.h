@@ -20,9 +20,7 @@ namespace demod {
             _config = config;
 
             // Load config
-            config->acquire();
-            agc.load(config->conf[name][getName()]);
-            config->release();
+            agc.load(loadSection());
 
             // Define structure
             demod.init(input, dsp::demod::SSB<dsp::stereo_t>::Mode::DSB, bandwidth, getIFSampleRate(), agc.attack / getIFSampleRate(), agc.decay / getIFSampleRate());

@@ -49,9 +49,12 @@ public:
         }
 
         // Select device from config
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial;
+        {
+            auto txn = config.transaction();
+            txn.ensure("device", "");
+            txn.tryGet("device", devSerial);
+        }
         selectByString(devSerial);
 
         sigpath::sourceManager.registerSource("Airspy", &handler);
@@ -175,79 +178,68 @@ public:
         selectedSerStr = std::string(buf);
 
         // Load config here
-        config.acquire();
-        bool created = false;
-        if (!config.conf["devices"].contains(selectedSerStr)) {
-            created = true;
-            config.conf["devices"][selectedSerStr]["sampleRate"] = 10000000;
-            config.conf["devices"][selectedSerStr]["gainMode"] = 0;
-            config.conf["devices"][selectedSerStr]["sensitiveGain"] = 0;
-            config.conf["devices"][selectedSerStr]["linearGain"] = 0;
-            config.conf["devices"][selectedSerStr]["lnaGain"] = 0;
-            config.conf["devices"][selectedSerStr]["mixerGain"] = 0;
-            config.conf["devices"][selectedSerStr]["vgaGain"] = 0;
-            config.conf["devices"][selectedSerStr]["lnaAgc"] = false;
-            config.conf["devices"][selectedSerStr]["mixerAgc"] = false;
-            config.conf["devices"][selectedSerStr]["biasT"] = false;
-        }
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedSerStr);
 
-        // Load sample rate
-        srId = 0;
-        sampleRate = sampleRateList[0];
-        if (config.conf["devices"][selectedSerStr].contains("sampleRate")) {
-            int selectedSr = config.conf["devices"][selectedSerStr]["sampleRate"];
-            for (int i = 0; i < sampleRateList.size(); i++) {
-                if (sampleRateList[i] == selectedSr) {
-                    srId = i;
-                    sampleRate = selectedSr;
-                    break;
+            // Seed whatever this device is missing, which for a device never seen
+            // before is the whole block.
+            dev.ensure("sampleRate", 10000000);
+            dev.ensure("gainMode", 0);
+            dev.ensure("sensitiveGain", 0);
+            dev.ensure("linearGain", 0);
+            dev.ensure("lnaGain", 0);
+            dev.ensure("mixerGain", 0);
+            dev.ensure("vgaGain", 0);
+            dev.ensure("lnaAgc", false);
+            dev.ensure("mixerAgc", false);
+            dev.ensure("biasT", false);
+
+            // Load sample rate
+            srId = 0;
+            sampleRate = sampleRateList[0];
+            int selectedSr = 0;
+            if (dev.tryGet("sampleRate", selectedSr)) {
+                for (int i = 0; i < sampleRateList.size(); i++) {
+                    if (sampleRateList[i] == selectedSr) {
+                        srId = i;
+                        sampleRate = selectedSr;
+                        break;
+                    }
                 }
             }
-        }
 
-        // Load gains
-        if (config.conf["devices"][selectedSerStr].contains("gainMode")) {
-            gainMode = config.conf["devices"][selectedSerStr]["gainMode"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("sensitiveGain")) {
-            sensitiveGain = config.conf["devices"][selectedSerStr]["sensitiveGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("linearGain")) {
-            linearGain = config.conf["devices"][selectedSerStr]["linearGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("lnaGain")) {
-            lnaGain = config.conf["devices"][selectedSerStr]["lnaGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("mixerGain")) {
-            mixerGain = config.conf["devices"][selectedSerStr]["mixerGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("vgaGain")) {
-            vgaGain = config.conf["devices"][selectedSerStr]["vgaGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("lnaAgc")) {
-            lnaAgc = config.conf["devices"][selectedSerStr]["lnaAgc"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("mixerAgc")) {
-            mixerAgc = config.conf["devices"][selectedSerStr]["mixerAgc"];
-        }
+            // Load gains
+            dev.tryGet("gainMode", gainMode);
+            dev.tryGet("sensitiveGain", sensitiveGain);
+            dev.tryGet("linearGain", linearGain);
+            dev.tryGet("lnaGain", lnaGain);
+            dev.tryGet("mixerGain", mixerGain);
+            dev.tryGet("vgaGain", vgaGain);
+            dev.tryGet("lnaAgc", lnaAgc);
+            dev.tryGet("mixerAgc", mixerAgc);
 
-        // Load Bias-T
-        if (config.conf["devices"][selectedSerStr].contains("biasT")) {
-            biasT = config.conf["devices"][selectedSerStr]["biasT"];
+            // Load Bias-T
+            dev.tryGet("biasT", biasT);
         }
-
-        config.release(created);
 
         airspy_close(dev);
     }
 
 private:
+    // Every menu widget persists one field under this device's own block. Does
+    // nothing when no device is selected, since there'd be nowhere to put it.
+    template <class T>
+    static void saveDeviceSetting(const std::string& serial, std::string_view key, const T& value) {
+        if (serial.empty()) { return; }
+        auto txn = config.transaction();
+        txn.section("devices", serial).set(key, value);
+    }
+
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial = config.value("device", std::string());
         selectByString(devSerial);
         core::setInputSampleRate(sampleRate);
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
@@ -401,20 +393,14 @@ private:
             _this->selectBySerial(_this->devList[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["device"] = _this->selectedSerStr;
-                config.release(true);
+                config.set("device", _this->selectedSerStr);
             }
         }
 
         if (SmGui::Combo(CONCAT("##_airspy_sr_sel_", _this->name), &_this->srId, _this->sampleRateListTxt.c_str())) {
             _this->sampleRate = _this->sampleRateList[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
-            if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["sampleRate"] = _this->sampleRate;
-                config.release(true);
-            }
+            saveDeviceSetting(_this->selectedSerStr, "sampleRate", _this->sampleRate);
         }
 
         SmGui::SameLine();
@@ -425,9 +411,7 @@ private:
             _this->refreshAndroidSelection();
 #else
             _this->refresh();
-            config.acquire();
-            std::string devSerial = config.conf["device"];
-            config.release();
+            std::string devSerial = config.value("device", std::string());
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
 #endif
@@ -445,11 +429,7 @@ private:
                 airspy_set_mixer_agc(_this->openDev, 0);
                 airspy_set_sensitivity_gain(_this->openDev, _this->sensitiveGain);
             }
-            if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["gainMode"] = 0;
-                config.release(true);
-            }
+            saveDeviceSetting(_this->selectedSerStr, "gainMode", 0);
         }
         SmGui::NextColumn();
         SmGui::ForceSync();
@@ -460,11 +440,7 @@ private:
                 airspy_set_mixer_agc(_this->openDev, 0);
                 airspy_set_linearity_gain(_this->openDev, _this->linearGain);
             }
-            if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["gainMode"] = 1;
-                config.release(true);
-            }
+            saveDeviceSetting(_this->selectedSerStr, "gainMode", 1);
         }
         SmGui::NextColumn();
         SmGui::ForceSync();
@@ -487,11 +463,7 @@ private:
                 }
                 airspy_set_vga_gain(_this->openDev, _this->vgaGain);
             }
-            if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["gainMode"] = 2;
-                config.release(true);
-            }
+            saveDeviceSetting(_this->selectedSerStr, "gainMode", 2);
         }
         SmGui::Columns(1, CONCAT("EndAirspyGainModeColumns##_", _this->name), false);
         SmGui::EndGroup();
@@ -505,11 +477,7 @@ private:
                 if (_this->running) {
                     airspy_set_sensitivity_gain(_this->openDev, _this->sensitiveGain);
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["sensitiveGain"] = _this->sensitiveGain;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "sensitiveGain", _this->sensitiveGain);
             }
         }
         else if (_this->gainMode == 1) {
@@ -519,11 +487,7 @@ private:
                 if (_this->running) {
                     airspy_set_linearity_gain(_this->openDev, _this->linearGain);
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["linearGain"] = _this->linearGain;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "linearGain", _this->linearGain);
             }
         }
         else if (_this->gainMode == 2) {
@@ -535,11 +499,7 @@ private:
                 if (_this->running) {
                     airspy_set_lna_gain(_this->openDev, _this->lnaGain);
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["lnaGain"] = _this->lnaGain;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "lnaGain", _this->lnaGain);
             }
             if (_this->lnaAgc) { SmGui::EndDisabled(); }
 
@@ -550,11 +510,7 @@ private:
                 if (_this->running) {
                     airspy_set_mixer_gain(_this->openDev, _this->mixerGain);
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["mixerGain"] = _this->mixerGain;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "mixerGain", _this->mixerGain);
             }
             if (_this->mixerAgc) { SmGui::EndDisabled(); }
 
@@ -564,11 +520,7 @@ private:
                 if (_this->running) {
                     airspy_set_vga_gain(_this->openDev, _this->vgaGain);
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["vgaGain"] = _this->vgaGain;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "vgaGain", _this->vgaGain);
             }
 
             // AGC Control
@@ -583,11 +535,7 @@ private:
                         airspy_set_lna_gain(_this->openDev, _this->lnaGain);
                     }
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["lnaAgc"] = _this->lnaAgc;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "lnaAgc", _this->lnaAgc);
             }
             SmGui::ForceSync();
             if (SmGui::Checkbox(CONCAT("Mixer AGC##_airspy_", _this->name), &_this->mixerAgc)) {
@@ -600,11 +548,7 @@ private:
                         airspy_set_mixer_gain(_this->openDev, _this->mixerGain);
                     }
                 }
-                if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["mixerAgc"] = _this->mixerAgc;
-                    config.release(true);
-                }
+                saveDeviceSetting(_this->selectedSerStr, "mixerAgc", _this->mixerAgc);
             }
         }
 
@@ -613,11 +557,7 @@ private:
             if (_this->running) {
                 airspy_set_rf_bias(_this->openDev, _this->biasT);
             }
-            if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["biasT"] = _this->biasT;
-                config.release(true);
-            }
+            saveDeviceSetting(_this->selectedSerStr, "biasT", _this->biasT);
         }
     }
 

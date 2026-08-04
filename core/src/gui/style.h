@@ -1,6 +1,7 @@
 #pragma once
 #include <imgui.h>
 #include <string>
+#include <config.h>
 #include <module.h>
 #include <functional>
 #include <algorithm>
@@ -81,7 +82,10 @@ namespace style {
     bool setDefaultStyle(std::string resDir);
     bool loadFonts(std::string resDir);
     void applyScaledStyle(const std::function<void()>& resetStyle);
-    void migrateLogicalDimension(nlohmann::json& conf, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical);
+    // Rewrites a dimension stored in physical pixels as logical units, once, and
+    // leaves a marker key behind so it isn't converted twice. Takes the open
+    // transaction rather than the document, since it both reads and writes.
+    void migrateLogicalDimension(ConfigManager::Transaction& txn, const char* valueKey, const char* markerKey, float minLogical, const std::function<bool(float)>& valueLooksPhysical);
     void beginDisabled();
     void endDisabled();
     void testtt();

@@ -50,24 +50,22 @@ void WaterfallAutoRange::oneShotFit() {
     gui::waterfall.freeAutorangeScratch();
     if (!ok) { return; }
     applyRef(ref);
-    core::configManager.acquire();
-    core::configManager.conf["min"] = *fftMin;
-    core::configManager.conf["max"] = *fftMax;
-    core::configManager.release(true);
+    auto txn = core::configManager.transaction();
+    txn.set("min", *fftMin);
+    txn.set("max", *fftMax);
 }
 
 void WaterfallAutoRange::setSticky(bool on) {
     stickyEnabled = on;
     initialized = false; // snap to the first fit on (re)acquire
-    core::configManager.acquire();
-    core::configManager.conf["waterfallAutoRange"] = stickyEnabled;
+    auto txn = core::configManager.transaction();
+    txn.set("waterfallAutoRange", stickyEnabled);
     if (!stickyEnabled) {
         // Persist wherever the auto-scaler left the range so the manual
         // sliders resume from there.
-        core::configManager.conf["min"] = *fftMin;
-        core::configManager.conf["max"] = *fftMax;
+        txn.set("min", *fftMin);
+        txn.set("max", *fftMax);
     }
-    core::configManager.release(true);
 }
 
 // Glyph and the padding around it, matching the toolbar's ImageButtons.

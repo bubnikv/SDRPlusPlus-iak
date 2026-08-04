@@ -24,15 +24,16 @@ namespace vfo_color_menu {
 
     void init() {
         // Load colors from config
-        bool modified = false;
-        core::configManager.acquire();
-        json conf = core::configManager.conf["vfoColors"];
+        auto txn = core::configManager.transaction();
+        ConfigManager::Section colors = txn.section("vfoColors");
+        // Copied out: the repairs below write back into the same subtree.
+        const json* stored = colors.peek();
+        json conf = stored ? *stored : json::object();
         for (auto& [name, val] : conf.items()) {
             // If not a string, repair with default
             if (!val.is_string()) {
-                core::configManager.conf["vfoColors"][name] = "#FFFFFF";
+                colors.set(name, "#FFFFFF");
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-                modified = true;
                 if (sigpath::vfoManager.vfoExists(name)) {
                     sigpath::vfoManager.setColor(name, IM_COL32(255, 255, 255, 50));
                 }
@@ -42,9 +43,8 @@ namespace vfo_color_menu {
             // If not a valid hex color, repair with default
             std::string col = val;
             if (col[0] != '#' || !std::all_of(col.begin() + 1, col.end(), ::isxdigit)) {
-                core::configManager.conf["vfoColors"][name] = "#FFFFFF";
+                colors.set(name, "#FFFFFF");
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-                modified = true;
                 if (sigpath::vfoManager.vfoExists(name)) {
                     sigpath::vfoManager.setColor(name, IM_COL32(255, 255, 255, 50));
                 }
@@ -62,18 +62,17 @@ namespace vfo_color_menu {
             }
         }
 
-        // Iterate existing VFOs and set their color if in the config, if not set to default
+        // Iterate existing VFOs and set their color if in the config, if not set to
+        // default. In memory only -- the entry is written when the user picks a colour.
         for (auto& [name, vfo] : gui::waterfall.vfos) {
             if (vfoColors.find(name) == vfoColors.end()) {
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 vfo->color = IM_COL32(255, 255, 255, 50);
-                modified = true;
             }
         }
 
         vfoAddHndl.handler = vfoAddHandler;
         sigpath::vfoManager.onVfoCreated.bindHandler(&vfoAddHndl);
-        core::configManager.release(modified);
     }
 
     void draw(void* ctx) {
@@ -90,11 +89,10 @@ namespace vfo_color_menu {
                 vfoColors[name] = ImVec4(r, g, b, 1.0f);
                 vfo->color = IM_COL32((int)roundf(r * 255), (int)roundf(g * 255), (int)roundf(b * 255), 50);
                 hue += delta;
-                core::configManager.acquire();
                 char buf[16];
                 sprintf(buf, "#%02X%02X%02X", (int)roundf(r * 255), (int)roundf(g * 255), (int)roundf(b * 255));
-                core::configManager.conf["vfoColors"][name] = buf;
-                core::configManager.release(true);
+                auto txn = core::configManager.transaction();
+                txn.section("vfoColors").set(name, buf);
             }
         }
 
@@ -103,9 +101,8 @@ namespace vfo_color_menu {
             for (auto& [name, vfo] : gui::waterfall.vfos) {
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 vfo->color = IM_COL32(255, 255, 255, 50);
-                core::configManager.acquire();
-                core::configManager.conf["vfoColors"][name] = "#FFFFFF";
-                core::configManager.release(true);
+                auto txn = core::configManager.transaction();
+                txn.section("vfoColors").set(name, "#FFFFFF");
             }
         }
 
@@ -122,11 +119,10 @@ namespace vfo_color_menu {
             if (ImGui::ColorEdit3(("##vfo_color_" + name).c_str(), (float*)&col, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 vfoColors[name] = col;
                 vfo->color = IM_COL32((int)roundf(col.x * 255), (int)roundf(col.y * 255), (int)roundf(col.z * 255), 50);
-                core::configManager.acquire();
                 char buf[16];
                 sprintf(buf, "#%02X%02X%02X", (int)roundf(col.x * 255), (int)roundf(col.y * 255), (int)roundf(col.z * 255));
-                core::configManager.conf["vfoColors"][name] = buf;
-                core::configManager.release(true);
+                auto txn = core::configManager.transaction();
+                txn.section("vfoColors").set(name, buf);
             }
             ImGui::SameLine();
             ImGui::TextUnformatted(name.c_str());

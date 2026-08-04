@@ -85,39 +85,24 @@ public:
         // Load config
         bool autoStart = false;
         Mode nMode = MODE_BASEBAND;
-        config.acquire();
-        if (config.conf[name].contains("mode")) {
-            std::string modeStr = config.conf[name]["mode"];
-            if (modes.keyExists(modeStr)) { nMode = modes.value(modes.keyId(modeStr)); }
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(name);
+            std::string modeStr;
+            if (inst.tryGet("mode", modeStr) && modes.keyExists(modeStr)) { nMode = modes.value(modes.keyId(modeStr)); }
+            int sr = 0;
+            if (inst.tryGet("samplerate", sr) && samplerates.keyExists(sr)) { samplerate = samplerates.value(samplerates.keyId(sr)); }
+            std::string protoStr;
+            if (inst.tryGet("protocol", protoStr) && protocols.keyExists(protoStr)) { proto = protocols.value(protocols.keyId(protoStr)); }
+            std::string sampTypeStr;
+            if (inst.tryGet("sampleType", sampTypeStr) && sampleTypes.keyExists(sampTypeStr)) { sampType = sampleTypes.value(sampleTypes.keyId(sampTypeStr)); }
+            int size = 0;
+            if (inst.tryGet("packetSize", size) && packetSizes.keyExists(size)) { packetSize = packetSizes.value(packetSizes.keyId(size)); }
+            std::string hostStr;
+            if (inst.tryGet("host", hostStr)) { strcpy(hostname, hostStr.c_str()); }
+            if (inst.tryGet("port", port)) { port = std::clamp<int>(port, 1, 65535); }
+            inst.tryGet("running", autoStart);
         }
-        if (config.conf[name].contains("samplerate")) {
-            int sr = config.conf[name]["samplerate"];
-            if (samplerates.keyExists(sr)) { samplerate = samplerates.value(samplerates.keyId(sr)); }
-        }
-        if (config.conf[name].contains("protocol")) {
-            std::string protoStr = config.conf[name]["protocol"];
-            if (protocols.keyExists(protoStr)) { proto = protocols.value(protocols.keyId(protoStr)); }
-        }
-        if (config.conf[name].contains("sampleType")) {
-            std::string sampTypeStr = config.conf[name]["sampleType"];
-            if (sampleTypes.keyExists(sampTypeStr)) { sampType = sampleTypes.value(sampleTypes.keyId(sampTypeStr)); }
-        }
-        if (config.conf[name].contains("packetSize")) {
-            int size = config.conf[name]["packetSize"];
-            if (packetSizes.keyExists(size)) { packetSize = packetSizes.value(packetSizes.keyId(size)); }
-        }
-        if (config.conf[name].contains("host")) {
-            std::string hostStr = config.conf[name]["host"];
-            strcpy(hostname, hostStr.c_str());
-        }
-        if (config.conf[name].contains("port")) {
-            port = config.conf[name]["port"];
-            port = std::clamp<int>(port, 1, 65535);
-        }
-        if (config.conf[name].contains("running")) {
-            autoStart = config.conf[name]["running"];
-        }
-        config.release();
 
         // Set menu IDs
         modeId = modes.valueId(nMode);
@@ -293,9 +278,7 @@ private:
         ImGui::FillWidth();
         if (ImGui::Combo(("##iq_exporter_mode_" + _this->name).c_str(), &_this->modeId, _this->modes.txt)) {
             _this->setMode(_this->modes.value(_this->modeId));
-            config.acquire();
-            config.conf[_this->name]["mode"] = _this->modes.key(_this->modeId);
-            config.release(true);
+            config.transaction().section(_this->name).set("mode", _this->modes.key(_this->modeId));
         }
 
         // In VFO mode, show samplerate selector
@@ -308,9 +291,7 @@ private:
                     _this->vfo->setBandwidthLimits(_this->samplerate, _this->samplerate, true);
                     _this->vfo->setSampleRate(_this->samplerate, _this->samplerate);
                 }
-                config.acquire();
-                config.conf[_this->name]["samplerate"] = _this->samplerates.key(_this->srId);
-                config.release(true);
+                config.transaction().section(_this->name).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -319,9 +300,7 @@ private:
         ImGui::FillWidth();
         if (ImGui::Combo(("##iq_exporter_proto_" + _this->name).c_str(), &_this->protoId, _this->protocols.txt)) {
             _this->proto = _this->protocols.value(_this->protoId);
-            config.acquire();
-            config.conf[_this->name]["protocol"] = _this->protocols.key(_this->protoId);
-            config.release(true);
+            config.transaction().section(_this->name).set("protocol", _this->protocols.key(_this->protoId));
         }
 
         // Sample type selector
@@ -330,9 +309,7 @@ private:
         if (ImGui::Combo(("##iq_exporter_samp_" + _this->name).c_str(), &_this->sampTypeId, _this->sampleTypes.txt)) {
             _this->sampType = _this->sampleTypes.value(_this->sampTypeId);
             _this->reshape.setKeep(_this->packetSize/_this->sampleSize());
-            config.acquire();
-            config.conf[_this->name]["sampleType"] = _this->sampleTypes.key(_this->sampTypeId);
-            config.release(true);
+            config.transaction().section(_this->name).set("sampleType", _this->sampleTypes.key(_this->sampTypeId));
         }
 
         // Packet size selector
@@ -341,24 +318,18 @@ private:
         if (ImGui::Combo(("##iq_exporter_pkt_sz_" + _this->name).c_str(), &_this->packetSizeId, _this->packetSizes.txt)) {
             _this->packetSize = _this->packetSizes.value(_this->packetSizeId);
             _this->reshape.setKeep(_this->packetSize/_this->sampleSize());
-            config.acquire();
-            config.conf[_this->name]["packetSize"] = _this->packetSizes.key(_this->packetSizeId);
-            config.release(true);
+            config.transaction().section(_this->name).set("packetSize", _this->packetSizes.key(_this->packetSizeId));
         }
 
         // Hostname and port field
         if (ImGui::InputText(("##iq_exporter_host_" + _this->name).c_str(), _this->hostname, sizeof(_this->hostname))) {
-            config.acquire();
-            config.conf[_this->name]["host"] = _this->hostname;
-            config.release(true);
+            config.transaction().section(_this->name).set("host", _this->hostname);
         }
         ImGui::SameLine();
         ImGui::FillWidth();
         if (ImGui::InputInt(("##iq_exporter_port_" + _this->name).c_str(), &_this->port, 0, 0)) {
             _this->port = std::clamp<int>(_this->port, 1, 65535);
-            config.acquire();
-            config.conf[_this->name]["port"] = _this->port;
-            config.release(true);
+            config.transaction().section(_this->name).set("port", _this->port);
         }
 
         if (_this->running) { ImGui::EndDisabled(); }
@@ -367,17 +338,13 @@ private:
         if (_this->running || (!_this->enabled && _this->wasRunning)) {
             if (ImGui::Button(("Stop##iq_exporter_stop_" + _this->name).c_str(), ImVec2(menuWidth, 0))) {
                 _this->stop();
-                config.acquire();
-                config.conf[_this->name]["running"] = false;
-                config.release(true);
+                config.transaction().section(_this->name).set("running", false);
             }
         }
         else {
             if (ImGui::Button(("Start##iq_exporter_start_" + _this->name).c_str(), ImVec2(menuWidth, 0))) {
                 _this->start();
-                config.acquire();
-                config.conf[_this->name]["running"] = true;
-                config.release(true);
+                config.transaction().section(_this->name).set("running", true);
             }
         }
 

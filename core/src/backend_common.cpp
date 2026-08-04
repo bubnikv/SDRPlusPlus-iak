@@ -15,10 +15,7 @@ namespace backend::common {
     }
 
     float configUserScaleFactor() {
-        core::configManager.acquire();
-        float factor = core::configManager.conf.value("uiScaleFactor", 1.0f);
-        core::configManager.release();
-        return factor;
+        return core::configManager.value("uiScaleFactor", 1.0f);
     }
 
     void initScaleState(ScaleState& state, const std::string& resDir, float detectedContentScale, float userScaleFactor) {
@@ -44,9 +41,7 @@ namespace backend::common {
     void setUserScaleFactor(ScaleState& state, float userScaleFactor) {
         // Defer the real apply until before NewFrame(), when the font atlas is not locked.
         state.pendingUserScaleFactor = userScaleFactor;
-        core::configManager.acquire();
-        core::configManager.conf["uiScaleFactor"] = userScaleFactor;
-        core::configManager.release(true);
+        core::configManager.set("uiScaleFactor", userScaleFactor);
     }
 
     bool applyScale(ScaleState& state, float detectedContentScale, float userScaleFactor, bool rebuildFonts, bool rescaleMainWindow) {

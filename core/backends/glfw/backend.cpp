@@ -41,8 +41,9 @@ namespace backend {
 
     bool maximized = false;
     bool fullScreen = false;
-    int winHeight;
-    int winWidth;
+    // Defaults match defConfig's windowSize, and stand in when the key is absent.
+    int winHeight = 720;
+    int winWidth = 1280;
     bool _maximized = maximized;
     int fsWidth, fsHeight, fsPosX, fsPosY;
     int _winWidth, _winHeight;
@@ -73,12 +74,14 @@ namespace backend {
 
     int init(std::string resDir) {
         // Load config
-        core::configManager.acquire();
-        winWidth = core::configManager.conf["windowSize"]["w"];
-        winHeight = core::configManager.conf["windowSize"]["h"];
-        maximized = core::configManager.conf["maximized"];
-        fullScreen = core::configManager.conf["fullscreen"];
-        core::configManager.release();
+        {
+            auto txn = core::configManager.transaction();
+            ConfigManager::Section size = txn.section("windowSize");
+            size.tryGet("w", winWidth);
+            size.tryGet("h", winHeight);
+            txn.tryGet("maximized", maximized);
+            txn.tryGet("fullscreen", fullScreen);
+        }
         float userScaleFactor = common::configUserScaleFactor();
 
         // Setup window
@@ -261,12 +264,19 @@ namespace backend {
             
             if (_maximized != maximized) {
                 _maximized = maximized;
-                core::configManager.acquire();
-                core::configManager.conf["maximized"] = _maximized;
-                if (!maximized) {
-                    glfwSetWindowSize(window, core::configManager.conf["windowSize"]["w"], core::configManager.conf["windowSize"]["h"]);
+                int restoreW = 0, restoreH = 0;
+                {
+                    auto txn = core::configManager.transaction();
+                    txn.set("maximized", _maximized);
+                    if (!maximized) {
+                        ConfigManager::Section size = txn.section("windowSize");
+                        restoreW = size.value("w", winWidth);
+                        restoreH = size.value("h", winHeight);
+                    }
                 }
-                core::configManager.release(true);
+                // Outside the transaction: resizing runs the GLFW callbacks, which
+                // reach for the config themselves.
+                if (!maximized) { glfwSetWindowSize(window, restoreW, restoreH); }
             }
 
             glfwGetWindowSize(window, &_winWidth, &_winHeight);
@@ -280,26 +290,22 @@ namespace backend {
                     glfwGetWindowPos(window, &fsPosX, &fsPosY);
                     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
                     glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, 0);
-                    core::configManager.acquire();
-                    core::configManager.conf["fullscreen"] = true;
-                    core::configManager.release();
+                    core::configManager.set("fullscreen", true);
                 }
                 else {
                     flog::info("Fullscreen: OFF");
                     glfwSetWindowMonitor(window, nullptr, fsPosX, fsPosY, fsWidth, fsHeight, 0);
-                    core::configManager.acquire();
-                    core::configManager.conf["fullscreen"] = false;
-                    core::configManager.release();
+                    core::configManager.set("fullscreen", false);
                 }
             }
 
             if ((_winWidth != winWidth || _winHeight != winHeight) && !maximized && _winWidth > 0 && _winHeight > 0) {
                 winWidth = _winWidth;
                 winHeight = _winHeight;
-                core::configManager.acquire();
-                core::configManager.conf["windowSize"]["w"] = winWidth;
-                core::configManager.conf["windowSize"]["h"] = winHeight;
-                core::configManager.release(true);
+                auto txn = core::configManager.transaction();
+                ConfigManager::Section size = txn.section("windowSize");
+                size.set("w", winWidth);
+                size.set("h", winHeight);
             }
 
             if (winWidth > 0 && winHeight > 0) {

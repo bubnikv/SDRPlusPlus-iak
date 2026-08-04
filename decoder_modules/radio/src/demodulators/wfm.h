@@ -42,15 +42,13 @@ namespace demod {
             std::string rdsRegionStr = "eu";
 
             // Load config
-            _config->acquire();
-            auto& cfg = config->conf[name][getName()];
+            nlohmann::json cfg = loadSection();
             loadConf(cfg, "stereo", _stereo);
             loadConf(cfg, "lowPass", _lowPass);
             loadConf(cfg, "rds", _rds);
             loadConf(cfg, "rdsIncremental", _rdsIncremental);
             loadConf(cfg, "rdsInfo", _rdsInfo);
             loadConf(cfg, "rdsRegion", rdsRegionStr);
-            _config->release();
 
             // Load RDS region
             if (rdsRegions.keyExists(rdsRegionStr)) {

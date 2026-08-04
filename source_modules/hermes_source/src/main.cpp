@@ -106,15 +106,13 @@ private:
         // Load config
         devId = devices.keyId(mac);
         selectedMac = mac;
-        config.acquire();
-        if (config.conf["devices"][selectedMac].contains("samplerate")) {
-            int sr = config.conf["devices"][selectedMac]["samplerate"];
-            if (samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedMac);
+            int sr = 0;
+            if (dev.tryGet("samplerate", sr) && samplerates.keyExists(sr)) { srId = samplerates.keyId(sr); }
+            dev.tryGet("gain", gain);
         }
-        if (config.conf["devices"][selectedMac].contains("gain")) {
-            gain = config.conf["devices"][selectedMac]["gain"];
-        }
-        config.release();
 
         // Update host samplerate
         sampleRate = samplerates.key(srId);
@@ -130,9 +128,7 @@ private:
             _this->refresh();
 
             // Select device
-            config.acquire();
-            _this->selectedMac = config.conf["device"];
-            config.release();
+            _this->selectedMac = config.value("device", std::string());
             _this->selectMac(_this->selectedMac);
         }
 
@@ -200,9 +196,7 @@ private:
             _this->selectMac(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedMac.empty()) {
-                config.acquire();
-                config.conf["device"] = _this->devices.key(_this->devId);
-                config.release(true);
+                config.set("device", _this->devices.key(_this->devId));
             }
         }
 
@@ -210,9 +204,7 @@ private:
             _this->sampleRate = _this->samplerates.key(_this->srId);
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedMac.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedMac]["samplerate"] = _this->samplerates.key(_this->srId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedMac).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -221,9 +213,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Button(CONCAT("Refresh##_hermes_refr_", _this->name))) {
             _this->refresh();
-            config.acquire();
-            std::string mac = config.conf["device"];
-            config.release();
+            std::string mac = config.value("device", std::string());
             _this->selectMac(mac);
             core::setInputSampleRate(_this->sampleRate);
         }
@@ -239,9 +229,7 @@ private:
                 _this->dev->setGain(_this->gain);
             }
             if (!_this->selectedMac.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedMac]["gain"] = _this->gain;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedMac).set("gain", _this->gain);
             }
         }
     }

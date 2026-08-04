@@ -115,21 +115,17 @@ private:
     void loadConfig() {
         double loadedFreq = 7000000.0;
         bool loadedSyncVfo = false;
-        config.acquire();
-        if (config.conf.contains("frequency"))
-            loadedFreq = config.conf["frequency"];
-        if (config.conf.contains("syncVfo"))
-            loadedSyncVfo = config.conf["syncVfo"];
+        {
+            auto txn = config.transaction();
+            txn.tryGet("frequency", loadedFreq);
+            txn.tryGet("syncVfo", loadedSyncVfo);
 #ifndef __ANDROID__
-        if (config.conf.contains("audioDevice"))
-            selectedAudioDevice = config.conf["audioDevice"];
-        if (config.conf.contains("serialPort"))
-            selectedSerialPort = config.conf["serialPort"];
+            txn.tryGet("audioDevice", selectedAudioDevice);
+            txn.tryGet("serialPort", selectedSerialPort);
 #else
-        if (config.conf.contains("device"))
-            selectedAndroidDevice = config.conf["device"];
+            txn.tryGet("device", selectedAndroidDevice);
 #endif
-        config.release();
+        }
         freq = loadedFreq;
         sync.setSyncVfo(loadedSyncVfo);
 
@@ -256,9 +252,7 @@ private:
         refresh();
         selectAndroidDeviceByName(deviceToRestore);
 
-        config.acquire();
-        config.conf["device"] = selectedAndroidDevice;
-        config.release(true);
+        config.set("device", selectedAndroidDevice);
 
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
     }
@@ -357,9 +351,7 @@ private:
         self->freq = freq;
         self->sync.onIqCenterChanged(freq);
 
-        config.acquire();
-        config.conf["frequency"] = freq;
-        config.release(true);
+        config.set("frequency", freq);
     }
 
     static void menuHandler(void* ctx) {
@@ -377,9 +369,7 @@ private:
         if (SmGui::Combo(CONCAT("##_qmx_audio_dev_", self->name), &self->audioDevId, self->audioDevices.txt)) {
             std::string dev = self->audioDevices.key(self->audioDevId);
             self->selectAudioDevice(dev);
-            config.acquire();
-            config.conf["audioDevice"] = dev;
-            config.release(true);
+            config.set("audioDevice", dev);
         }
 
         float refreshBtnWidth = std::max(90.0f, ImGui::CalcTextSize("Refresh").x + (ImGui::GetStyle().FramePadding.x * 2.0f) + 4.0f);
@@ -389,9 +379,7 @@ private:
         if (SmGui::Combo(CONCAT("##_qmx_serial_dev_", self->name), &self->serialPortId, self->serialPorts.txt)) {
             std::string port = self->serialPorts.key(self->serialPortId);
             self->selectSerialPort(port);
-            config.acquire();
-            config.conf["serialPort"] = port;
-            config.release(true);
+            config.set("serialPort", port);
         }
 
         SmGui::SameLine();
@@ -430,9 +418,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Combo(CONCAT("##_qmx_android_dev_", self->name), &self->androidDevId, self->androidDeviceListTxt.c_str())) {
             self->selectAndroidDeviceById(self->androidDevId);
-            config.acquire();
-            config.conf["device"] = self->selectedAndroidDevice;
-            config.release(true);
+            config.set("device", self->selectedAndroidDevice);
         }
 
         SmGui::SameLine();
@@ -468,9 +454,7 @@ private:
         SmGui::ForceSync();
         if (SmGui::Checkbox(CONCAT("Sync VFO##_qmx_sync_vfo_", self->name), &syncVfoCb)) {
             self->sync.setSyncVfo(syncVfoCb);
-            config.acquire();
-            config.conf["syncVfo"] = syncVfoCb;
-            config.release(true);
+            config.set("syncVfo", syncVfoCb);
         }
 
         SmGui::Separator();

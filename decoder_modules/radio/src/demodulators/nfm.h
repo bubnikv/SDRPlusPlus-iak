@@ -18,10 +18,8 @@ namespace demod {
             this->_config = config;
 
             // Load config
-            _config->acquire();
-            auto& cfg = config->conf[name][getName()];
+            nlohmann::json cfg = loadSection();
             loadConf(cfg, "lowPass", _lowPass);
-            _config->release();
 
 
             // Define structure

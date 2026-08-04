@@ -4,9 +4,7 @@
 
 namespace sinkmenu {
     void init() {
-        core::configManager.acquire();
         sigpath::sinkManager.loadSinksFromConfig();
-        core::configManager.release();
     }
 
     void draw(void* ctx) {

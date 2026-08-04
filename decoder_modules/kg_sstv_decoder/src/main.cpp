@@ -40,18 +40,18 @@ public:
         this->name = name;
 
         // Load config
-        config.acquire();
-        if (!config.conf.contains(name)) {
-            config.conf[name]["showLines"] = false;
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section inst = txn.section(name);
+            inst.ensure("showLines", false);
+            inst.tryGet("showLines", showLines);
         }
-        showLines = config.conf[name]["showLines"];
         if (showLines) {
             diag.lines.push_back(-0.75f);
             diag.lines.push_back(-0.25f);
             diag.lines.push_back(0.25f);
             diag.lines.push_back(0.75f);
         }
-        config.release(true);
 
 
         // Initialize VFO
@@ -140,9 +140,7 @@ private:
             else {
                 _this->diag.lines.clear();
             }
-            config.acquire();
-            config.conf[_this->name]["showLines"] = _this->showLines;
-            config.release(true);
+            config.transaction().section(_this->name).set("showLines", _this->showLines);
         }
 
         if (!_this->enabled) { style::endDisabled(); }

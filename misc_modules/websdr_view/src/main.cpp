@@ -280,15 +280,15 @@ public:
     }
 
     void postInit() {
-        config.acquire();
-        if (config.conf.contains("duration")) {
-            receiveDuration = config.conf["duration"];
+        json stored;
+        {
+            auto txn = config.transaction();
+            txn.tryGet("duration", receiveDuration);
+            txn.tryGet("visible", visible);
+            stored = txn.value("receivers", json::object());
         }
-        if (config.conf.contains("visible")) {
-            visible = config.conf["visible"];
-        }
-        if (config.conf.contains("receivers") && config.conf["receivers"].is_object()) {
-            for (auto [k, c]: config.conf["receivers"].items()) {
+        if (stored.is_object()) {
+            for (auto [k, c]: stored.items()) {
                 if (!c.is_object() || !c.contains("url") || !c.contains("loc") || !c["url"].is_string() || !c["loc"].is_string()) {
                     continue;
                 }
@@ -298,7 +298,6 @@ public:
                 receivers.emplace_back(recvr);
             }
         }
-        config.release(false);
     }
 
     void enable() {
@@ -324,16 +323,12 @@ private:
         ImGui::LeftLabel("Seconds to receive:");
         ImGui::FillWidth();
         if (ImGui::SliderInt("##_websdr_duration_", &receiveDuration, 15, 45)) {
-            config.acquire();
-            config.conf["duration"] = receiveDuration;
-            config.release(true);
+            config.set("duration", receiveDuration);
 
         }
         ImGui::LeftLabel("Enabled");
         if (ImGui::Checkbox("##_websdr_visible_", &visible)) {
-            config.acquire();
-            config.conf["visible"] = visible;
-            config.release(true);
+            config.set("visible", visible);
         }
         if (ImGui::Button("Add new...")) {
             selector.openPopup();
@@ -350,9 +345,7 @@ private:
         }
         if (removeIndex != -1) {
             std::shared_ptr<SingleReceiver> recvr = receivers[removeIndex];
-            config.acquire();
-            config.conf["receivers"].erase(recvr->id);
-            config.release(true);
+            config.transaction().section("receivers").erase(recvr->id);
             receivers.erase(receivers.begin() + removeIndex);
         }
         selector.drawPopup([=](const std::string &hostPort, const std::string &loc, const std::optional<ServerEntry::FrequencyBand> &) {
@@ -363,10 +356,10 @@ private:
                 auto epochMs = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 auto recvr = std::make_shared<SingleReceiver>(std::to_string(epochMs), hostPort, loc, this);
                 receivers.push_back(recvr);
-                config.acquire();
-                config.conf["receivers"][recvr->id]["url"] = recvr->url;
-                config.conf["receivers"][recvr->id]["loc"] = recvr->loc;
-                config.release(true);
+                auto txn = config.transaction();
+                ConfigManager::Section entry = txn.section("receivers", recvr->id);
+                entry.set("url", recvr->url);
+                entry.set("loc", recvr->loc);
             }
         });
     }

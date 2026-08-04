@@ -97,13 +97,11 @@ namespace freq_input {
             bands.onOpen();
             spectrum.onOpen();
             // Last-used page.
-            core::configManager.acquire();
             const std::string storedPage =
-                core::configManager.conf.value("freqEntryPage", "keypad");
+                core::configManager.value("freqEntryPage", "keypad");
             if (storedPage == "band") { page = 0; }
             else if (storedPage == "spectrum") { page = 1; }
             else { page = 2; }
-            core::configManager.release();
             ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
         }
 
@@ -139,11 +137,9 @@ namespace freq_input {
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
             if (page == 0) { bands.onOpen(); }
-            core::configManager.acquire();
-            core::configManager.conf["freqEntryPage"] =
-                (page == 0) ? "band" :
-                (page == 1) ? "spectrum" : "keypad";
-            core::configManager.release(true);
+            core::configManager.set("freqEntryPage",
+                                    (page == 0) ? "band" :
+                                    (page == 1) ? "spectrum" : "keypad");
         }
         ImGui::SameLine();
         const bool closePressed =

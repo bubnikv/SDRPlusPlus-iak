@@ -54,12 +54,7 @@ public:
         refresh();
 
         // Select device
-        std::string device = "";
-        config.acquire();
-        if (config.conf.contains("device")) {
-            device = config.conf["device"];
-        }
-        config.release();
+        std::string device = config.value("device", std::string());
         select(device);
         
         sigpath::sourceManager.registerSource("Audio", &handler);
@@ -141,14 +136,12 @@ public:
         }
 
         // Load samplerate from config
-        config.acquire();
-        if (config.conf["devices"][selectedDevice].contains("sampleRate")) {
-            sampleRate = config.conf["devices"][selectedDevice]["sampleRate"];
-            if (sampleRates.keyExists(sampleRate)) {
+        {
+            auto txn = config.transaction();
+            if (txn.section("devices", selectedDevice).tryGet("sampleRate", sampleRate) && sampleRates.keyExists(sampleRate)) {
                 srId = sampleRates.keyId(sampleRate);
             }
         }
-        config.release();
 
         // Update samplerate from ID
         sampleRate = sampleRates[srId];
@@ -235,18 +228,14 @@ private:
             std::string dev = _this->devices.key(_this->devId);
             _this->select(dev);
             core::setInputSampleRate(_this->sampleRate);
-            config.acquire();
-            config.conf["device"] = dev;
-            config.release(true);
+            config.set("device", dev);
         }
 
         if (SmGui::Combo(CONCAT("##_audio_sr_sel_", _this->name), &_this->srId, _this->sampleRates.txt)) {
             _this->sampleRate = _this->sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedDevice.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedDevice]["sampleRate"] = _this->sampleRate;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedDevice).set("sampleRate", _this->sampleRate);
             }
         }
 

@@ -38,23 +38,28 @@ public:
         _streamName = streamName;
 
         // Load config
-        config.acquire();
-        if (!config.conf.contains(_streamName)) {
-            config.conf[_streamName]["hostname"] = "localhost";
-            config.conf[_streamName]["port"] = 7355;
-            config.conf[_streamName]["protocol"] = SINK_MODE_UDP; // UDP
-            config.conf[_streamName]["sampleRate"] = 48000.0;
-            config.conf[_streamName]["stereo"] = false;
-            config.conf[_streamName]["listening"] = false;
+        bool startNow = false;
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section stream = txn.section(_streamName);
+
+            // Seed whatever this stream is missing, which for a stream never seen
+            // before is the whole block.
+            stream.ensure("hostname", "localhost");
+            stream.ensure("port", 7355);
+            stream.ensure("protocol", (int)SINK_MODE_UDP); // UDP
+            stream.ensure("sampleRate", 48000.0);
+            stream.ensure("stereo", false);
+            stream.ensure("listening", false);
+
+            std::string host;
+            if (stream.tryGet("hostname", host)) { strcpy(hostname, host.c_str()); }
+            stream.tryGet("port", port);
+            stream.tryGet("protocol", modeId);
+            stream.tryGet("sampleRate", sampleRate);
+            stream.tryGet("stereo", stereo);
+            stream.tryGet("listening", startNow);
         }
-        std::string host = config.conf[_streamName]["hostname"];
-        strcpy(hostname, host.c_str());
-        port = config.conf[_streamName]["port"];
-        modeId = config.conf[_streamName]["protocol"];
-        sampleRate = config.conf[_streamName]["sampleRate"];
-        stereo = config.conf[_streamName]["stereo"];
-        bool startNow = config.conf[_streamName]["listening"];
-        config.release(true);
 
         netBuf = new int16_t[STREAM_BUFFER_SIZE];
 
@@ -129,24 +134,18 @@ public:
 
         if (listening) { style::beginDisabled(); }
         if (ImGui::InputText(CONCAT("##_network_sink_host_", _streamName), hostname, 1023)) {
-            config.acquire();
-            config.conf[_streamName]["hostname"] = hostname;
-            config.release(true);
+            config.transaction().section(_streamName).set("hostname", hostname);
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputInt(CONCAT("##_network_sink_port_", _streamName), &port, 0, 0)) {
-            config.acquire();
-            config.conf[_streamName]["port"] = port;
-            config.release(true);
+            config.transaction().section(_streamName).set("port", port);
         }
 
         ImGui::LeftLabel("Protocol");
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::Combo(CONCAT("##_network_sink_mode_", _streamName), &modeId, sinkModesTxt)) {
-            config.acquire();
-            config.conf[_streamName]["protocol"] = modeId;
-            config.release(true);
+            config.transaction().section(_streamName).set("protocol", modeId);
         }
 
         if (listening) { style::endDisabled(); }
@@ -157,30 +156,22 @@ public:
             sampleRate = sampleRates[srId];
             _stream->setSampleRate(sampleRate);
             packer.setSampleCount(sampleRate / 60);
-            config.acquire();
-            config.conf[_streamName]["sampleRate"] = sampleRate;
-            config.release(true);
+            config.transaction().section(_streamName).set("sampleRate", sampleRate);
         }
 
         if (ImGui::Checkbox(CONCAT("Stereo##_network_sink_stereo_", _streamName), &stereo)) {
             stop();
             start();
-            config.acquire();
-            config.conf[_streamName]["stereo"] = stereo;
-            config.release(true);
+            config.transaction().section(_streamName).set("stereo", stereo);
         }
 
         if (listening && ImGui::Button(CONCAT("Stop##_network_sink_stop_", _streamName), ImVec2(menuWidth, 0))) {
             stopServer();
-            config.acquire();
-            config.conf[_streamName]["listening"] = false;
-            config.release(true);
+            config.transaction().section(_streamName).set("listening", false);
         }
         else if (!listening && ImGui::Button(CONCAT("Start##_network_sink_stop_", _streamName), ImVec2(menuWidth, 0))) {
             startServer();
-            config.acquire();
-            config.conf[_streamName]["listening"] = true;
-            config.release(true);
+            config.transaction().section(_streamName).set("listening", true);
         }
 
         ImGui::TextUnformatted("Status:");

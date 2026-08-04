@@ -118,7 +118,7 @@ resourcesDirectory = $APPDIR/usr/share/sdrpp-iak
 
 Outside the AppImage build (vanilla `.deb`, Windows, macOS, Android),
 the macro is undefined and the accessors compile to a one-liner that
-just returns `configManager.conf[...]`. The AppImage build is enabled
+just returns `configManager.value(...)`. The AppImage build is enabled
 by `-DOPT_BUILD_APPIMAGE=ON`, which the build script in
 `docker_builds/appimage/make_appimage.sh` passes to CMake;
 `core/CMakeLists.txt` propagates it as the `BUILD_APPIMAGE` compile

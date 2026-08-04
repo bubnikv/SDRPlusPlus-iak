@@ -23,10 +23,13 @@ namespace androidmenu {
     }
 
     void init() {
-        restartOnResume = core::configManager.conf.value("restartOnResume", true);
-        sleepMode     = core::configManager.conf.value("sleepMode",    3);
-        screenDimMin  = core::configManager.conf.value("sleepDimMin",  3);
-        screenDarkMin = core::configManager.conf.value("sleepDarkMin", 8);
+        {
+            auto txn = core::configManager.transaction();
+            restartOnResume = txn.value("restartOnResume", true);
+            sleepMode     = txn.value("sleepMode",    3);
+            screenDimMin  = txn.value("sleepDimMin",  3);
+            screenDarkMin = txn.value("sleepDarkMin", 8);
+        }
 
         // Clamp / enforce invariants
         sleepMode     = std::clamp(sleepMode, 0, SLEEP_MODE_COUNT - 1);
@@ -41,9 +44,7 @@ namespace androidmenu {
         // ── Background behaviour ──────────────────────────────────────────────────
         if (ImGui::Checkbox("Restart Radio on Resume##android_restart_resume", &restartOnResume)) {
             backend::setRestartOnResume(restartOnResume);
-            core::configManager.acquire();
-            core::configManager.conf["restartOnResume"] = restartOnResume;
-            core::configManager.release(true);
+            core::configManager.set("restartOnResume", restartOnResume);
         }
 
         // ── Keep-alive mode ───────────────────────────────────────────────────────
@@ -51,9 +52,7 @@ namespace androidmenu {
         if (ImGui::Combo("##android_sleep_mode", &sleepMode, SLEEP_MODE_ITEMS)) {
             sleepMode = std::clamp(sleepMode, 0, SLEEP_MODE_COUNT - 1);
             applyConfig();
-            core::configManager.acquire();
-            core::configManager.conf["sleepMode"] = sleepMode;
-            core::configManager.release(true);
+            core::configManager.set("sleepMode", sleepMode);
         }
 
         // ── Dim threshold (DIM_SCREEN=2 and DIM_AND_BLANK=3) ─────────────────────
@@ -78,10 +77,9 @@ namespace androidmenu {
 
             if (changed) {
                 applyConfig();
-                core::configManager.acquire();
-                core::configManager.conf["sleepDimMin"]  = screenDimMin;
-                core::configManager.conf["sleepDarkMin"] = screenDarkMin;
-                core::configManager.release(true);
+                auto txn = core::configManager.transaction();
+                txn.set("sleepDimMin",  screenDimMin);
+                txn.set("sleepDarkMin", screenDarkMin);
             }
         }
     }

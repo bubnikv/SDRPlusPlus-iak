@@ -71,9 +71,7 @@ public:
         refresh();
 
         // Select device from config
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial = config.value("device", std::string());
         // TODO: Select
         selectSerial("");
 

@@ -21,10 +21,9 @@ namespace demod {
             this->afbwChangeHandler = afbwChangeHandler;
 
             // Load config
-            config->acquire();
-            agc.load(config->conf[name][getName()]);
-            loadConf(config->conf[name][getName()], "tone", tone);
-            config->release();
+            nlohmann::json cfg = loadSection();
+            agc.load(cfg);
+            loadConf(cfg, "tone", tone);
 
             // Define structure
             demod.init(input, tone, agc.attack / getIFSampleRate(), agc.decay / getIFSampleRate(), getIFSampleRate());

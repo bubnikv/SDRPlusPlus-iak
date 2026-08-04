@@ -134,8 +134,9 @@ interval to it after tuning (see how the VFO exposes `setSnapInterval` /
 New keys in the root config (add defaults where `core.cpp` builds
 `defConfig`): `freqEntryPage` ("band" | "keypad"), `freqEntryCategory`
 (string bucket name), `bandMemory` (object: band name → `{freq, mode}`).
-Read/write with `core::configManager.acquire()` / `release(true)`; write
-only on user actions (band select, page/category switch), never per-frame.
+Read/write through `core::configManager.transaction()` (or the single-shot
+`set()`/`value()` helpers); write only on user actions (band select,
+page/category switch), never per-frame.
 
 ## Gotchas
 

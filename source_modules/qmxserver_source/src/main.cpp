@@ -55,10 +55,12 @@ public:
         // directly. Skip registration like the file source does.
         if (core::args["server"].b()) { return; }
 
-        config.acquire();
-        std::string host = config.conf["hostname"];
-        port = config.conf["port"];
-        config.release();
+        std::string host;
+        {
+            auto txn = config.transaction();
+            txn.tryGet("hostname", host);
+            txn.tryGet("port", port);
+        }
 
         handler.ctx = this;
         handler.selectHandler = menuSelected;
@@ -178,16 +180,12 @@ private:
 
         if (connected) { SmGui::BeginDisabled(); }
         if (SmGui::InputText(CONCAT("##_qmxserver_srv_host_", _this->name), _this->hostname, 1023)) {
-            config.acquire();
-            config.conf["hostname"] = _this->hostname;
-            config.release(true);
+            config.set("hostname", _this->hostname);
         }
         SmGui::SameLine();
         SmGui::FillWidth();
         if (SmGui::InputInt(CONCAT("##_qmxserver_srv_port_", _this->name), &_this->port, 0, 0)) {
-            config.acquire();
-            config.conf["port"] = _this->port;
-            config.release(true);
+            config.set("port", _this->port);
         }
         if (connected) { SmGui::EndDisabled(); }
 
@@ -211,9 +209,7 @@ private:
             if (SmGui::Combo("##qmxserver_source_sr", &_this->srId, _this->sampleRatesTxt.c_str())) {
                 _this->sampleRate = _this->sampleRates[_this->srId];
                 core::setInputSampleRate(_this->sampleRate);
-                config.acquire();
-                config.conf["devices"][_this->devRef]["sampleRateId"] = _this->srId;
-                config.release(true);
+                config.transaction().section("devices", _this->devRef).set("sampleRateId", _this->srId);
             }
             if (_this->running) { SmGui::EndDisabled(); }
 
@@ -224,9 +220,7 @@ private:
                 _this->client->setSetting(QMXSERVER_SETTING_IQ_FORMAT, streamFormats[_this->iqType]);
                 _this->client->setSetting(QMXSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->srId + _this->client->devInfo.MinimumIQDecimation));
 
-                config.acquire();
-                config.conf["devices"][_this->devRef]["sampleBitDepthId"] = _this->iqType;
-                config.release(true);
+                config.transaction().section("devices", _this->devRef).set("sampleBitDepthId", _this->iqType);
             }
 
             if (_this->client->devInfo.MaximumGainIndex) {
@@ -235,9 +229,7 @@ private:
                     int srvBits = streamFormatsBitCount[_this->iqType];
                     _this->client->setSetting(QMXSERVER_SETTING_GAIN, _this->gain);
                     _this->client->setSetting(QMXSERVER_SETTING_IQ_DIGITAL_GAIN, _this->client->computeDigitalGain(srvBits, _this->gain, _this->srId + _this->client->devInfo.MinimumIQDecimation));
-                    config.acquire();
-                    config.conf["devices"][_this->devRef]["gainId"] = _this->gain;
-                    config.release(true);
+                    config.transaction().section("devices", _this->devRef).set("gainId", _this->gain);
                 }
             }
             */
@@ -271,16 +263,16 @@ private:
                 sprintf(buf, "%s [%08X]", deviceTypesStr[client->devInfo.DeviceType], client->devInfo.DeviceSerial);
                 devRef = std::string(buf);
 
-                config.acquire();
-                if (!config.conf["devices"].contains(devRef)) {
-                    config.conf["devices"][devRef]["sampleRateId"] = 0;
-                    config.conf["devices"][devRef]["sampleBitDepthId"] = 1;
-                    config.conf["devices"][devRef]["gainId"] = 0;
+                {
+                    auto txn = config.transaction();
+                    ConfigManager::Section dev = txn.section("devices", devRef);
+                    dev.ensure("sampleRateId", 0);
+                    dev.ensure("sampleBitDepthId", 1);
+                    dev.ensure("gainId", 0);
+                    dev.tryGet("sampleRateId", srId);
+                    dev.tryGet("sampleBitDepthId", iqType);
+                    dev.tryGet("gainId", gain);
                 }
-                srId = config.conf["devices"][devRef]["sampleRateId"];
-                iqType = config.conf["devices"][devRef]["sampleBitDepthId"];
-                gain = config.conf["devices"][devRef]["gainId"];
-                config.release(true);
 
                 gain = std::clamp<int>(gain, 0, client->devInfo.MaximumGainIndex);
 
@@ -341,13 +333,12 @@ MOD_EXPORT void _INIT_() {
     config.enableAutoSave();
 
     // Check config in case a user has a very old version
-    config.acquire();
-    bool corrected = false;
-    if (!config.conf.contains("hostname") || !config.conf.contains("port") || !config.conf.contains("devices")) {
-        config.conf = def;
-        corrected = true;
+    {
+        auto txn = config.transaction();
+        if (!txn.contains("hostname") || !txn.contains("port") || !txn.contains("devices")) {
+            txn.reset(def);
+        }
     }
-    config.release(corrected);
 }
 
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {

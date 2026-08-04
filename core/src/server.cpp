@@ -275,12 +275,17 @@ namespace server {
         }
 
         // Load config
-        core::configManager.acquire();
         std::string modulesDir = core::getModulesDirectory();
-        std::vector<std::string> modules = core::configManager.conf["modules"];
-        auto modList = core::configManager.conf["moduleInstances"].items();
-        std::string sourceName = core::configManager.conf["source"];
-        core::configManager.release();
+        std::vector<std::string> modules;
+        json moduleInstances;
+        std::string sourceName;
+        {
+            auto txn = core::configManager.transaction();
+            txn.tryGet("modules", modules);
+            moduleInstances = txn.value("moduleInstances", json::object());
+            txn.tryGet("source", sourceName);
+        }
+        auto modList = moduleInstances.items();
 
         // Initialize SmGui in server mode
         SmGui::init(true);
@@ -749,9 +754,7 @@ namespace server {
         SmGui::ForceSync();
         if (SmGui::Combo("##sdrpp_server_src_sel", &sourceId, sourceList.txt)) {
             sigpath::sourceManager.selectSource(sourceList[sourceId]);
-            core::configManager.acquire();
-            core::configManager.conf["source"] = sourceList.key(sourceId);
-            core::configManager.release(true);
+            core::configManager.set("source", sourceList.key(sourceId));
         }
         if (running) { SmGui::EndDisabled(); }
 

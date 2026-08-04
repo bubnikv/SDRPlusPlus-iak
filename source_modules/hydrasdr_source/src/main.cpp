@@ -76,9 +76,7 @@ public:
         refresh();
 
         // Select device from config
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial = config.value("device", std::string());
         selectByString(devSerial);
 
         sigpath::sourceManager.registerSource(sourceName, &handler);
@@ -337,116 +335,80 @@ public:
         // No bandwidth selection for lib < 1.1.0
 
         // Load config here
-        config.acquire();
-        bool created = false;
-        if (!config.conf["devices"].contains(selectedSerStr)) {
-            created = true;
-            config.conf["devices"][selectedSerStr]["sampleRate"] = 10000000;
-            config.conf["devices"][selectedSerStr]["bandwidth"] = 0;
-            config.conf["devices"][selectedSerStr]["gainMode"] = 0;
-            config.conf["devices"][selectedSerStr]["sensitiveGain"] = 0;
-            config.conf["devices"][selectedSerStr]["linearGain"] = 0;
-            config.conf["devices"][selectedSerStr]["lnaGain"] = 0;
-            config.conf["devices"][selectedSerStr]["rfGain"] = 0;
-            config.conf["devices"][selectedSerStr]["mixerGain"] = 0;
-            config.conf["devices"][selectedSerStr]["filterGain"] = 0;
-            config.conf["devices"][selectedSerStr]["vgaGain"] = 0;
-            config.conf["devices"][selectedSerStr]["lnaAgc"] = false;
-            config.conf["devices"][selectedSerStr]["rfAgc"] = false;
-            config.conf["devices"][selectedSerStr]["mixerAgc"] = false;
-            config.conf["devices"][selectedSerStr]["filterAgc"] = false;
-            config.conf["devices"][selectedSerStr]["biasT"] = false;
-            config.conf["devices"][selectedSerStr]["algorithm"] = "47_opt";
-            config.conf["devices"][selectedSerStr]["highDefMode"] = false;
-        }
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedSerStr);
 
-        // Load sample rate
-        srId = 0;
-        sampleRate = samplerates.value(0);
-        if (config.conf["devices"][selectedSerStr].contains("sampleRate")) {
-            int selectedSr = config.conf["devices"][selectedSerStr]["sampleRate"];
-            if (samplerates.keyExists(selectedSr)) {
+            // Seed whatever this device is missing, which for a device never seen
+            // before is the whole block.
+            dev.ensure("sampleRate", 10000000);
+            dev.ensure("bandwidth", 0);
+            dev.ensure("gainMode", 0);
+            dev.ensure("sensitiveGain", 0);
+            dev.ensure("linearGain", 0);
+            dev.ensure("lnaGain", 0);
+            dev.ensure("rfGain", 0);
+            dev.ensure("mixerGain", 0);
+            dev.ensure("filterGain", 0);
+            dev.ensure("vgaGain", 0);
+            dev.ensure("lnaAgc", false);
+            dev.ensure("rfAgc", false);
+            dev.ensure("mixerAgc", false);
+            dev.ensure("filterAgc", false);
+            dev.ensure("biasT", false);
+            dev.ensure("algorithm", "47_opt");
+            dev.ensure("highDefMode", false);
+
+            // Load sample rate
+            srId = 0;
+            sampleRate = samplerates.value(0);
+            int selectedSr = 0;
+            if (dev.tryGet("sampleRate", selectedSr) && samplerates.keyExists(selectedSr)) {
                 srId = samplerates.keyId(selectedSr);
                 sampleRate = samplerates[srId];
             }
-        }
 
-        // Load bandwidth
-        bwId = 0;
-        if (!bandwidths.empty() && config.conf["devices"][selectedSerStr].contains("bandwidth")) {
-            int selectedBw = config.conf["devices"][selectedSerStr]["bandwidth"];
-            if (bandwidths.keyExists(selectedBw)) {
+            // Load bandwidth
+            bwId = 0;
+            int selectedBw = 0;
+            if (!bandwidths.empty() && dev.tryGet("bandwidth", selectedBw) && bandwidths.keyExists(selectedBw)) {
                 bwId = bandwidths.keyId(selectedBw);
             }
-        }
 
-        // Load high definition mode (decimation mode)
-        highDefMode = false;
-        if (config.conf["devices"][selectedSerStr].contains("highDefMode")) {
-            highDefMode = config.conf["devices"][selectedSerStr]["highDefMode"];
-        }
+            // Load high definition mode (decimation mode)
+            highDefMode = false;
+            dev.tryGet("highDefMode", highDefMode);
 
-        // Load port
-        if (config.conf["devices"][selectedSerStr].contains("port")) {
-            std::string portStr = config.conf["devices"][selectedSerStr]["port"];
-            if (ports.keyExists(portStr)) {
+            // Load port
+            std::string portStr;
+            if (dev.tryGet("port", portStr) && ports.keyExists(portStr)) {
                 portId = ports.keyId(portStr);
             }
-        }
 
-        // Load gains
-        if (config.conf["devices"][selectedSerStr].contains("gainMode")) {
-            gainMode = config.conf["devices"][selectedSerStr]["gainMode"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("sensitiveGain")) {
-            sensitiveGain = config.conf["devices"][selectedSerStr]["sensitiveGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("linearGain")) {
-            linearGain = config.conf["devices"][selectedSerStr]["linearGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("lnaGain")) {
-            lnaGain = config.conf["devices"][selectedSerStr]["lnaGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("rfGain")) {
-            rfGain = config.conf["devices"][selectedSerStr]["rfGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("mixerGain")) {
-            mixerGain = config.conf["devices"][selectedSerStr]["mixerGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("filterGain")) {
-            filterGain = config.conf["devices"][selectedSerStr]["filterGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("vgaGain")) {
-            vgaGain = config.conf["devices"][selectedSerStr]["vgaGain"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("lnaAgc")) {
-            lnaAgc = config.conf["devices"][selectedSerStr]["lnaAgc"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("rfAgc")) {
-            rfAgc = config.conf["devices"][selectedSerStr]["rfAgc"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("mixerAgc")) {
-            mixerAgc = config.conf["devices"][selectedSerStr]["mixerAgc"];
-        }
-        if (config.conf["devices"][selectedSerStr].contains("filterAgc")) {
-            filterAgc = config.conf["devices"][selectedSerStr]["filterAgc"];
-        }
+            // Load gains
+            dev.tryGet("gainMode", gainMode);
+            dev.tryGet("sensitiveGain", sensitiveGain);
+            dev.tryGet("linearGain", linearGain);
+            dev.tryGet("lnaGain", lnaGain);
+            dev.tryGet("rfGain", rfGain);
+            dev.tryGet("mixerGain", mixerGain);
+            dev.tryGet("filterGain", filterGain);
+            dev.tryGet("vgaGain", vgaGain);
+            dev.tryGet("lnaAgc", lnaAgc);
+            dev.tryGet("rfAgc", rfAgc);
+            dev.tryGet("mixerAgc", mixerAgc);
+            dev.tryGet("filterAgc", filterAgc);
 
-        // Load Bias-T
-        if (config.conf["devices"][selectedSerStr].contains("biasT")) {
-            biasT = config.conf["devices"][selectedSerStr]["biasT"];
-        }
+            // Load Bias-T
+            dev.tryGet("biasT", biasT);
 
-        // Load DDC algorithm
-        algoId = 0; // Default to 47_opt
-        if (config.conf["devices"][selectedSerStr].contains("algorithm")) {
-            std::string algoStr = config.conf["devices"][selectedSerStr]["algorithm"];
-            if (algorithms.keyExists(algoStr)) {
+            // Load DDC algorithm
+            algoId = 0; // Default to 47_opt
+            std::string algoStr;
+            if (dev.tryGet("algorithm", algoStr) && algorithms.keyExists(algoStr)) {
                 algoId = algorithms.keyId(algoStr);
             }
         }
-
-        config.release(created);
 
         hydrasdr_close(dev);
     }
@@ -455,9 +417,7 @@ private:
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial = config.value("device", std::string());
         selectByString(devSerial);
         core::setInputSampleRate(sampleRate);
         lastAndroidUsbHotplugGeneration = backend::usbHotplugGeneration.load(std::memory_order_relaxed);
@@ -648,9 +608,7 @@ private:
             _this->selectBySerial(_this->devices[_this->devId]);
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["device"] = _this->selectedSerStr;
-                config.release(true);
+                config.set("device", _this->selectedSerStr);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -661,9 +619,7 @@ private:
             _this->sampleRate = _this->samplerates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["sampleRate"] = _this->samplerates.key(_this->srId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerStr).set("sampleRate", _this->samplerates.key(_this->srId));
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -678,9 +634,7 @@ private:
             _this->refreshAndroidSelection();
 #else
             _this->refresh();
-            config.acquire();
-            std::string devSerial = config.conf["device"];
-            config.release();
+            std::string devSerial = config.value("device", std::string());
             _this->selectByString(devSerial);
             core::setInputSampleRate(_this->sampleRate);
 #endif
@@ -692,9 +646,7 @@ private:
         // High Definition mode checkbox (cannot be changed while running)
         if (SmGui::Checkbox(CONCAT("HD##_hydrasdr_highdef_", _this->name), &_this->highDefMode)) {
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["highDefMode"] = _this->highDefMode;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerStr).set("highDefMode", _this->highDefMode);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -744,9 +696,7 @@ private:
                     hydrasdr_set_bandwidth(_this->openDev, _this->bandwidths[_this->bwId]);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["bandwidth"] = _this->bandwidths.key(_this->bwId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSerStr).set("bandwidth", _this->bandwidths.key(_this->bwId));
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -762,9 +712,7 @@ private:
             SmGui::FillWidth();
             if (SmGui::Combo(CONCAT("##_hydrasdr_algo_sel_", _this->name), &_this->algoId, _this->algorithms.txt)) {
                 if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["algorithm"] = _this->algorithms.key(_this->algoId);
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSerStr).set("algorithm", _this->algorithms.key(_this->algoId));
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -833,9 +781,7 @@ private:
                 hydrasdr_set_rf_port(_this->openDev, _this->ports[_this->portId]);
             }
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["port"] = _this->ports.key(_this->portId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerStr).set("port", _this->ports.key(_this->portId));
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -873,9 +819,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["gainMode"] = 0;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 0);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -893,9 +837,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["gainMode"] = 1;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 1);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -913,9 +855,7 @@ private:
                         _this->applyGains();
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["gainMode"] = 2;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("gainMode", 2);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -937,9 +877,7 @@ private:
                     hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_SENSITIVITY, _this->sensitiveGain);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["sensitiveGain"] = _this->sensitiveGain;
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSerStr).set("sensitiveGain", _this->sensitiveGain);
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -955,9 +893,7 @@ private:
                     hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_LINEARITY, _this->linearGain);
                 }
                 if (_this->selectedSerStr != "") {
-                    config.acquire();
-                    config.conf["devices"][_this->selectedSerStr]["linearGain"] = _this->linearGain;
-                    config.release(true);
+                    config.transaction().section("devices", _this->selectedSerStr).set("linearGain", _this->linearGain);
                 }
             }
             if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -977,9 +913,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_LNA, _this->lnaGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["lnaGain"] = _this->lnaGain;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("lnaGain", _this->lnaGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -999,9 +933,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_RF, _this->rfGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["rfGain"] = _this->rfGain;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("rfGain", _this->rfGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1021,9 +953,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_MIXER, _this->mixerGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["mixerGain"] = _this->mixerGain;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("mixerGain", _this->mixerGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1043,9 +973,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_FILTER, _this->filterGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["filterGain"] = _this->filterGain;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("filterGain", _this->filterGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1064,9 +992,7 @@ private:
                         hydrasdr_set_gain(_this->openDev, HYDRASDR_GAIN_TYPE_VGA, _this->vgaGain);
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["vgaGain"] = _this->vgaGain;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("vgaGain", _this->vgaGain);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1088,9 +1014,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["lnaAgc"] = _this->lnaAgc;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("lnaAgc", _this->lnaAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1110,9 +1034,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["rfAgc"] = _this->rfAgc;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("rfAgc", _this->rfAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1132,9 +1054,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["mixerAgc"] = _this->mixerAgc;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("mixerAgc", _this->mixerAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1154,9 +1074,7 @@ private:
                         }
                     }
                     if (_this->selectedSerStr != "") {
-                        config.acquire();
-                        config.conf["devices"][_this->selectedSerStr]["filterAgc"] = _this->filterAgc;
-                        config.release(true);
+                        config.transaction().section("devices", _this->selectedSerStr).set("filterAgc", _this->filterAgc);
                     }
                 }
                 if (!_this->serverMode && ImGui::IsItemHovered()) {
@@ -1171,9 +1089,7 @@ private:
                 hydrasdr_set_rf_bias(_this->openDev, _this->biasT);
             }
             if (_this->selectedSerStr != "") {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerStr]["biasT"] = _this->biasT;
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerStr).set("biasT", _this->biasT);
             }
         }
         if (!_this->serverMode && ImGui::IsItemHovered()) {

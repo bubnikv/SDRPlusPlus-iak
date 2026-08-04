@@ -47,9 +47,7 @@ public:
         refresh();
 
         // Select device from config
-        config.acquire();
-        std::string devSerial = config.conf["device"];
-        config.release();
+        std::string devSerial = config.value("device", std::string());
         select(devSerial);
 
         sigpath::sourceManager.registerSource("SDDC", &handler);
@@ -176,28 +174,26 @@ private:
         // vgaGain = 0;
 
         // Load config
-        config.acquire();
-        if (config.conf["devices"][selectedSerial].contains("samplerate")) {
-            int desiredSr = config.conf["devices"][selectedSerial]["samplerate"];
-            if (samplerates.keyExists(desiredSr)) {
+        {
+            auto txn = config.transaction();
+            ConfigManager::Section dev = txn.section("devices", selectedSerial);
+            int desiredSr = 0;
+            if (dev.tryGet("samplerate", desiredSr) && samplerates.keyExists(desiredSr)) {
                 srId = samplerates.keyId(desiredSr);
                 sampleRate = samplerates[srId];
             }
+            // std::string desiredPort;
+            // if (dev.tryGet("port", desiredPort) && ports.keyExists(desiredPort)) {
+            //     portId = ports.keyId(desiredPort);
+            //     port = ports[portId];
+            // }
+            // if (dev.tryGet("lnaGain", lnaGain)) {
+            //     lnaGain = std::clamp<int>(lnaGain, FOBOS_LNA_GAIN_MIN, FOBOS_LNA_GAIN_MAX);
+            // }
+            // if (dev.tryGet("vgaGain", vgaGain)) {
+            //     vgaGain = std::clamp<int>(vgaGain, FOBOS_VGA_GAIN_MIN, FOBOS_VGA_GAIN_MAX);
+            // }
         }
-        // if (config.conf["devices"][selectedSerial].contains("port")) {
-        //     std::string desiredPort = config.conf["devices"][selectedSerial]["port"];
-        //     if (ports.keyExists(desiredPort)) {
-        //         portId = ports.keyId(desiredPort);
-        //         port = ports[portId];
-        //     }
-        // }
-        // if (config.conf["devices"][selectedSerial].contains("lnaGain")) {
-        //     lnaGain = std::clamp<int>(config.conf["devices"][selectedSerial]["lnaGain"], FOBOS_LNA_GAIN_MIN, FOBOS_LNA_GAIN_MAX);
-        // }
-        // if (config.conf["devices"][selectedSerial].contains("vgaGain")) {
-        //     vgaGain = std::clamp<int>(config.conf["devices"][selectedSerial]["vgaGain"], FOBOS_VGA_GAIN_MIN, FOBOS_VGA_GAIN_MAX);
-        // }
-        config.release();
 
         // Update the samplerate
         core::setInputSampleRate(sampleRate);
@@ -327,18 +323,14 @@ private:
         if (SmGui::Combo(CONCAT("##_sddc_dev_sel_", _this->name), &_this->devId, _this->devices.txt)) {
             _this->select(_this->devices.key(_this->devId));
             core::setInputSampleRate(_this->sampleRate);
-            config.acquire();
-            config.conf["device"] = _this->selectedSerial;
-            config.release(true);
+            config.set("device", _this->selectedSerial);
         }
 
         if (SmGui::Combo(CONCAT("##_sddc_sr_sel_", _this->name), &_this->srId, _this->samplerates.txt)) {
             _this->sampleRate = _this->samplerates.value(_this->srId);
             core::setInputSampleRate(_this->sampleRate);
             if (!_this->selectedSerial.empty()) {
-                config.acquire();
-                config.conf["devices"][_this->selectedSerial]["samplerate"] = _this->samplerates.key(_this->srId);
-                config.release(true);
+                config.transaction().section("devices", _this->selectedSerial).set("samplerate", _this->samplerates.key(_this->srId));
             }
         }
 
@@ -355,9 +347,7 @@ private:
         // SmGui::FillWidth();
         // if (SmGui::Combo(CONCAT("##_sddc_port_", _this->name), &_this->portId, _this->ports.txt)) {
         //     if (!_this->selectedSerial.empty()) {
-        //         config.acquire();
-        //         config.conf["devices"][_this->selectedSerial]["port"] = _this->ports.key(_this->portId);
-        //         config.release(true);
+        //         config.transaction().section("devices", _this->selectedSerial).set("port", _this->ports.key(_this->portId));
         //     }
         // }
 
@@ -371,9 +361,7 @@ private:
         //             fobos_rx_set_lna_gain(_this->openDev, _this->lnaGain);
         //         }
         //         if (!_this->selectedSerial.empty()) {
-        //             config.acquire();
-        //             config.conf["devices"][_this->selectedSerial]["lnaGain"] = _this->lnaGain;
-        //             config.release(true);
+        //             config.transaction().section("devices", _this->selectedSerial).set("lnaGain", _this->lnaGain);
         //         }
         //     }
 
@@ -384,9 +372,7 @@ private:
         //             fobos_rx_set_vga_gain(_this->openDev, _this->vgaGain);
         //         }
         //         if (!_this->selectedSerial.empty()) {
-        //             config.acquire();
-        //             config.conf["devices"][_this->selectedSerial]["vgaGain"] = _this->vgaGain;
-        //             config.release(true);
+        //             config.transaction().section("devices", _this->selectedSerial).set("vgaGain", _this->vgaGain);
         //         }
         //     }
         // }

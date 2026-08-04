@@ -23,7 +23,12 @@ void ConfigManager::setPath(std::string file) {
 }
 
 void ConfigManager::load(json def, bool lock) {
-    if (lock) { mtx.lock(); }
+    // Scoped, because the two early returns below used to skip a hand-written
+    // unlock: an unset path or a config that is a directory left the mutex held,
+    // and the next transaction (or the autosave tick) deadlocked on it.
+    std::unique_lock<std::mutex> guard(mtx, std::defer_lock);
+    if (lock) { guard.lock(); }
+
     if (path == "") {
         flog::error("Config manager tried to load file with no path specified");
         return;
@@ -48,15 +53,14 @@ void ConfigManager::load(json def, bool lock) {
         conf = def;
         save(false);
     }
-    if (lock) { mtx.unlock(); }
 }
 
 void ConfigManager::save(bool lock) {
-    if (lock) { mtx.lock(); }
+    std::unique_lock<std::mutex> guard(mtx, std::defer_lock);
+    if (lock) { guard.lock(); }
     std::ofstream file(path.c_str());
     file << conf.dump(4);
     file.close();
-    if (lock) { mtx.unlock(); }
 }
 
 void ConfigManager::enableAutoSave() {

@@ -31,10 +31,7 @@ public:
     VORReceiverModule(std::string name) {
         this->name = name;
 
-        // Load config
-        config.acquire();
         // TODO: Load config
-        config.release();
 
         vfo = sigpath::vfoManager.createVFO(name, ImGui::WaterfallVFO::REF_CENTER, 0, INPUT_SAMPLE_RATE, INPUT_SAMPLE_RATE, INPUT_SAMPLE_RATE, INPUT_SAMPLE_RATE, true);
         decoder = new vor::Decoder(vfo->output, 1);
