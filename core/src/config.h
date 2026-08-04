@@ -150,11 +150,14 @@ public:
     void disableAutoSave();
     // Synchronously saves every dirty manager currently registered for
     // autosave, without changing their lifecycle state. Intended for platforms
-    // that may resume after a save-state event. Continues after individual
-    // failures and returns true only if every attempted save succeeded.
+    // that may resume after a save-state event. It deliberately makes one save
+    // attempt per manager, leaving background retry to the autosaver. Continues
+    // after individual failures and returns true only if every attempted save
+    // succeeded.
     static bool flushAll();
     // Terminal operation: rejects new access, drains the autosaver, and commits
-    // the final dirty state. A failed shutdown may be retried.
+    // the final dirty state. A failed shutdown may be retried, but the manager
+    // remains frozen in between so only an external condition can unblock it.
     bool shutdown();
 
     // A read access owns the config mutex but exposes only operations that cannot
@@ -178,10 +181,16 @@ private:
     bool anyAccessHeldByCurrentThread() const noexcept;
     void disableAutoSaveImpl();
 
+    enum class SaveRetryMode {
+        SingleAttempt,
+        TransientWindowsLocks
+    };
+
     // Called only by the one process-wide ConfigSaver. The dirty flag is guarded
     // by mtx and is cleared only after a successful disk commit.
     bool saveIfDirty();
-    bool saveImpl(bool onlyIfDirty, bool allowClosing = false);
+    bool saveImpl(bool onlyIfDirty, bool allowClosing = false,
+                  SaveRetryMode retryMode = SaveRetryMode::SingleAttempt);
 
     friend class ConfigSaver;
     friend struct config_detail::ConfigManagerTestAccess;

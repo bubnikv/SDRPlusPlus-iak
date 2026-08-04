@@ -12,6 +12,16 @@
 #include <thread>
 #include <type_traits>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
 static_assert(!std::is_move_constructible<ConfigManager::EditAccess>::value,
               "edit accesses must remain immovable");
 static_assert(!std::is_move_assignable<ConfigManager::EditAccess>::value,
@@ -245,6 +255,45 @@ namespace {
                 "shutdown retry did not persist the dirty document");
     }
 
+#ifdef _WIN32
+    void testShutdownRetriesTransientWindowsLock(const std::filesystem::path& path) {
+        ConfigManager config;
+        config.setPath(path.string());
+        config.load(json::object({ { "value", 0 } }));
+        config.edit().set("value", 17);
+
+        // Omitting FILE_SHARE_DELETE prevents MoveFileExW from replacing this
+        // existing file until the simulated scanner releases its handle.
+        HANDLE lock = CreateFileW(
+            path.c_str(),
+            GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+        require(lock != INVALID_HANDLE_VALUE, "could not lock config for shutdown retry test");
+
+        std::thread unlocker([lock]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            CloseHandle(lock);
+        });
+        bool shutdownSucceeded = false;
+        try {
+            shutdownSucceeded = config.shutdown();
+        }
+        catch (...) {
+            unlocker.join();
+            throw;
+        }
+        unlocker.join();
+
+        require(shutdownSucceeded, "shutdown did not outlast a transient Windows file lock");
+        require(readFile(path).value("value", 0) == 17,
+                "shutdown retry did not commit the dirty config");
+    }
+#endif
+
     void testConcurrentSave(const std::filesystem::path& path) {
         ConfigManager config;
         config.setPath(path.string());
@@ -472,6 +521,9 @@ int main() {
         testConcurrentSave(root / "concurrent.json");
         testShutdownLifecycle(root / "shutdown.json");
         testShutdownRetry(root / "missing-shutdown-directory");
+#ifdef _WIN32
+        testShutdownRetriesTransientWindowsLock(root / "shutdown-locked.json");
+#endif
 #if OPT_CONFIG_MULTIPLE_INSTANCES
         testIndependentManagerMerge(root / "merge.json");
         testConcurrentShutdownMerge(root / "concurrent-shutdown.json");

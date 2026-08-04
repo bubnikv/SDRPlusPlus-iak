@@ -156,16 +156,45 @@ namespace {
         return temporary;
     }
 
-    bool replaceFile(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    bool replaceFile(const std::filesystem::path& source,
+                     const std::filesystem::path& destination,
+                     bool retryTransientLocks) {
 #ifdef _WIN32
-        if (MoveFileExW(source.c_str(), destination.c_str(),
-                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-            return true;
+        constexpr auto retryBudget = std::chrono::seconds(2);
+        constexpr auto maximumDelay = std::chrono::milliseconds(500);
+        auto delay = std::chrono::milliseconds(20);
+        const auto deadline = std::chrono::steady_clock::now() + retryBudget;
+        unsigned int attempts = 0;
+        DWORD error = ERROR_SUCCESS;
+
+        for (;;) {
+            ++attempts;
+            if (MoveFileExW(source.c_str(), destination.c_str(),
+                            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+                return true;
+            }
+
+            error = GetLastError();
+            const bool transient =
+                error == ERROR_SHARING_VIOLATION ||
+                error == ERROR_LOCK_VIOLATION ||
+                // Security software sometimes reports a temporary open handle
+                // as access denied rather than as a sharing violation.
+                error == ERROR_ACCESS_DENIED;
+            const auto now = std::chrono::steady_clock::now();
+            if (!retryTransientLocks || !transient || now >= deadline) { break; }
+
+            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                deadline - now);
+            std::this_thread::sleep_for((std::min)(delay, remaining));
+            delay = (std::min)(delay * 2, maximumDelay);
         }
-        flog::error("Could not replace config file '{}': Windows error {}",
-                    destination.string(), GetLastError());
+
+        flog::error("Could not replace config file '{}' after {} attempt(s): Windows error {}",
+                    destination.string(), attempts, error);
         return false;
 #else
+        (void)retryTransientLocks;
         std::error_code ec;
         std::filesystem::rename(source, destination, ec);
         if (!ec) { return true; }
@@ -174,7 +203,8 @@ namespace {
 #endif
     }
 
-    bool writeJsonAtomically(const std::filesystem::path& path, const json& document) {
+    bool writeJsonAtomically(const std::filesystem::path& path, const json& document,
+                             bool retryTransientLocks = false) {
         const std::filesystem::path temporary = temporaryPathFor(path);
         try {
             {
@@ -193,7 +223,7 @@ namespace {
                 }
             }
 
-            if (replaceFile(temporary, path)) { return true; }
+            if (replaceFile(temporary, path, retryTransientLocks)) { return true; }
         }
         catch (const std::exception& e) {
             flog::error("Could not serialize config file '{}': {}", path.string(), e.what());
@@ -260,7 +290,7 @@ namespace {
         return merged;
     }
 
-    SaveResult persistSnapshot(const SaveSnapshot& snapshot) {
+    SaveResult persistSnapshot(const SaveSnapshot& snapshot, bool retryTransientLocks) {
         SaveResult result;
         if (snapshot.path.empty()) {
             flog::error("Config manager tried to save file with no path specified");
@@ -269,6 +299,10 @@ namespace {
 
         const std::filesystem::path filePath(snapshot.path);
 #if OPT_CONFIG_MULTIPLE_INSTANCES
+        // A terminal Windows save may wait here for a transient replacement lock
+        // to clear. Keep the cross-process lock for that bounded retry: releasing
+        // it would let another instance change the disk document after the merge
+        // below, requiring a fresh read and merge before every attempt.
         ConfigCommitLock commitLock(filePath.parent_path());
         if (!commitLock) { return result; }
 
@@ -286,13 +320,13 @@ namespace {
             ? mergeLocalChanges(snapshot.baseline, snapshot.local, disk)
             : snapshot.local;
         if ((readResult != ReadResult::OK || result.document != disk) &&
-            !writeJsonAtomically(filePath, result.document)) {
+            !writeJsonAtomically(filePath, result.document, retryTransientLocks)) {
             result.document = json();
             return result;
         }
 #else
         result.document = snapshot.local;
-        if (!writeJsonAtomically(filePath, result.document)) {
+        if (!writeJsonAtomically(filePath, result.document, retryTransientLocks)) {
             result.document = json();
             return result;
         }
@@ -615,7 +649,8 @@ bool ConfigManager::flushAll() {
     return ConfigSaver::instance().flushAll();
 }
 
-bool ConfigManager::saveImpl(bool onlyIfDirty, bool allowClosing) {
+bool ConfigManager::saveImpl(bool onlyIfDirty, bool allowClosing,
+                             SaveRetryMode retryMode) {
     std::lock_guard<std::mutex> persistenceGuard(persistenceMtx);
     SaveSnapshot snapshot;
     {
@@ -634,7 +669,8 @@ bool ConfigManager::saveImpl(bool onlyIfDirty, bool allowClosing) {
         snapshot.revision = revision;
     }
 
-    SaveResult result = persistSnapshot(snapshot);
+    SaveResult result = persistSnapshot(
+        snapshot, retryMode == SaveRetryMode::TransientWindowsLocks);
     if (!result.success) { return false; }
 
     {
@@ -712,7 +748,7 @@ bool ConfigManager::shutdown() {
     // New accesses are rejected in Closing, so one final dirty-only commit is a
     // stable local snapshot. The cross-process lock still merges other SDR++
     // instances that commit before us.
-    if (!saveImpl(true, true)) {
+    if (!saveImpl(true, true, SaveRetryMode::TransientWindowsLocks)) {
         std::string failedPath;
         {
             std::lock_guard<std::mutex> guard(mtx);
