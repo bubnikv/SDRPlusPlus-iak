@@ -19,7 +19,7 @@ namespace bandplan {
 
     bool Band_t::hasValidFrequencySpan() const noexcept {
         assert(std::isfinite(start) && std::isfinite(end));
-        return start <= end;
+        return start > 0.0 && start <= end;
     }
 
     bool Band_t::containsFrequency(double frequency) const noexcept {
