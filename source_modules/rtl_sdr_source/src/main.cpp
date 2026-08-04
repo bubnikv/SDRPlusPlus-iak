@@ -84,7 +84,7 @@ public:
         {
             auto txn = config.transaction();
             txn.ensure("device", "");
-            txn.getTo("device", selectedDevName);
+            txn.tryGet("device", selectedDevName);
         }
         selectByName(selectedDevName);
 
@@ -201,7 +201,7 @@ public:
 
         {
             auto txn = config.transaction();
-            ConfigManager::Node dev = txn.node("devices", selectedDevName);
+            ConfigManager::Section dev = txn.section("devices", selectedDevName);
 
             // Seed whatever this device is missing, which for a device never seen
             // before is the whole block.
@@ -216,7 +216,7 @@ public:
 
             // Load config
             int selectedSr = 0;
-            if (dev.getTo("sampleRate", selectedSr)) {
+            if (dev.tryGet("sampleRate", selectedSr)) {
                 for (int i = 0; i < 11; i++) {
                     if (sampleRates[i] == selectedSr) {
                         srId = i;
@@ -225,13 +225,13 @@ public:
                     }
                 }
             }
-            dev.getTo("directSampling", directSamplingMode);
-            dev.getTo("ppm", ppm);
-            dev.getTo("biasT", biasT);
-            dev.getTo("offsetTuning", offsetTuning);
-            dev.getTo("rtlAgc", rtlAgc);
-            dev.getTo("tunerAgc", tunerAgc);
-            dev.getTo("gain", gainId);
+            dev.tryGet("directSampling", directSamplingMode);
+            dev.tryGet("ppm", ppm);
+            dev.tryGet("biasT", biasT);
+            dev.tryGet("offsetTuning", offsetTuning);
+            dev.tryGet("rtlAgc", rtlAgc);
+            dev.tryGet("tunerAgc", tunerAgc);
+            dev.tryGet("gain", gainId);
         }
 
         if (gainId >= gainList.size()) { gainId = gainList.size() - 1; }
@@ -241,6 +241,15 @@ public:
     }
 
 private:
+    // Every menu widget persists one field under this device's own block. Does
+    // nothing when no device is selected, since there'd be nowhere to put it.
+    template <class T>
+    void saveDeviceSetting(std::string_view key, const T& value) {
+        if (selectedDevName.empty()) { return; }
+        auto txn = config.transaction();
+        txn.section("devices", selectedDevName).set(key, value);
+    }
+
 #ifdef __ANDROID__
     void refreshAndroidSelection() {
         refresh();
@@ -400,9 +409,7 @@ private:
         if (SmGui::Combo(CONCAT("##_rtlsdr_sr_sel_", _this->name), &_this->srId, _this->sampleRateListTxt.c_str())) {
             _this->sampleRate = sampleRates[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "sampleRate", _this->sampleRate);
-            }
+            _this->saveDeviceSetting("sampleRate", _this->sampleRate);
         }
 
         SmGui::SameLine();
@@ -439,9 +446,7 @@ private:
                     }
                 }
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "directSampling", _this->directSamplingMode);
-            }
+            _this->saveDeviceSetting("directSampling", _this->directSamplingMode);
         }
 
         SmGui::LeftLabel("PPM Correction");
@@ -451,9 +456,7 @@ private:
             if (_this->running) {
                 rtlsdr_set_freq_correction(_this->openDev, _this->ppm);
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "ppm", _this->ppm);
-            }
+            _this->saveDeviceSetting("ppm", _this->ppm);
         }
 
         if (_this->tunerAgc || _this->gainList.size() == 0) { SmGui::BeginDisabled(); }
@@ -468,9 +471,7 @@ private:
                 if (_this->running) {
                     rtlsdr_set_tuner_gain(_this->openDev, _this->gainList[_this->gainId]);
                 }
-                if (_this->selectedDevName != "") {
-                    config.set("devices", _this->selectedDevName, "gain", _this->gainId);
-                }
+                _this->saveDeviceSetting("gain", _this->gainId);
             }
         }
         else {
@@ -479,9 +480,7 @@ private:
                 if (_this->running) {
                     rtlsdr_set_tuner_gain(_this->openDev, _this->gainList[_this->gainId]);
                 }
-                if (_this->selectedDevName != "") {
-                    config.set("devices", _this->selectedDevName, "gain", _this->gainId);
-                }
+                _this->saveDeviceSetting("gain", _this->gainId);
             }
         }
 
@@ -492,27 +491,21 @@ private:
             if (_this->running) {
                 rtlsdr_set_bias_tee(_this->openDev, _this->biasT);
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "biasT", _this->biasT);
-            }
+            _this->saveDeviceSetting("biasT", _this->biasT);
         }
 
         if (SmGui::Checkbox(CONCAT("Offset Tuning##_rtlsdr_rtl_ofs_", _this->name), &_this->offsetTuning)) {
             if (_this->running) {
                 rtlsdr_set_offset_tuning(_this->openDev, _this->offsetTuning);
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "offsetTuning", _this->offsetTuning);
-            }
+            _this->saveDeviceSetting("offsetTuning", _this->offsetTuning);
         }
 
         if (SmGui::Checkbox(CONCAT("RTL AGC##_rtlsdr_rtl_agc_", _this->name), &_this->rtlAgc)) {
             if (_this->running) {
                 rtlsdr_set_agc_mode(_this->openDev, _this->rtlAgc);
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "rtlAgc", _this->rtlAgc);
-            }
+            _this->saveDeviceSetting("rtlAgc", _this->rtlAgc);
         }
 
         SmGui::ForceSync();
@@ -526,9 +519,7 @@ private:
                     rtlsdr_set_tuner_gain(_this->openDev, _this->gainList[_this->gainId]);
                 }
             }
-            if (_this->selectedDevName != "") {
-                config.set("devices", _this->selectedDevName, "tunerAgc", _this->tunerAgc);
-            }
+            _this->saveDeviceSetting("tunerAgc", _this->tunerAgc);
         }
     }
 

@@ -81,11 +81,11 @@ namespace freq_input {
         }
 
         std::int64_t rememberedFrequency(
-            ConfigManager::Node memory,
+            ConfigManager::Section memory,
             const AvailableSpectrumRange& range)
         {
             double remembered = 0.0;
-            if (!memory.getTo(range.range->rangeId, remembered) ||
+            if (!memory.tryGet(range.range->rangeId, remembered) ||
                 !range.containsFrequency(remembered))
             {
                 return midpoint(range);
@@ -225,9 +225,9 @@ namespace freq_input {
 
                 {
                     auto txn = core::configManager.transaction();
-                    ConfigManager::Node spectrum = freq_memory::spectrum(txn);
-                    ConfigManager::Node memory =
-                        spectrum.node(freq_memory::LAST_FREQUENCY);
+                    ConfigManager::Section spectrum = freq_memory::spectrum(txn);
+                    ConfigManager::Section memory =
+                        spectrum.section(freq_memory::LAST_FREQUENCY);
 
                     // Remember the current frequency for the one non-overlapping
                     // range that owns it. This is a one-slot navigation memory,

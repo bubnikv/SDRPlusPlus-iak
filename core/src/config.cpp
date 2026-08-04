@@ -79,18 +79,24 @@ void ConfigManager::disableAutoSave() {
 
 void ConfigManager::acquire() {
     mtx.lock();
+#ifndef NDEBUG
     owner.store(std::this_thread::get_id(), std::memory_order_relaxed);
+#endif
 }
 
 void ConfigManager::release(bool modified) {
     changed |= modified;
+#ifndef NDEBUG
     owner.store(std::thread::id(), std::memory_order_relaxed);
+#endif
     mtx.unlock();
 }
 
+#ifndef NDEBUG
 bool ConfigManager::heldByCurrentThread() const {
     return owner.load(std::memory_order_relaxed) == std::this_thread::get_id();
 }
+#endif
 
 void ConfigManager::autoSaveWorker() {
     while (autoSaveEnabled) {

@@ -27,20 +27,20 @@ namespace freq_memory {
     inline constexpr const char* STACKING_REGISTERS = "stackingRegisters";
     inline constexpr const char* LAST_FREQUENCY     = "lastFrequency";
 
-    inline ConfigManager::Node root(ConfigManager::Transaction& txn) {
-        return txn.node(ROOT);
+    inline ConfigManager::Section root(ConfigManager::Transaction& txn) {
+        return txn.section(ROOT);
     }
 
-    inline ConfigManager::Node band(ConfigManager::Transaction& txn) {
-        return root(txn).node(SELECTOR_BAND);
+    inline ConfigManager::Section band(ConfigManager::Transaction& txn) {
+        return root(txn).section(SELECTOR_BAND);
     }
 
-    inline ConfigManager::Node spectrum(ConfigManager::Transaction& txn) {
-        return root(txn).node(SELECTOR_SPECTRUM);
+    inline ConfigManager::Section spectrum(ConfigManager::Transaction& txn) {
+        return root(txn).section(SELECTOR_SPECTRUM);
     }
 
-    inline ConfigManager::Node stackingRegisters(ConfigManager::Transaction& txn) {
-        return band(txn).node(STACKING_REGISTERS);
+    inline ConfigManager::Section stackingRegisters(ConfigManager::Transaction& txn) {
+        return band(txn).section(STACKING_REGISTERS);
     }
 
     // The default subtree, for core.cpp's defConfig.

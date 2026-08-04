@@ -96,34 +96,36 @@ public:
     void acquire();
     void release(bool modified = false);
 
-    // True if this thread currently holds the config lock. Only meant for
-    // assertions: the lock isn't recursive, so opening a transaction while
-    // already holding it deadlocks.
+#ifndef NDEBUG
+    // True if this thread currently holds the config lock. Exists only for the
+    // assert in transaction(): the lock isn't recursive, so opening a transaction
+    // while already holding it deadlocks. Debug-only, because tracking the owner
+    // costs an atomic store on every acquire/release and nothing else reads it.
     bool heldByCurrentThread() const;
+#endif
 
     // Scoped access to the document. Locks on construction, and on destruction
     // unlocks while reporting whether any of its writes actually changed
     // something. Unlike a bare acquire()/release() pair it survives an early
     // return or a throw out of nlohmann.
     class Transaction;
-    // A lazily resolved position inside the document. Reads never create the
-    // path; the first write materializes it.
-    class Node;
+    // A lazily resolved section of the document, named by its path. Reads never
+    // create the path; the first write materializes it.
+    class Section;
 
     Transaction transaction();
 
-    // Single-shot helpers, each holding the lock for the duration of one call.
-    // The last argument is the value, anything before it is a path:
+    // Single-shot helpers, each holding the lock for the duration of one call:
     //   set("showMenu", showMenu);
-    //   set("devices", devName, "gain", gainId);
-    // Every writer returns true iff it modified the document.
-    template <class... Args> bool set(Args&&... pathThenValue);
-    template <class... Args> bool ensure(Args&&... pathThenDefault);
-    template <class... Args> bool getTo(Args&&... pathThenOut);
+    // They reach the top level of the document only. For anything nested, open a
+    // transaction and name the path with section(), which keeps the path and the
+    // key from being confused for one another. Every writer returns true iff it
+    // modified the document.
+    template <class T> bool set(std::string_view key, const T& value);
+    template <class T> bool ensure(std::string_view key, const T& def);
+    template <class T> bool tryGet(std::string_view key, T& out);
     template <class T>
     config_detail::ValueType<T> value(std::string_view key, const T& def);
-    template <class A, class B, class... Rest>
-    auto value(std::string_view key, A&& a, B&& b, Rest&&... rest);
 
     json conf;
 
@@ -135,7 +137,9 @@ private:
     volatile bool autoSaveEnabled = false;
     std::thread autoSaveThread;
     std::mutex mtx;
+#ifndef NDEBUG
     std::atomic<std::thread::id> owner{ std::thread::id() };
+#endif
 
     std::mutex termMtx;
     std::condition_variable termCond;
@@ -144,7 +148,7 @@ private:
 
 class ConfigManager::Transaction {
     friend class ConfigManager;
-    friend class ConfigManager::Node;
+    friend class ConfigManager::Section;
 
 public:
     Transaction(const Transaction&) = delete;
@@ -159,8 +163,8 @@ public:
         if (mgr) { mgr->release(changed); }
     }
 
-    // Writers. Two arguments are always key + value; three or more treat every
-    // argument but the last as a path element.
+    // Writers, addressing the top level of the document. Nested keys go through
+    // section().
     template <class T>
     bool set(std::string_view key, const T& value) {
         const bool wrote = config_detail::setValue(mgr->conf, key, config_detail::toJson(value));
@@ -186,7 +190,7 @@ public:
     // Readers. Never insert, and leave the destination untouched when the key is
     // absent or holds the wrong type.
     template <class T>
-    bool getTo(std::string_view key, T& out) {
+    bool tryGet(std::string_view key, T& out) {
         return config_detail::getValue(&mgr->conf, key, out);
     }
 
@@ -201,25 +205,19 @@ public:
         return config_detail::find(mgr->conf, key) != NULL;
     }
 
-    // Path forms, e.g. set("devices", devName, "gain", gainId).
-    template <class A, class B, class... Rest>
-    bool set(std::string_view key, A&& a, B&& b, Rest&&... rest);
-    template <class A, class B, class... Rest>
-    bool ensure(std::string_view key, A&& a, B&& b, Rest&&... rest);
-    template <class A, class B, class... Rest>
-    bool getTo(std::string_view key, A&& a, B&& b, Rest&&... rest);
-    template <class A, class B, class... Rest>
-    auto value(std::string_view key, A&& a, B&& b, Rest&&... rest);
-
-    // Binds a path prefix so a block of related fields reads and writes without
-    // repeating it. Must not outlive the transaction it came from.
+    // Names a path, e.g. section("devices", devName).set("gain", gainId). Binds a
+    // prefix so a block of related fields reads and writes without repeating it,
+    // and keeps path elements from being mistaken for a key or a value the way a
+    // single variadic call would. A section must not outlive the transaction it
+    // came from.
     template <class... Keys>
-    Node node(Keys&&... keys);
+    Section section(Keys&&... keys);
 
-    // Escape hatch for what the helpers don't cover: iteration, arrays, wholesale
-    // assignment. Pair any write through it with markChanged().
-    json& conf() { return mgr->conf; }
-    void markChanged() { changed = true; }
+    // Read-only escape hatch for what the readers don't cover, mainly iteration.
+    // There is deliberately no mutable counterpart: every write goes through
+    // set()/ensure()/erase(), which is what keeps modified() honest.
+    const json& peek() const { return mgr->conf; }
+
     bool modified() const { return changed; }
 
 private:
@@ -231,7 +229,7 @@ private:
     bool changed = false;
 };
 
-class ConfigManager::Node {
+class ConfigManager::Section {
     friend class ConfigManager::Transaction;
 
 public:
@@ -257,7 +255,7 @@ public:
     }
 
     template <class T>
-    bool getTo(std::string_view key, T& out) {
+    bool tryGet(std::string_view key, T& out) {
         return config_detail::getValue(resolve(), key, out);
     }
 
@@ -277,44 +275,24 @@ public:
     // been seen before.
     bool exists() { return resolve() != NULL; }
 
-    template <class A, class B, class... Rest>
-    bool set(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-        return node(key).set(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-    }
-
-    template <class A, class B, class... Rest>
-    bool ensure(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-        return node(key).ensure(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-    }
-
-    template <class A, class B, class... Rest>
-    bool getTo(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-        return node(key).getTo(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-    }
-
-    template <class A, class B, class... Rest>
-    auto value(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-        return node(key).value(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-    }
-
+    // Extends this section's path, so a nested block can be named in one step.
     template <class... Keys>
-    Node node(Keys&&... keys) {
-        Node sub(*this);
+    Section section(Keys&&... keys) {
+        Section sub(*this);
         sub.path.reserve(path.size() + sizeof...(Keys));
         (sub.path.emplace_back(std::forward<Keys>(keys)), ...);
         return sub;
     }
 
-    // Escape hatch. Creates the path, so only call it when about to write.
-    json& conf() { return materialize(); }
-    void markChanged() { txn->changed = true; }
-
     // Read-only escape hatch: the subtree as it stands, or NULL when the path
-    // doesn't exist. Never creates.
-    json* peek() { return resolve(); }
+    // doesn't exist. Never creates, so inspecting a section can't dirty the
+    // document. Writes go through set()/ensure()/erase(); to replace a subtree
+    // wholesale, build the json and hand it to set(), which compares first and
+    // so keeps the change flag accurate.
+    const json* peek() { return resolve(); }
 
 private:
-    Node(Transaction* txn, std::vector<std::string> path)
+    Section(Transaction* txn, std::vector<std::string> path)
         : txn(txn), path(std::move(path)) {}
 
     // Walks the path without touching the document.
@@ -354,31 +332,11 @@ private:
 };
 
 template <class... Keys>
-inline ConfigManager::Node ConfigManager::Transaction::node(Keys&&... keys) {
+inline ConfigManager::Section ConfigManager::Transaction::section(Keys&&... keys) {
     std::vector<std::string> path;
     path.reserve(sizeof...(Keys));
     (path.emplace_back(std::forward<Keys>(keys)), ...);
-    return Node(this, std::move(path));
-}
-
-template <class A, class B, class... Rest>
-inline bool ConfigManager::Transaction::set(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-    return node(key).set(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-}
-
-template <class A, class B, class... Rest>
-inline bool ConfigManager::Transaction::ensure(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-    return node(key).ensure(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-}
-
-template <class A, class B, class... Rest>
-inline bool ConfigManager::Transaction::getTo(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-    return node(key).getTo(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
-}
-
-template <class A, class B, class... Rest>
-inline auto ConfigManager::Transaction::value(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-    return node(key).value(std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
+    return Section(this, std::move(path));
 }
 
 inline ConfigManager::Transaction ConfigManager::transaction() {
@@ -386,27 +344,22 @@ inline ConfigManager::Transaction ConfigManager::transaction() {
     return Transaction(this);
 }
 
-template <class... Args>
-inline bool ConfigManager::set(Args&&... pathThenValue) {
-    return transaction().set(std::forward<Args>(pathThenValue)...);
+template <class T>
+inline bool ConfigManager::set(std::string_view key, const T& value) {
+    return transaction().set(key, value);
 }
 
-template <class... Args>
-inline bool ConfigManager::ensure(Args&&... pathThenDefault) {
-    return transaction().ensure(std::forward<Args>(pathThenDefault)...);
+template <class T>
+inline bool ConfigManager::ensure(std::string_view key, const T& def) {
+    return transaction().ensure(key, def);
 }
 
-template <class... Args>
-inline bool ConfigManager::getTo(Args&&... pathThenOut) {
-    return transaction().getTo(std::forward<Args>(pathThenOut)...);
+template <class T>
+inline bool ConfigManager::tryGet(std::string_view key, T& out) {
+    return transaction().tryGet(key, out);
 }
 
 template <class T>
 inline config_detail::ValueType<T> ConfigManager::value(std::string_view key, const T& def) {
     return transaction().value(key, def);
-}
-
-template <class A, class B, class... Rest>
-inline auto ConfigManager::value(std::string_view key, A&& a, B&& b, Rest&&... rest) {
-    return transaction().value(key, std::forward<A>(a), std::forward<B>(b), std::forward<Rest>(rest)...);
 }
