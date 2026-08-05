@@ -13,6 +13,8 @@
 #      SDR++ only consumes the `radiosonde` static library.
 #   4. Adds install rules for the radiosonde library and the public API
 #      headers under include/sondedump/.
+#   5. Fixes an RS41 serial-field over-read that Android's fortified libc
+#      detects and aborts while decoding.
 #
 include(${CMAKE_CURRENT_LIST_DIR}/../cmake/patch_helpers.cmake)
 
@@ -91,6 +93,15 @@ install(FILES \${_SDRPP_SONDEDUMP_PUBLIC_HEADERS} DESTINATION include/sondedump)
 # SDR++ deps install rules end
 ")
 endif ()
+
+# --- Patch 5: fixed-width RS41 serial field must not be read as a C string ---
+# status->serial is an 8-byte packed frame field without a NUL terminator. The
+# destination is larger, so copying sizeof(dst->serial)-1 bytes with strncpy
+# reads beyond the source object and trips Android's _FORTIFY_SOURCE checks.
+# Copy exactly the source field; rs41.c already writes dst->serial[8] = 0 on
+# the following line.
+patch_apply_git_or_fail("${SRC}"
+    "${CMAKE_CURRENT_LIST_DIR}/0001-fix-rs41-serial-overread.patch")
 
 file(WRITE "${_f}" "${_content}")
 message(STATUS "Patched ${_f}")

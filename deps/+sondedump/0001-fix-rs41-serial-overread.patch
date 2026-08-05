@@ -1,0 +1,9 @@
+diff --git a/sonde/rs41/rs41.c b/sonde/rs41/rs41.c
+index 8bb9b2f..a50f027 100644
+--- a/sonde/rs41/rs41.c
++++ b/sonde/rs41/rs41.c
+@@ -225,3 +225,3 @@ rs41_parse_subframe(SondeData *dst, RS41Subframe *subframe, RS41Metadata *metada
+ 		dst->fields |= DATA_SERIAL;
+-		strncpy(dst->serial, status->serial, sizeof(dst->serial)-1);
++		memcpy(dst->serial, status->serial, sizeof(status->serial));
+ 		dst->serial[8] = 0;

@@ -2,6 +2,12 @@
 
 The detailed per-release history of the SDR++ iak fork, including alpha and beta pre-releases. For a brief summary of the major releases only, see [changelog.md](changelog.md).
 
+## v1.4.0-beta
+
+### Fixed
+
+- Android radiosonde decoder abort while handling RS41 frames: the vendored `sondedump` decoder treated an eight-byte, non-terminated serial field as a 31-byte C string copy, which Android's fortified libc rejected as a source-buffer over-read. The dependency patch now copies exactly the packed field width and retains the existing explicit terminator.
+
 ## v1.4.0-alpha - 2026-07-19
 
 A large UI-focused release. The headline is a touch-friendly interface overhaul that makes SDR++ iak usable with a finger on Android (and previewable on desktop): an Android-metrics style overlay, a Material 3 dark theme, single-finger drag-scroll with fling, pill-handle window splitters, and an IC-705-style direct frequency-entry keypad with an integrated band picker. A new shared `PopupDialog` widget brings consistent keyboard and back-gesture handling to every modal in the app. Alongside these, a batch of desktop input fixes, radio/DSP touches, and crash fixes ported from and reported against upstream SDR++.
