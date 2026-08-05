@@ -10,6 +10,7 @@ links. Forks that got a full review have their own file here:
 - [qmx-panadapter (SteffenLav)](qmx-panadapter.md)
 - [Community Edition (LunaeMons)](community-edition.md)
 - [LDighera / WB6BBB](ldighera.md) — AI-assisted Pi5 fork: S-meter, manual notch, SSB AGC, CW/SSTV/FreeDV/HD Radio
+- [SDR++ jp (jprincl)](jp.md) — FT8/FT4/WSPR, SpyServer VFO+FFT, AGC work, Android fixes; experimental WEFAX branch
 
 ## Survey
 
