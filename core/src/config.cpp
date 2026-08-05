@@ -156,6 +156,21 @@ namespace {
         return temporary;
     }
 
+#ifdef _WIN32
+    bool accessDenialMayBeTransient(const std::filesystem::path& destination) {
+        const DWORD attributes = GetFileAttributesW(destination.c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES) {
+            // The destination may not exist yet; the access denial can still
+            // come from a scanner holding the freshly written source file.
+            // A delete-pending destination can also report access denied here,
+            // but so can an ACL denial. Treat that ambiguous case as permanent
+            // to keep a structural failure from delaying every config at exit.
+            return GetLastError() == ERROR_FILE_NOT_FOUND;
+        }
+        return (attributes & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_DIRECTORY)) == 0;
+    }
+#endif
+
     bool replaceFile(const std::filesystem::path& source,
                      const std::filesystem::path& destination,
                      bool retryTransientLocks) {
@@ -174,13 +189,16 @@ namespace {
                 return true;
             }
 
-            error = GetLastError();
+            error = GetLastError(); // Capture before the probe below changes last-error.
+            // Keep this allowlist to local handle interference. Network recovery
+            // and resource-exhaustion errors have different time scales and fail
+            // immediately rather than multiplying the shutdown delay.
             const bool transient =
                 error == ERROR_SHARING_VIOLATION ||
                 error == ERROR_LOCK_VIOLATION ||
-                // Security software sometimes reports a temporary open handle
-                // as access denied rather than as a sharing violation.
-                error == ERROR_ACCESS_DENIED;
+                error == ERROR_USER_MAPPED_FILE ||
+                (error == ERROR_ACCESS_DENIED &&
+                 accessDenialMayBeTransient(destination));
             const auto now = std::chrono::steady_clock::now();
             if (!retryTransientLocks || !transient || now >= deadline) { break; }
 

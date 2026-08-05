@@ -292,6 +292,40 @@ namespace {
         require(readFile(path).value("value", 0) == 17,
                 "shutdown retry did not commit the dirty config");
     }
+
+    void testShutdownDoesNotRetryReadOnlyDestination(
+        const std::filesystem::path& path) {
+        ConfigManager config;
+        config.setPath(path.string());
+        config.load(json::object({ { "value", 0 } }));
+        config.edit().set("value", 23);
+
+        const DWORD attributes = GetFileAttributesW(path.c_str());
+        require(attributes != INVALID_FILE_ATTRIBUTES,
+                "could not read attributes for shutdown retry test");
+        require(SetFileAttributesW(path.c_str(), attributes | FILE_ATTRIBUTE_READONLY),
+                "could not make config read-only for shutdown retry test");
+
+        std::thread makeWritable([path, attributes]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            SetFileAttributesW(path.c_str(), attributes);
+        });
+        bool firstShutdownSucceeded = false;
+        try {
+            firstShutdownSucceeded = config.shutdown();
+        }
+        catch (...) {
+            makeWritable.join();
+            throw;
+        }
+        makeWritable.join();
+
+        require(!firstShutdownSucceeded,
+                "shutdown retried a structurally read-only destination");
+        require(config.shutdown(), "shutdown retry failed after clearing read-only state");
+        require(readFile(path).value("value", 0) == 23,
+                "shutdown retry lost the config after clearing read-only state");
+    }
 #endif
 
     void testConcurrentSave(const std::filesystem::path& path) {
@@ -523,6 +557,7 @@ int main() {
         testShutdownRetry(root / "missing-shutdown-directory");
 #ifdef _WIN32
         testShutdownRetriesTransientWindowsLock(root / "shutdown-locked.json");
+        testShutdownDoesNotRetryReadOnlyDestination(root / "shutdown-read-only.json");
 #endif
 #if OPT_CONFIG_MULTIPLE_INSTANCES
         testIndependentManagerMerge(root / "merge.json");
