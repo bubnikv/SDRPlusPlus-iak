@@ -4,9 +4,38 @@ The detailed per-release history of the SDR++ iak fork, including alpha and beta
 
 ## v1.4.0-beta
 
+This beta turns the alpha's experimental band picker and waterfall autoscale into more complete, stable features. It also adds a native macOS audio sink and spectrum-range navigation, makes network connection handling bounded and cancellable, and substantially hardens configuration persistence, server operation and fractional-scale rendering.
+
+### Added
+
+- F-INP **SPECTRUM** page: jump between named radio-spectrum ranges, clipped to the active source's tuning limits, while remembering the last frequency used in each range. The F-INP page and category selectors now use a shared touch-friendly segmented control.
+- Native macOS CoreAudio output sink, enabled by default alongside PortAudio. It uses UTF-8 device names, follows the selected device's nominal sample rate, avoids allocation in the render callback and falls back to a null drain when setup fails so the FFT keeps running. Addresses [AlexandreRouma/SDRPlusPlus#1776](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1776).
+- Continuous waterfall auto-range: hold the contrast button to latch tracking, or tap for a one-shot fit. The estimator uses robust quantiles over the visible raw FFT span, excludes edges and DC, pools recent lines for one-shot fits, and applies asymmetric smoothing and a deadband in continuous mode.
+- Shared cancellable asynchronous connector and timed DNS/connect infrastructure, initially used by the SDR++ Server and SpyServer sources; all remaining blocking TCP connection paths now have finite timeouts. The original work was contributed by edudant in [PR #20](https://github.com/bubnikv/SDRPlusPlus-iak/pull/20), resolving [issue #19](https://github.com/bubnikv/SDRPlusPlus-iak/issues/19).
+
+### Changed
+
+- Waterfall level controls are now **Ref + Range** instead of independent Min/Max sliders. Auto-range moves Ref while preserving the chosen contrast range; its latched state is visible and persisted, and the control strip adapts to short touch displays.
+- Band selection and IC-705-style three-register band stacking were stabilized around canonical band identities. Legacy plan segments are grouped by stable ID, overlap/service resolution is deterministic, register rotation is in-place and MRU-deduplicated, and the mapping provenance can be audited with the new developer tooling.
+- The F-INP dialog now sizes itself from the viewport, varies grid columns and rows with available space, recentres after rotation/resize, keeps its readout and controls stable as messages change, and avoids nested scrolling on small landscape screens.
+- Configuration access across core and all modules now uses scoped read/edit transactions. Unchanged values no longer dirty and rewrite `config.json`; malformed values fall back safely; lock lifetimes are shorter; shutdown flushes pending saves; desktop instances merge concurrent edits; and focused persistence/Windows-lock tests were added.
+- Relative module/resource/config paths are resolved from the executable rather than the process working directory. Windows builds also declare UTF-8 as the active code page and initialize console output accordingly. Prompted by [AlexandreRouma/SDRPlusPlus#1265](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1265).
+- Radio-mode names now come from one compile-time-checked table across the UI, demodulators, recorder and rigctl. Rigctl capability reporting now includes CWR.
+- Fractional UI scales render more crisply: fonts, waterfall/FFT geometry, toolbar icons, meter bars, menu strokes and frequency digits use consistent whole-pixel metrics. Added the 125% and 175% presets requested in [AlexandreRouma/SDRPlusPlus#1116](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1116) and [PR #1115](https://github.com/AlexandreRouma/SDRPlusPlus/pull/1115); ineffective sub-100% choices are disabled on standard-DPI displays.
+- Developer documentation was reorganized into design, research, bug and to-do sections and expanded with band mapping/stacking, radio-mode, UI-thread, configuration and community-fork reviews.
+
 ### Fixed
 
-- Android radiosonde decoder abort while handling RS41 frames: the vendored `sondedump` decoder treated an eight-byte, non-terminated serial field as a 31-byte C string copy, which Android's fortified libc rejected as a source-buffer over-read. The dependency patch now copies exactly the packed field width and retains the existing explicit terminator.
+- Android radiosonde decoder abort while handling RS41 frames: the vendored `sondedump` decoder treated an eight-byte, non-terminated serial field as a 31-byte C string copy, which Android's fortified libc rejected as a source-buffer over-read. The dependency patch now copies exactly the packed field width and retains the existing explicit terminator. Thanks to [@jprincl](https://github.com/jprincl).
+- SpyServer and SDR++ Server connections no longer leave the UI hanging during unreachable DNS/hosts; connection attempts can be cancelled, failures are reported in the source panel, failed Winsock non-blocking connects are detected correctly, and dead heartbeat-capable server links are noticed. Addresses [AlexandreRouma/SDRPlusPlus#1462](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1462).
+- Socket descriptors are closed on networking error and remote-disconnect paths, preventing the rigctl server from eventually exhausting descriptors and refusing restarts. Listener shutdown and connection waiting races were fixed as well. Fixes [AlexandreRouma/SDRPlusPlus#1061](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1061).
+- Rigctl/Hamlib interoperability: accept VFOA/VFOB/VFOC/current/None tokens, provide receive-only PTT replies, handle absent VFOs/demodulators safely, clear partial commands between clients and keep advertised modes consistent with accepted modes. Addresses [AlexandreRouma/SDRPlusPlus#1506](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1506) and [#1092](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1092).
+- Server-mode source menus no longer dereference a missing ImGui context when drawing disabled controls (notably SDRplay RSP2 Hi-Z, SpyServer, Spectran HTTP and QMX Server). Fixes [AlexandreRouma/SDRPlusPlus#1630](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1630).
+- Scanner restart/destruction no longer calls `std::terminate` after its worker exits by itself; worker state and ImGui disabled scopes are also race-safe. A concurrent radio-mode update no longer unbalances the ImGui stack. Fixes [AlexandreRouma/SDRPlusPlus#1658](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1658) and [#1437](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1437).
+- Fixed the menu iterator invalidation crash when a draw handler creates a module ([AlexandreRouma/SDRPlusPlus#816](https://github.com/AlexandreRouma/SDRPlusPlus/issues/816)), and closed partially opened RtAudio streams before switching to null-drain fallback.
+- DSP correctness fixes: guard SNR calculation when no out-of-band bins exist, avoid a negative shift while configuring an upsampling rational resampler, and publish the frequency translator phase increment without a data race or narrowing conversion.
+- Config loading no longer deadlocks on early returns; BladeRF settings are not read after unlocking; LimeSDR's LNAW fallback compares antenna names correctly; shutdown saves retry only genuinely transient Windows replacement interference and fail promptly for read-only/structurally invalid destinations.
+- Assorted layout/build fixes: stable VFO-change reporting, valid positive band spans, Windows `min`/`max` and `ERROR` macro collisions, CMake runtime-DLL policy warnings, and stale waterfall lines/locks/buffers in auto-range processing.
 
 ## v1.4.0-alpha - 2026-07-19
 
