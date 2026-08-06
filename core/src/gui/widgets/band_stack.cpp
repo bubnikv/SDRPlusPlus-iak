@@ -302,8 +302,10 @@ void BandStack::selectBand(
                  plan &&
                  plan->findMappedSegmentAtFrequency(*mapping, defaultFrequency))
         {
+            registers[0] = { true, defaultFrequency, -1 };
             targetFreq = defaultFrequency;
             targetMode = -1; // default mode
+            writeRegisters(mem, *mapping, registers);
             apply = true;
         }
     }
