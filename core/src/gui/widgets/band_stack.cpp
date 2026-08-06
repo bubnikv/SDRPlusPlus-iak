@@ -288,7 +288,7 @@ void BandStack::selectBand(
         if (repeatTap) {
             std::rotate(
                 registers.begin(),
-                registers.begin() + 1,
+                registers.end() - 1,
                 registers.end());
             writeRegisters(mem, *mapping, registers);
         }
@@ -343,7 +343,7 @@ void BandStack::recallRegister(
             std::rotate(
                 registers.begin(),
                 registers.begin() + index,
-                registers.end());
+                registers.begin() + index + 1);
             if (registers[0].populated) {
                 targetFreq = registers[0].freq;
                 targetMode = registers[0].mode;

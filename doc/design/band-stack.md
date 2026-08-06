@@ -678,7 +678,7 @@ commit():
 ```
 recall(bucket b, int k, const Band_t* tapped):
     S = bands[b]
-    if k >= 0: rotate_left(S.regs, clamp(k))              // picked entry becomes 0
+    if k >= 0: rotate_right(S.regs[0..clamp(k)])          // picked entry becomes 0
     target = S.regs[0].has_value() ? *S.regs[0] : defaultFor(b, tapped)
     shadow = { b, target.freq, valid, dwell = 0 }          // suppress machine A
     applyDisplayState(b)
@@ -699,7 +699,7 @@ own default mode.
 | Trigger | Action |
 |---|---|
 | Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
-| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate left once, then recall the new top when populated |
+| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate right once, then recall the new top when populated |
 | Long-press band key | Open the register list. **No commit yet** — the user may be about to cancel |
 | Register *k* picked from the list | Validate and overwrite the visible source, rotate *k* to index 0 preserving cyclic order, then recall it when populated |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
