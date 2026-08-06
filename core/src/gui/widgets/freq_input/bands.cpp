@@ -552,10 +552,10 @@ namespace freq_input {
                 const ImU32 keySub = active ? ImGui::GetColorU32(selSub) : subCol;
                 dl->PushClipRect(bmin, bmax, true);
                 if (sub.empty()) {
-                    drawCenteredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, keyMain, main.data());
+                    drawCenteredLabel(dl, style::labelFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, keyMain, main.data());
                 }
                 else {
-                    drawCenteredLabel(dl, style::bigFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, keyMain, main.data());
+                    drawCenteredLabel(dl, style::labelFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, keyMain, main.data());
                     drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(cx, bmin.y + keyH * 0.76f), maxW, keySub, sub.data());
                 }
                 dl->PopClipRect();
@@ -622,7 +622,7 @@ namespace freq_input {
                     dl->PushClipRect(rmin, rmax, true);
                     drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(rmin.x + rowSz.x * 0.08f, cy), rowSz.x * 0.12f, dim, num);
                     if (regs[k].populated) {
-                        drawCenteredLabel(dl, style::bigFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, labelMHz(regs[k].freq).c_str());
+                        drawCenteredLabel(dl, style::labelFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, labelMHz(regs[k].freq).c_str());
                         drawCenteredLabel(dl, style::baseFont, style::dp(11.0f), ImVec2(rmin.x + rowSz.x * 0.71f, cy), rowSz.x * 0.14f, dim, "MHz");
                         drawCenteredLabel(dl, style::baseFont, style::dp(13.0f), ImVec2(rmin.x + rowSz.x * 0.89f, cy), rowSz.x * 0.18f, col, radioModeName(regs[k].mode));
                     }

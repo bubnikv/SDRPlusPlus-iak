@@ -5,13 +5,14 @@
 #include <utils/flog.h>
 #include <filesystem>
 #include <cmath>
+#include <cstring>
 
 namespace style {
     ImFont* baseFont;
+    ImFont* labelFont;
     ImFont* bigFont;
     ImFont* hugeFont;
     ImVector<ImWchar> baseRanges;
-    ImVector<ImWchar> bigRanges;
     ImVector<ImWchar> hugeRanges;
 
 #ifndef __ANDROID__
@@ -40,6 +41,12 @@ namespace style {
             return false;
         }
 
+        // BuildRanges appends to its output, so every rebuild -- one per UI
+        // scale change -- would stack another copy of each range behind the
+        // terminator the previous build already wrote.
+        baseRanges.clear();
+        hugeRanges.clear();
+
         // Create base font range
         ImFontGlyphRangesBuilder baseBuilder;
         baseBuilder.AddRanges(fonts->GetGlyphRangesDefault());
@@ -55,26 +62,89 @@ namespace style {
         baseBuilder.AddChar(0x20AC); // €
         baseBuilder.BuildRanges(&baseRanges);
 
-        // Create big font range
-        ImFontGlyphRangesBuilder bigBuilder;
-        const ImWchar bigRange[] = { '.', '9', 0 };
-        bigBuilder.AddRanges(bigRange);
-        bigBuilder.BuildRanges(&bigRanges);
+        // Ranges are inclusive [first, last] pairs terminated by 0, and go to
+        // the atlas as they are: a builder is only worth its 8 KB bit vector
+        // where several ranges have to be merged, as above and for the title.
+        //
+        // Printable ASCII spells every band selector label and mode name.
+        // GetGlyphRangesDefault() would reach 0x00FF for another 96 glyphs, but
+        // at this rasterization size that is 2 MB of atlas at uiScale 3 for
+        // accented letters no label uses; fontFor() sends anything outside this
+        // set to baseFont, which has them.
+        static const ImWchar labelRange[] = { 0x0020, 0x007E, 0 };
+
+        // '.'-'9' plus '?' as a pair of itself, being a range of one. The '?'
+        // is not decoration: a font holding neither U+FFFD, '?' nor space falls
+        // back to its own last glyph -- '9' here -- so a stray letter would
+        // render as a digit and read as a real frequency.
+        static const ImWchar bigRange[] = { '.', '9', '?', '?', 0 };
 
         // Create huge font range
         ImFontGlyphRangesBuilder hugeBuilder;
         hugeBuilder.AddText("SDR++ iak");
         hugeBuilder.BuildRanges(&hugeRanges);
         
-        // Add bigger fonts for frequency select and title. Rasterize at
-        // whole-pixel sizes: fractional scales (1.25x, 1.75x, ...) would
+        // Add bigger fonts for grid keys, frequency select and title. Rasterize
+        // at whole-pixel sizes: fractional scales (1.25x, 1.75x, ...) would
         // otherwise yield fractional glyph metrics that leak into every layout
-        // computed from CalcTextSize().
-        baseFont = fonts->AddFontFromFileTTF(((std::string)(resDir + "/fonts/Roboto-Medium.ttf")).c_str(), roundf(16.0f * uiScale), NULL, baseRanges.Data);
-        bigFont = fonts->AddFontFromFileTTF(((std::string)(resDir + "/fonts/Roboto-Medium.ttf")).c_str(), roundf(45.0f * uiScale), NULL, bigRanges.Data);
-        hugeFont = fonts->AddFontFromFileTTF(((std::string)(resDir + "/fonts/Roboto-Medium.ttf")).c_str(), roundf(128.0f * uiScale), NULL, hugeRanges.Data);
+        // computed from CalcTextSize(). Keep them in ascending size order --
+        // fontFor() walks them in declaration order.
+        const std::string fontPath = resDir + "/fonts/Roboto-Medium.ttf";
+        // Three horizontal samples buy nothing at the label size and cost half
+        // again as much atlas as two, which is what pays for its glyph set.
+        ImFontConfig labelCfg;
+        labelCfg.OversampleH = 2;
+        baseFont = fonts->AddFontFromFileTTF(fontPath.c_str(), roundf(16.0f * uiScale), NULL, baseRanges.Data);
+        labelFont = fonts->AddFontFromFileTTF(fontPath.c_str(), roundf(22.0f * uiScale), &labelCfg, labelRange);
+        bigFont = fonts->AddFontFromFileTTF(fontPath.c_str(), roundf(45.0f * uiScale), NULL, bigRange);
+        hugeFont = fonts->AddFontFromFileTTF(fontPath.c_str(), roundf(128.0f * uiScale), NULL, hugeRanges.Data);
+
+        // Glyph sets are not a smooth cost: the atlas is one texture whose
+        // height is rounded up to a power of two, so widening a range can
+        // double it -- and at uiScale 3 it is already megapixels. Report the
+        // result instead of leaving it to be found as an out-of-memory on a
+        // phone. Building here rather than at first use is free; the backend
+        // would build the same atlas a moment later.
+        fonts->Build();
+        flog::debug("Font atlas: {0}x{1} px at scale {2}", fonts->TexWidth, fonts->TexHeight, uiScale);
 
         return true;
+    }
+
+    bool fontCovers(ImFont* font, const char* text, const char* textEnd) {
+        if (!font || !text) { return false; }
+        if (!textEnd) { textEnd = text + strlen(text); }
+        while (text < textEnd) {
+            unsigned int c = (unsigned int)(unsigned char)*text;
+            if (c < 0x80) {
+                text++;
+                // A line break is consumed by the text renderer itself and
+                // never looked up, so no font is disqualified by carrying one.
+                if (c == '\n') { continue; }
+            }
+            else {
+                const int len = ImTextCharFromUtf8(&c, text, textEnd);
+                if (len <= 0) { return false; }
+                text += len;
+                if (c == 0 || c > IM_UNICODE_CODEPOINT_MAX) { return false; }
+            }
+            if (!font->FindGlyphNoFallback((ImWchar)c)) { return false; }
+        }
+        return true;
+    }
+
+    ImFont* fontFor(const char* text, float sizePx, const char* textEnd) {
+        ImFont* const candidates[] = { baseFont, labelFont, bigFont, hugeFont };
+        for (ImFont* font : candidates) {
+            // The rasterized size is rounded to whole pixels, so at a
+            // fractional UI scale it can land just under the dp() request it is
+            // meant to serve.
+            if (!font || font->FontSize < sizePx - 0.5f) { continue; }
+            if (fontCovers(font, text, textEnd)) { return font; }
+        }
+        // Nothing both large enough and complete: baseFont has by far the
+        // widest repertoire, so magnifying it is the closest to right.
+        return baseFont;
     }
 
     // Android-like touch overlay: rounded borderless surfaces and moderately

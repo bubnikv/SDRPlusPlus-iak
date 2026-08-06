@@ -60,11 +60,14 @@ One modal, two pages; the last-used page and category are persisted.
   - amateur bands: main = MHz number ("7", "144"), sub = wavelength name
     derived from the band plan `name` ("40m Ham Band" → "40m").
   - other bands: main = short name ("MW", "31m"), sub = category or blank.
-  - Font: `style::bigFont` covers ONLY glyphs '.'–'9' (digits, dot, slash).
-    For labels with letters use `ImDrawList::AddText(font, size, ...)` with
-    `style::baseFont` at an explicit larger size (e.g. `style::dp(22)`)
+  - Font: every font is rasterized over a fixed glyph set, and drawing
+    outside it substitutes a fallback glyph rather than leaving a gap —
+    `style::bigFont` covers only '.'–'9' plus '?', so a letter drawn with
+    it used to come out as a digit. Large labels containing letters use
+    `style::labelFont` (22 dp, printable ASCII) via `drawCenteredLabel()`
     over an `InvisibleButton` — same technique as the keypad's backspace
-    icon. Do not `PushFont(bigFont)` for text containing letters.
+    icon. `style::fontFor()` picks the right one for arbitrary text; do
+    not `PushFont(bigFont)` for text containing letters.
 - **Category filter row**: derived from the band `type` values present in
   the current plan, mapped to coarse buckets: Ham (`amateur`, `amateur1`),
   Bcast (`broadcast`), Air (`aviation`, `aircraft`), Marine (`marine`,

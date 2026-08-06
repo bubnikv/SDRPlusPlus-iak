@@ -9,14 +9,31 @@
 #include <stdint.h>
 
 namespace style {
-    SDRPP_EXPORT ImFont* baseFont;
-    SDRPP_EXPORT ImFont* bigFont;
-    SDRPP_EXPORT ImFont* hugeFont;
+    // Each font is rasterized once, at a fixed size and over a fixed glyph set
+    // (loadFonts()), so a call site cannot pick one from the size it wants to
+    // draw at alone: bigFont holds no letters, hugeFont only the title, and
+    // labelFont no Cyrillic. Drawing outside a font's set does not leave a gap
+    // -- ImGui substitutes that font's fallback glyph -- so pick with fontFor()
+    // rather than by eye.
+    SDRPP_EXPORT ImFont* baseFont;      // 16 dp: all UI text
+    SDRPP_EXPORT ImFont* labelFont;     // 22 dp: grid keys and other large labels
+    SDRPP_EXPORT ImFont* bigFont;       // 45 dp: the frequency readout
+    SDRPP_EXPORT ImFont* hugeFont;      // 128 dp: the title
     SDRPP_EXPORT float uiScale;
     SDRPP_EXPORT bool touchStyle;
 
     void setUIScale(float scale);
     uint64_t scaleEpoch();
+
+    // Does `font` provide a glyph for each character of `text`?
+    bool fontCovers(ImFont* font, const char* text, const char* textEnd = nullptr);
+
+    // The font to draw `text` at `sizePx` (a dp() result) with: the smallest
+    // raster at or above that size holding every glyph, so a label is scaled
+    // down rather than magnified. baseFont, which covers the most, is the last
+    // resort -- a band plan naming its bands in Cyrillic still reads, just
+    // softer than one that stays inside ASCII.
+    ImFont* fontFor(const char* text, float sizePx, const char* textEnd = nullptr);
 
     inline float dp(float logical) {
         return logical * uiScale;

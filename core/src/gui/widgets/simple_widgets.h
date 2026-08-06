@@ -5,6 +5,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <imgui.h>
+#include <gui/style.h>
 #include <string>
 
 inline void doRightText(const std::string &title) {
@@ -42,9 +43,14 @@ inline void doOverlayText(const char* fmt, ...) {
 // text. `size` is a starting point, not a floor: a label too wide for its key
 // comes out smaller rather than clipped or truncated.
 //
-// The font is explicit because style::bigFont only covers '.'-'9' -- callers
-// pass style::baseFont for any label containing letters.
+// The font is explicit because each one covers only the glyphs it was built
+// for (style::loadFonts) -- style::labelFont is the one for large labels
+// containing letters, style::bigFont holds digits alone. A font that cannot
+// spell the label is corrected rather than obeyed: ImGui would otherwise
+// substitute its fallback glyph per character and quietly draw a different
+// string, and no data reaching a key label is worth that.
 inline void drawCenteredLabel(ImDrawList* dl, ImFont* font, float size, ImVec2 center, float maxWidth, ImU32 col, const char* text) {
+    if (!style::fontCovers(font, text)) { font = style::fontFor(text, size); }
     ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
     if (ts.x > maxWidth && ts.x > 0.0f) {
         size *= maxWidth / ts.x;
