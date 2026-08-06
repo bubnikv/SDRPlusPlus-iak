@@ -73,11 +73,12 @@ namespace style {
         // set to baseFont, which has them.
         static const ImWchar labelRange[] = { 0x0020, 0x007E, 0 };
 
-        // '.'-'9' plus '?' as a pair of itself, being a range of one. The '?'
-        // is not decoration: a font holding neither U+FFFD, '?' nor space falls
-        // back to its own last glyph -- '9' here -- so a stray letter would
-        // render as a digit and read as a real frequency.
-        static const ImWchar bigRange[] = { '.', '9', '?', '?', 0 };
+        // Digits, '.' and '/', and nothing else: holding neither U+FFFD, '?'
+        // nor space, this font's fallback glyph is its own last one, '9'. Any
+        // text drawn with it that is not a number therefore renders as a
+        // plausible different number -- which is why drawCenteredLabel() sends
+        // it through fontFor() rather than trusting the caller.
+        static const ImWchar bigRange[] = { '.', '9', 0 };
 
         // Create huge font range
         ImFontGlyphRangesBuilder hugeBuilder;

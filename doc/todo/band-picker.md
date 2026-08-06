@@ -62,8 +62,8 @@ One modal, two pages; the last-used page and category are persisted.
   - other bands: main = short name ("MW", "31m"), sub = category or blank.
   - Font: every font is rasterized over a fixed glyph set, and drawing
     outside it substitutes a fallback glyph rather than leaving a gap —
-    `style::bigFont` covers only '.'–'9' plus '?', so a letter drawn with
-    it used to come out as a digit. Large labels containing letters use
+    `style::bigFont` covers only '.'–'9', so a letter drawn with it comes
+    out as the digit '9'. Large labels containing letters use
     `style::labelFont` (22 dp, printable ASCII) via `drawCenteredLabel()`
     over an `InvisibleButton` — same technique as the keypad's backspace
     icon. `style::fontFor()` picks the right one for arbitrary text; do
