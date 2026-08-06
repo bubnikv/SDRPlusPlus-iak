@@ -93,7 +93,6 @@ private:
         const bandplan::Band_t& segment,
         double freq,
         int mode);
-    void requestTune(double freq);  // the one seam onto gui::freqSelect
     int currentMode() const;        // -1 when the selected VFO is not a radio
 };
 

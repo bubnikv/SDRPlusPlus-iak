@@ -3,6 +3,7 @@
 #include <gui/widgets/freq_memory.h>
 #include <gui/widgets/freq_input/spectrum_ranges.h>
 #include <gui/gui.h>
+#include <gui/tuner.h>
 #include <config.h>
 #include <core.h>
 #include <radio_interface.h>
@@ -448,8 +449,6 @@ void BandStack::applySegmentTarget(
         }
     }
 
-    requestTune(freq);
-
     std::string vfoName = gui::waterfall.selectedVFO;
     // RADIO_IFACE_CMD_SET_MODE has no early-out on the radio side: selectDemodByID()
     // rebuilds the whole demodulator chain even for the mode already selected,
@@ -465,14 +464,10 @@ void BandStack::applySegmentTarget(
             vit->second->setSnapInterval(segment.chan);
         }
     }
-}
 
-// The application's "a tune was requested by the UI" mailbox: MainWindow::draw()
-// picks the flag up, calls tuner::tune() and persists the frequency. Going
-// straight to tuner::tune() from here would skip that bookkeeping.
-void BandStack::requestTune(double freq) {
-    gui::freqSelect.setFrequency((int64_t)round(freq));
-    gui::freqSelect.frequencyChanged = true;
+    // SET_MODE may change the VFO reference, bandwidth and offsets. Tune only
+    // after that reconfiguration so the recalled absolute frequency wins.
+    tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, freq);
 }
 
 // Resolve current VFO's demodulator mode. Return -1 for non-radio VFO (such as some decoder like Radiosonde)

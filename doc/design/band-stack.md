@@ -682,10 +682,10 @@ recall(bucket b, int k, const Band_t* tapped):
     target = S.regs[0].has_value() ? *S.regs[0] : defaultFor(b, tapped)
     shadow = { b, target.freq, valid, dwell = 0 }          // suppress machine A
     applyDisplayState(b)
-    tune(target.freq)                                      // via freqSelect + frequencyChanged
     if target.mode >= 0 && isRadio && target.mode != currentRadioMode():
         SET_MODE(target.mode)                              // guard: SET_MODE rebuilds the demod
     applySnap(tapped)                                      // see 3.6
+    tune(target.freq)                                      // immediate NORMAL tune on the UI thread
     saveConfig()
 ```
 
@@ -1089,25 +1089,19 @@ Data layer → world: request a tune, set the mode, set the snap.
 
 ### 8.3 The one seam that needs a decision: how the data layer tunes
 
-`selectBand()` currently tunes by writing its own widget state —
-`setFrequency(...)` plus `frequencyChanged = true` (`:1011–1012`) — which
-`MainWindow::draw()` (`:361–375`) picks up, calling `tuner::tune()` **and**
-persisting `conf["frequency"]` and `conf["vfoOffsets"]`.
+`selectBand()` originally tuned by writing its own widget state —
+`setFrequency(...)` plus `frequencyChanged = true` — for `MainWindow::draw()` to
+consume. The band picker itself is drawn later in that same function, however,
+so the request could not be consumed until the next frame. A recalled mode change
+can reconfigure the VFO in between; the next frame's VFO-change handling then
+clears `frequencyChanged` before its branch runs and silently drops the recall.
 
-The alternative, calling `tuner::tune()` directly as `frequency_manager`'s
-`applyBookmark()` does (`main.cpp:110`), looks cleaner but is a behaviour change:
-it bypasses the `frequencyChanged` branch, so `conf["frequency"]` is not written
-for that tune and the frequency is not restored at next startup unless some other
-branch happens to fire.
-
-So the data layer keeps posting to `gui::freqSelect`, through a single private
-`requestTune(double)`. This is not a layering violation dressed up:
-`freqSelect.frequencyChanged` is already the application's "a tune was requested
-by the UI" mailbox — the widget itself sets it from six places — and all the
-config bookkeeping stays in the one place in `MainWindow` that already owns it.
-Confining it to one private method also means that if the mailbox is ever
-replaced (the `UiDispatcher` idea in `doc/bugs/ui-thread-sync.md`), there is
-exactly one line to change.
+The data layer therefore follows `frequency_manager::applyBookmark()`: apply the
+recalled mode and channel spacing first, then call
+`tuner::tune(TUNER_MODE_NORMAL, vfoName, frequency)` directly. Band selection
+already runs on the UI thread, so no deferred mailbox or private tuning wrapper
+is needed. The ordering matters because a mode change may rebuild the
+demodulator and alter the VFO reference or bandwidth.
 
 ### 8.4 Code disposition
 
@@ -1210,7 +1204,6 @@ public:
 
 private:
     void applyTarget(const bandplan::Band_t& band, double freq, int mode);
-    void requestTune(double freq);  // the one seam onto gui::freqSelect
     int  currentMode() const;       // -1 when the selected VFO is not a radio
 };
 ```
