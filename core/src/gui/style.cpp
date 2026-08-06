@@ -41,6 +41,14 @@ namespace style {
             return false;
         }
 
+#ifdef __ANDROID__
+        // OpenGL ES 3.0 supports non-power-of-two textures without the ES 2.0
+        // filtering and wrapping restrictions. Avoid rounding the packed atlas
+        // height up to the next power of two on the platform where both UI
+        // scale and memory pressure are highest.
+        fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
+#endif
+
         // BuildRanges appends to its output, so every rebuild -- one per UI
         // scale change -- would stack another copy of each range behind the
         // terminator the previous build already wrote.

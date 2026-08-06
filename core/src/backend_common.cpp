@@ -66,6 +66,7 @@ namespace backend::common {
             style::loadFonts(state.resDir);
             ImGui_ImplOpenGL3_DestroyFontsTexture();
             ImGui_ImplOpenGL3_CreateFontsTexture();
+            ImGui::GetIO().Fonts->ClearTexData();
         }
         if (rescaleMainWindow) {
             gui::mainWindow.onContentScaleChanged(oldScale);

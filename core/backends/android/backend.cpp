@@ -744,6 +744,9 @@ namespace backend {
     void beginFrame() {
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
+        if (ImGui::GetIO().Fonts->TexPixelsRGBA32) {
+            ImGui::GetIO().Fonts->ClearTexData();
+        }
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
     }
