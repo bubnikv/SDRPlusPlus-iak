@@ -27,17 +27,27 @@ namespace freq_input {
         return rows * (keyH + sp) - sp;
     }
 
-    Metrics Metrics::compute() {
+    SafeArea SafeArea::get() {
+        // Keep the dialog and its popups off the screen edges.
+        const float margin = style::dp(8.0f);
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        SafeArea a;
+        a.lo = ImVec2(vp->Pos.x + margin, vp->Pos.y + margin);
+        a.hi = ImVec2(std::max(a.lo.x, vp->Pos.x + vp->Size.x - margin),
+                      std::max(a.lo.y, vp->Pos.y + vp->Size.y - margin));
+        return a;
+    }
+
+    Metrics Metrics::compute(const Context& ctx) {
         Metrics m;
         const ImGuiStyle& s = ImGui::GetStyle();
         const ImVec2 sp = s.ItemSpacing;
-        const ImVec2 viewport = ImGui::GetMainViewport()->Size;
 
-        // Keep the dialog off the screen edges, and discount the window padding
-        // it will sit inside.
-        const float margin = style::dp(8.0f);
-        const float availW = viewport.x - 2.0f * (margin + s.WindowPadding.x);
-        const float availH = viewport.y - 2.0f * (margin + s.WindowPadding.y);
+        // Content area inside the largest window we are willing to occupy,
+        // discounting the window padding the content will sit inside.
+        const ImVec2 outer = SafeArea::get().size();
+        const float availW = outer.x - 2.0f * s.WindowPadding.x;
+        const float availH = outer.y - 2.0f * s.WindowPadding.y;
 
         // Material's 48 dp minimum touch target. A mouse is precise enough that
         // the frame height serves on desktop.
@@ -46,25 +56,74 @@ namespace freq_input {
             : ImGui::GetFrameHeight();
         m.toggleHeight = std::max(style::dp(34.0f), m.rowHeight);
 
-        // Keypad. The digit keys give width back only when the viewport cannot
-        // hold them at all, which takes something narrower than a phone in
-        // portrait.
+        // Keypad width. The digit keys give width back only when the viewport
+        // cannot hold them at all, which takes something narrower than a phone
+        // in portrait.
         m.funcWidth = style::dp(84.0f);
         const float keyW = std::clamp((availW - m.funcWidth - 3.0f * sp.x) / 3.0f,
                                       style::dp(40.0f), style::dp(56.0f));
-        m.keySize = ImVec2(keyW, std::max(style::dp(42.0f), m.rowHeight));
-        m.keypadWidth = 3.0f * m.keySize.x + 3.0f * sp.x + m.funcWidth;
+        m.keypadWidth = 3.0f * keyW + 3.0f * sp.x + m.funcWidth;
 
         // Content width: the keypad block is the floor, the viewport drives it,
         // and the cap stops a 4K monitor from producing a wall of keys.
         m.totalWidth = std::clamp(availW, m.keypadWidth, style::dp(640.0f));
         m.pageHeight = availH - m.toggleHeight - 2.0f * sp.y;
 
-        // Put the readout beside the keys whenever there is a column's worth of
-        // room next to them. That is one test for two cases: a phone in
-        // landscape and a desktop window are both far wider than the keypad,
-        // and stacking is what does not fit a landscape phone vertically.
-        m.wideKeypad = (m.totalWidth - m.keypadWidth - sp.x) >= style::dp(200.0f);
+        // Keypad arrangement, decided on both axes. Width alone handed the tall
+        // arrangement to viewports with no room for it -- and unlike the grids,
+        // which give back rows, the keypad has nothing to yield and simply drew
+        // its bottom row past the edge of the screen. Note the test is in dp
+        // against a physical viewport, so raising the UI scale is one of the
+        // ways a phone crosses it.
+        //
+        // Beside the keys when there is a comfortable column for it (a phone in
+        // landscape and a desktop window both qualify), and also when stacking
+        // would not fit but a usable column exists: a cramped readout beats a
+        // row of keys below the fold.
+        const auto keyRowsHeight = [&](float keyH) {
+            return 4.0f * keyH + 3.0f * sp.y;
+        };
+        const float sideWidth = m.totalWidth - m.keypadWidth - sp.x;
+        float keyH = std::max(style::dp(42.0f), m.rowHeight);
+        // Stacked, the readout costs two spacings, not one: EndChild() advances
+        // by the child's height plus ItemSpacing.y, and the explicit Spacing()
+        // between the two blocks adds another.
+        const float stackedGap = 2.0f * sp.y;
+
+        // A comfortable column decides on its own. Only when there is not one
+        // do we have to ask how tall stacking would be -- and that question is
+        // the expensive part, since answering it measures every line the
+        // readout can show.
+        float readoutAbove = 0.0f;
+        if (sideWidth >= style::dp(200.0f)) {
+            m.wideKeypad = true;
+        }
+        else {
+            readoutAbove = Keypad::readoutHeight(ctx, m.totalWidth);
+            m.wideKeypad =
+                (readoutAbove + stackedGap + keyRowsHeight(keyH)) > m.pageHeight &&
+                sideWidth >= style::dp(120.0f);
+        }
+
+        // Where the readout ends up and how tall it is there. Settled here so
+        // the page does not restate the width and measure the height again --
+        // and so the two cannot disagree about which arrangement is in force.
+        m.readoutWidth = m.wideKeypad ? sideWidth : m.totalWidth;
+        m.readoutHeight = m.wideKeypad ? Keypad::readoutHeight(ctx, sideWidth)
+                                       : readoutAbove;
+
+        // Last resort, once the arrangement is chosen: shrink the keys, below
+        // the 48 dp touch target if it comes to that. The readout cannot give
+        // -- it reserves its worst case precisely so nothing moves mid-entry --
+        // and a key that is awkward to hit still beats one that is off-screen.
+        const float keysBudget = m.wideKeypad
+            ? m.pageHeight
+            : m.pageHeight - m.readoutHeight - stackedGap;
+        if (keyRowsHeight(keyH) > keysBudget) {
+            keyH = std::clamp((keysBudget - 3.0f * sp.y) / 4.0f,
+                              style::dp(32.0f), keyH);
+        }
+        m.keySize = ImVec2(keyW, keyH);
 
         m.gridWidth = m.totalWidth - s.ScrollbarSize;
         m.bandCols = colsThatFit(m.gridWidth, style::dp(63.0f), sp.x, 4, 10);
@@ -93,6 +152,7 @@ namespace freq_input {
 
         if (requestOpen) {
             requestOpen = false;
+            lastSize = ImVec2(0.0f, 0.0f);
             keypad.onOpen();
             bands.onOpen();
             spectrum.onOpen();
@@ -102,6 +162,10 @@ namespace freq_input {
             if (storedPage == "band") { page = 0; }
             else if (storedPage == "spectrum") { page = 1; }
             else { page = 2; }
+            // Opening straight onto a page counts as entering it. BAND resolves
+            // (and so claims the memory) from its own draw; SPECTRUM has to be
+            // told, here and at the toggle below.
+            if (page == 1) { spectrum.onActivate(); }
             ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
         }
 
@@ -110,6 +174,13 @@ namespace freq_input {
             lastViewport = viewport;
             recenter = true;
         }
+        // Bound the window before it sizes itself: with AlwaysAutoResize it
+        // takes whatever its content asks for, and a page asking for more than
+        // the screen has would hang off the edge with no way to reach the rest.
+        // Constrained, it scrolls instead. The pages size themselves to fit and
+        // should never reach this; it is the backstop for the ones that cannot,
+        // such as a viewport too short for four rows of keys.
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), SafeArea::get().size());
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
                                 recenter ? ImGuiCond_Always : ImGuiCond_Appearing,
                                 ImVec2(0.5f, 0.5f));
@@ -125,7 +196,7 @@ namespace freq_input {
             return out;
         }
 
-        Metrics m = Metrics::compute();
+        Metrics m = Metrics::compute(ctx);
         const float sp = ImGui::GetStyle().ItemSpacing.x;
 
         // Page toggle plus the dialog's one dismiss control, in the same place
@@ -137,6 +208,7 @@ namespace freq_input {
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
             if (page == 0) { bands.onOpen(); }
+            else if (page == 1) { spectrum.onActivate(); }
             core::configManager.edit().set("freqEntryPage",
                                     (page == 0) ? "band" :
                                     (page == 1) ? "spectrum" : "keypad");
@@ -152,9 +224,28 @@ namespace freq_input {
         else { out = keypad.draw(ctx, m); }
 
         // Escape closes from any page, so it is handled here rather than three
-        // times.
-        if (closePressed || PopupDialog::cancelKeyPressed()) { out.close = true; }
+        // times -- unless the page had a popup of its own open and used the key
+        // to back out of that, one level at a time.
+        if (closePressed ||
+            (!out.consumedCancel && PopupDialog::cancelKeyPressed()))
+        {
+            out.close = true;
+        }
         if (out.close) { ImGui::CloseCurrentPopup(); }
+
+        // The dialog is as tall as the page it is showing, and the pages differ
+        // by up to a band grid's worth of rows. ImGui pins an open window by its
+        // top-left corner, and its own clamp only keeps that corner on screen --
+        // nothing pulls a bottom edge back in -- so a taller page arriving under
+        // a shorter one pushed its last rows off a phone in landscape. Re-centre
+        // on the next frame whenever the measured size moves. SetNextWindowPos
+        // applies its pivot to the size ImGui computes for that same frame, so
+        // the correction lands whole rather than chasing the change.
+        const ImVec2 size = ImGui::GetWindowSize();
+        if (size.x != lastSize.x || size.y != lastSize.y) {
+            lastSize = size;
+            recenter = true;
+        }
         ImGui::EndPopup();
         return out;
     }

@@ -1,6 +1,7 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/freq_input/band_picker_groups.h>
 #include <gui/widgets/bandplan.h>
+#include <gui/widgets/popup_dialog.h>
 #include <gui/widgets/segmented_control.h>
 #include <gui/widgets/simple_widgets.h>
 #include <gui/widgets/toggle_style.h>
@@ -326,6 +327,64 @@ namespace freq_input {
         return b;
     }
 
+    // One row of the register list: three band keys wide, so the list reads as
+    // belonging to the key it was opened from, and tall enough to be the same
+    // touch target. Clamped because the key width follows the column count.
+    static ImVec2 registerRowSize(float keyW, const Metrics& m) {
+        const ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+        return ImVec2(
+            std::clamp(3.0f * keyW + 2.0f * sp.x, style::dp(200.0f), m.totalWidth),
+            std::max(style::dp(40.0f), m.rowHeight));
+    }
+
+    // What BeginPopup will auto-fit the register list to. This is the only
+    // answer used -- the popup's own measured size is never read, because
+    // reading it costs a frame of lag exactly when the layout has changed under
+    // an open list, and because ImGui zeroes a reappearing auto-resize popup's
+    // size before measuring it, so the appearing frame has nothing to give.
+    //
+    // MAINTENANCE: it must therefore match the popup body below exactly, and
+    // silently misplaces the list if it does not. The body is a title line,
+    // never wrapped -- so a long band name and not the rows can be what sets
+    // the width -- followed by one row per register. ImGui's auto-fit is
+    // CursorMaxPos - CursorStartPos plus WindowPadding on both axes, with no
+    // border term, which is what is reproduced here. Change one, change both.
+    static ImVec2 registerPopupSize(
+        std::size_t rows,
+        const ImVec2& rowSz,
+        const std::string& title)
+    {
+        const ImGuiStyle& s = ImGui::GetStyle();
+        const float contentW =
+            std::max(rowSz.x, ImGui::CalcTextSize(title.c_str()).x);
+        const float gaps =
+            (rows > 0) ? (float)(rows - 1) * s.ItemSpacing.y : 0.0f;
+        const float contentH = ImGui::GetTextLineHeight() + s.ItemSpacing.y +
+            (float)rows * rowSz.y + gaps;
+        return ImVec2(contentW + 2.0f * s.WindowPadding.x,
+                      contentH + 2.0f * s.WindowPadding.y);
+    }
+
+    // Below the key when the list fits there, above it when it does not, and
+    // pulled back inside the safe area either way. ImGui does none of this for
+    // us: SetNextWindowPos sets window_pos_set_by_api, and that is exactly the
+    // flag that makes Begin() skip FindBestWindowPosForPopup. The position is
+    // set at all because a popup left to itself opens at the cursor -- under
+    // the hand that opened it, hiding its own first row.
+    static ImVec2 registerPopupPos(
+        const ImVec2& keyMin,
+        const ImVec2& keyMax,
+        const ImVec2& size)
+    {
+        const float sp = ImGui::GetStyle().ItemSpacing.y;
+        const SafeArea area = SafeArea::get();
+        const float below = keyMax.y + sp;
+        const float above = keyMin.y - sp - size.y;
+        return area.fit(
+            ImVec2(keyMin.x, (below + size.y <= area.hi.y) ? below : above),
+            size);
+    }
+
     Bands::Bands()
         : canonicalCache(std::make_unique<canonical_bands::Cache>()),
           activeCache(std::make_unique<band_state::ActiveCache>()),
@@ -352,6 +411,14 @@ namespace freq_input {
     Outcome Bands::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
         ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+
+        // The register list sits on top of the grid, and while it is up it owns
+        // the next tap wherever that lands: a tap outside dismisses it and goes
+        // no further, so that dismissing cannot also tune to whichever band key
+        // happened to be under the finger. Read here, before the grid draws,
+        // because the grid is what has to be held back -- it is drawn first and
+        // would otherwise have consumed the tap by the time the list sees it.
+        const bool regPopupOpen = ImGui::IsPopupOpen("##sdrpp_band_registers");
 
         // The plan the waterfall ruler shows, resolved once by bandplanmenu and
         // independent of the bandPlanEnabled display toggle. Resolving it again here
@@ -476,6 +543,29 @@ namespace freq_input {
                 // separate it from ImGuiCol_Button.
                 if (active) { style::pushSelectedToggle(selCols); }
                 bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
+                // While the list is up it has this tap. The dismissing press is
+                // held off for its whole life, not just this frame: activation
+                // below is gated too, so longPressDone -- set when the list
+                // opened, cleared only by an ungated activation -- still blocks
+                // the release, which lands a frame or more after the list has
+                // gone and would otherwise tune.
+                if (regPopupOpen) { clicked = false; }
+                // Keep the open list's anchor and size on its key rather than
+                // on what they were when it was pressed. The grid re-lays out
+                // under it -- a rotation re-centres the dialog and changes the
+                // column count, and the grid scrolls -- and both the placement
+                // and the safe-area fit are recomputed from these every frame,
+                // so a rotation is right on the frame it happens.
+                if (regPopupOpen && !bandId.empty() &&
+                    bandId == std::string_view(regPopupBandId.data(), regPopupBandId.size()))
+                {
+                    regPopupKeyMin = ImGui::GetItemRectMin();
+                    regPopupKeyMax = ImGui::GetItemRectMax();
+                    regPopupSize = registerPopupSize(
+                        registerCache->get(*plan, b).size(),
+                        registerRowSize(keyW, m),
+                        b.name);
+                }
                 if (active) {
                     style::drawSelectedToggleStroke(selCols);
                     style::popSelectedToggle();
@@ -488,11 +578,11 @@ namespace freq_input {
                 // the active band is tapped again); a motionless hold opens the
                 // register list. Stepping waits for release so the two can't
                 // both fire (same idiom as the digit long-press).
-                if (!bandId.empty() && ImGui::IsItemActivated()) {
+                if (!regPopupOpen && !bandId.empty() && ImGui::IsItemActivated()) {
                     pressBand = i;
                     longPressDone = false;
                 }
-                if (pressBand == i && ImGui::IsItemActive() && !longPressDone) {
+                if (!regPopupOpen && pressBand == i && ImGui::IsItemActive() && !longPressDone) {
                     float slop = 10.0f * style::uiScale;
                     float dx = mousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x;
                     float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
@@ -501,20 +591,17 @@ namespace freq_input {
                         regPopupBandId = std::string(bandId);
                         registerCache->invalidate();
                         openRegPopup = true;
-                        // Anchor the register list to the key. Opened at the
-                        // cursor, as popups are by default, it comes up under
-                        // the hand that opened it and hides its own first row.
-                        const ImGuiViewport* vp = ImGui::GetMainViewport();
-                        const ImVec2 kmin = ImGui::GetItemRectMin();
-                        const ImVec2 kmax = ImGui::GetItemRectMax();
-                        if (kmax.y < vp->Pos.y + vp->Size.y * 0.5f) {
-                            regPopupPos = ImVec2(kmin.x, kmax.y + sp.y);
-                            regPopupPivot = ImVec2(0.0f, 0.0f);
-                        }
-                        else {
-                            regPopupPos = ImVec2(kmin.x, kmin.y - sp.y);
-                            regPopupPivot = ImVec2(0.0f, 1.0f);
-                        }
+                        // Anchor the register list to the key it belongs to.
+                        // registerPopupPos() turns the rectangle and the size
+                        // into a position each frame; both are refreshed from
+                        // the live key and layout for as long as the list is
+                        // open, so this only has to seed them.
+                        regPopupKeyMin = ImGui::GetItemRectMin();
+                        regPopupKeyMax = ImGui::GetItemRectMax();
+                        regPopupSize = registerPopupSize(
+                            registerCache->get(*plan, b).size(),
+                            registerRowSize(keyW, m),
+                            b.name);
 #ifdef __ANDROID__
                         backend::hapticTick();
 #endif
@@ -567,9 +654,30 @@ namespace freq_input {
         // 1 second to display the Band Stacking Register contents).
         if (openRegPopup) {
             ImGui::OpenPopup("##sdrpp_band_registers");
-            ImGui::SetNextWindowPos(regPopupPos, ImGuiCond_Always, regPopupPivot);
+        }
+        if (openRegPopup || regPopupOpen) {
+            ImGui::SetNextWindowPos(
+                registerPopupPos(regPopupKeyMin, regPopupKeyMax, regPopupSize),
+                ImGuiCond_Always);
         }
         if (ImGui::BeginPopup("##sdrpp_band_registers")) {
+            // Dismissal. ImGui closes a popup on an outside click only when
+            // that click lands on a window it can see, and a modal suppresses
+            // hovering of everything behind it while skipping the click-on-void
+            // branch entirely -- so a tap on the main window used to leave this
+            // list up, and only a tap on the dialog's own empty space closed
+            // it. Escape is ours for the same reason (keyboard nav is off, so
+            // ImGui does not act on it); taken here it backs out one level
+            // instead of reaching Dialog and closing everything. Android's Back
+            // already behaved: it goes through MainWindow::handleBackPress().
+            const bool cancel = PopupDialog::cancelKeyPressed();
+            if (cancel ||
+                (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsWindowHovered()))
+            {
+                out.consumedCancel = cancel;
+                ImGui::CloseCurrentPopup();
+            }
+
             const bandplan::Band_t* regPopupBand = nullptr;
             for (const canonical_bands::Entry& entry : avail) {
                 if (!regPopupBandId.empty() &&
@@ -586,13 +694,7 @@ namespace freq_input {
                 ImGui::TextDisabled("%s", b.name.c_str());
                 const std::vector<BandRegister>& regs =
                     registerCache->get(*plan, b);
-                // Rows sized off the band grid rather than a bare dp() constant:
-                // three keys wide, so the list reads as belonging to the key it
-                // was opened from, and tall enough to be the same touch target.
-                // Clamped because the key width now follows the column count.
-                const ImVec2 rowSz(
-                    std::clamp(3.0f * keyW + 2.0f * sp.x, style::dp(200.0f), m.totalWidth),
-                    std::max(style::dp(40.0f), m.rowHeight));
+                const ImVec2 rowSz = registerRowSize(keyW, m);
                 ImDrawList* dl = ImGui::GetWindowDrawList();
                 const style::SelectedToggleColors regCols = style::selectedToggleColors();
                 char id[24];

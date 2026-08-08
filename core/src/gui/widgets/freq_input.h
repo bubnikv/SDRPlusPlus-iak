@@ -2,6 +2,7 @@
 #include <gui/widgets/band_mapping.h>
 #include <imgui.h>
 #include <stdint.h>
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -43,6 +44,27 @@ namespace freq_input {
         uint64_t rangeHi() const { return limited ? ((minFreq > maxFreq) ? minFreq : maxFreq) : 0; }
     };
 
+    // The rectangle the dialog and its popups must stay inside: the viewport
+    // less a margin that keeps them off the screen edges. One definition, so
+    // the modal's size constraint and the register list's placement cannot
+    // drift apart.
+    struct SafeArea {
+        ImVec2 lo = ImVec2(0.0f, 0.0f);
+        ImVec2 hi = ImVec2(0.0f, 0.0f);
+
+        ImVec2 size() const { return ImVec2(hi.x - lo.x, hi.y - lo.y); }
+
+        // The top-left nearest `wanted` that keeps a `size` rectangle inside.
+        // When the rectangle is larger than the area the near edge wins: the
+        // start of a list is worth more than its end.
+        ImVec2 fit(ImVec2 wanted, ImVec2 size) const {
+            return ImVec2(std::max(lo.x, std::min(wanted.x, hi.x - size.x)),
+                          std::max(lo.y, std::min(wanted.y, hi.y - size.y)));
+        }
+
+        static SafeArea get();
+    };
+
     // The dialog's layout budget, recomputed each frame by Dialog. Every page
     // is sized from it, so the popup keeps one width across pages and the dp()
     // constants exist in exactly one place -- the page toggle and the band grid
@@ -59,6 +81,8 @@ namespace freq_input {
         float funcWidth = 0.0f;     // CE / Cancel / ENT column
         float keypadWidth = 0.0f;   // 3 digit columns + the function column
         bool wideKeypad = false;    // readout beside the keys, not above them
+        float readoutWidth = 0.0f;  // readout block, where wideKeypad puts it
+        float readoutHeight = 0.0f;
 
         // Page.
         float totalWidth = 0.0f;    // content width, identical on every page
@@ -87,7 +111,10 @@ namespace freq_input {
         // row being the hint that it scrolls.
         static float gridHeight(int rowsNeeded, int rowsFit, float keyH);
 
-        static Metrics compute();
+        // Takes the context because the keypad's readout reserves two extra
+        // lines for a source with tuning limits, and whether those lines fit
+        // is what decides the keypad's arrangement.
+        static Metrics compute(const Context& ctx);
     };
 
     // What a page asks of the dialog after a frame. Bands only ever closes: it
@@ -98,6 +125,12 @@ namespace freq_input {
         bool close = false;
         bool commit = false;    // tune to `frequency`
         uint64_t frequency = 0;
+        // The page took this frame's cancel key for itself: it had a popup of
+        // its own to back out of first. Without it the dialog reads the same
+        // Escape and closes everything, which is not what leaving a sub-popup
+        // means. Android's Back never had the problem -- it goes through
+        // MainWindow::handleBackPress(), which closes the topmost popup only.
+        bool consumedCancel = false;
     };
 
     // F-INP page: direct numeric entry in MHz, IC-705 style. See keypad.cpp.
@@ -105,6 +138,13 @@ namespace freq_input {
     public:
         void onOpen();
         Outcome draw(const Context& ctx, const Metrics& m);
+
+        // Height the readout block reserves when laid out at `width`: every
+        // line it can show in any state, so that neither what is typed nor how
+        // long the source's range prints ever moves the keys. Metrics asks for
+        // it because whether that block fits above the keys is what decides
+        // which arrangement the page gets.
+        static float readoutHeight(const Context& ctx, float width);
 
     private:
         void key(char k, const Context& ctx);
@@ -150,10 +190,15 @@ namespace freq_input {
         // Stable ID rather than a pointer into the selected plan or the
         // per-frame canonical projection.
         std::string regPopupBandId;
-        // Where that list opens: beside the key it belongs to, above or below
-        // depending on which half of the viewport the key is in.
-        ImVec2 regPopupPos = ImVec2(0.0f, 0.0f);
-        ImVec2 regPopupPivot = ImVec2(0.0f, 0.0f);
+        // Where that list opens, refreshed from the key every frame the key is
+        // drawn: ImGui will not fit a popup whose position the caller has set,
+        // so the placement is ours, and it needs both the key's rectangle and
+        // the list's own size. Kept across frames rather than recomputed at the
+        // point of use because the key is not always drawn -- it can scroll out
+        // of the grid, and the list outlives its category by a frame.
+        ImVec2 regPopupKeyMin = ImVec2(0.0f, 0.0f);
+        ImVec2 regPopupKeyMax = ImVec2(0.0f, 0.0f);
+        ImVec2 regPopupSize = ImVec2(0.0f, 0.0f);
     };
 
     // SPECTRUM page: a service-independent, non-overlapping ITU/IEEE range
@@ -162,6 +207,10 @@ namespace freq_input {
     class Spectrum {
     public:
         void onOpen();
+        // This page has become the visible one. It claims the frequency memory
+        // here, mirroring how the band grid claims it when it resolves a band,
+        // rather than restating the claim on every frame it is drawn.
+        void onActivate();
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:
@@ -186,6 +235,12 @@ namespace freq_input {
         // rotation live (configChanges in the manifest), so a dialog open
         // across one would otherwise be left off-centre or half off-screen.
         ImVec2 lastViewport = ImVec2(0.0f, 0.0f);
+        // ...and whenever the content does, which is the more frequent case:
+        // the dialog is as tall as the page it shows. Measured rather than
+        // derived from the events that cause it, so that a band category with
+        // more rows, a register list, or a source gaining tuning limits are
+        // all covered without every page having to report a resize.
+        ImVec2 lastSize = ImVec2(0.0f, 0.0f);
         bool recenter = false;
         Keypad keypad;
         Bands bands;

@@ -55,7 +55,7 @@ namespace freq_input {
     // echo, the out-of-range warning and the source range came and went --
     // under the finger, mid-entry, because the window is auto-sized and pinned
     // by its top-left corner.
-    static float readoutHeight(const Context& ctx, float width) {
+    float Keypad::readoutHeight(const Context& ctx, float width) {
         const float sp = ImGui::GetStyle().ItemSpacing.y;
         const auto lineH = [&](const std::string& text) {
             return ImGui::CalcTextSize(text.c_str(), NULL, false, width).y;
@@ -154,20 +154,18 @@ namespace freq_input {
         }
         const bool outOfRange = belowRange || aboveRange;
 
-        // Readout block: beside the keys where the page is wide enough for a
-        // column next to them (desktop, phone in landscape), above them
-        // otherwise (phone in portrait). Its height is reserved for the worst
-        // case and its text wraps, so neither what is typed nor how long the
-        // source's range prints can move the keys or widen the dialog.
+        // Readout block: beside the keys or above them, per Metrics, which
+        // weighs the column it would need against the height stacking would
+        // cost. Its height is reserved for the worst case and its text wraps,
+        // so neither what is typed nor how long the source's range prints can
+        // move the keys or widen the dialog.
         const ImVec2 sp = ImGui::GetStyle().ItemSpacing;
-        const float readoutW = m.wideKeypad ? (m.totalWidth - m.keypadWidth - sp.x)
-                                            : m.totalWidth;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::BeginChild("##sdrpp_finp_readout",
-                          ImVec2(readoutW, readoutHeight(ctx, readoutW)),
+                          ImVec2(m.readoutWidth, m.readoutHeight),
                           false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        ImGui::PushTextWrapPos(readoutW);
+        ImGui::PushTextWrapPos(m.readoutWidth);
 
         // Entered value in MHz; before any key, the current frequency dimmed.
         if (entry.empty()) {
@@ -176,10 +174,10 @@ namespace freq_input {
             char* end = cur + strlen(cur) - 1;
             while (*end == '0') { *end-- = 0; }
             if (*end == '.') { *end = 0; }
-            drawValue(cur, readoutW, ImGui::GetColorU32(ImGuiCol_TextDisabled));
+            drawValue(cur, m.readoutWidth, ImGui::GetColorU32(ImGuiCol_TextDisabled));
         }
         else {
-            drawValue(entry.c_str(), readoutW,
+            drawValue(entry.c_str(), m.readoutWidth,
                       ImGui::GetColorU32(outOfRange ? errorCol : ImGui::GetStyleColorVec4(ImGuiCol_Text)));
         }
 

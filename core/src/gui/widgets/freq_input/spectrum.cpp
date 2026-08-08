@@ -102,16 +102,23 @@ namespace freq_input {
             "");
     }
 
+    // Which grid owns the frequency memory: BandStack::commitCurrent() reads the
+    // selector to decide where the current frequency belongs when it is written
+    // back. The band grid claims it from
+    // BandStack::activateBandForServices(), which runs when its page resolves a
+    // band, so this page claims it when it becomes visible. Doing it per frame,
+    // as draw() used to, wrote the same value while taking the config lock and
+    // rebuilding the section path every frame the page was up.
+    void Spectrum::onActivate() {
+        auto configAccess = core::configManager.edit();
+        freq_memory::root(configAccess).set(
+            freq_memory::SELECTOR,
+            freq_memory::SELECTOR_SPECTRUM);
+    }
+
     Outcome Spectrum::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
         const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
-
-        {
-            auto configAccess = core::configManager.edit();
-            freq_memory::root(configAccess).set(
-                freq_memory::SELECTOR,
-                freq_memory::SELECTOR_SPECTRUM);
-        }
 
         std::size_t rangeCount = 0;
         const SpectrumRange* definitions =
