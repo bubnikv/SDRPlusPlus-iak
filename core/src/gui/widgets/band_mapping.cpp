@@ -623,7 +623,7 @@ namespace freq_input {
             //   L: 5 row(s), 3 plan(s); all names/spans: legacy audit section `broadcast:TV:VHF-low`.
             //   P: 60 MHz, 82 MHz; hits all 5 assigned rows; unique-row coverage 3/2.
             televisionBand(
-                BandText{"Television VHF low", "TV VHF Low"},
+                BandText{"Television VHF low", "TV VHF", "Low"},
                 "broadcast:TV:VHF-low",
                 60000000LL, 82000000LL),
             // Source map for broadcast:TV:VHF-high
@@ -632,7 +632,7 @@ namespace freq_input {
             //   L: 7 row(s), 6 plan(s); all names/spans: legacy audit section `broadcast:TV:VHF-high`.
             //   P: 190 MHz, 220 MHz; hits all 7 assigned rows; unique-row coverage 5/1.
             televisionBand(
-                BandText{"Television VHF high", "TV VHF High"},
+                BandText{"Television VHF high", "TV VHF", "High"},
                 "broadcast:TV:VHF-high",
                 190000000LL, 220000000LL),
             // Source map for broadcast:TV:UHF
@@ -667,91 +667,91 @@ namespace freq_input {
             //   O: none.
             //   L: 7 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:2MHz`.
             //   P: 3.025 MHz; hits all 7 assigned rows; unique-row coverage 7.
-            aviationBand("HF 2 MHz", "aviation:HF:2MHz",
+            aviationBand(BandText{"HF 2 MHz", "HF 2", "MHz"}, "aviation:HF:2MHz",
                 3025000LL),
             // Source map for aviation:HF:3.4MHz
             //   K: any "3 MHz" 3.4 MHz-3.5 MHz.
             //   O: none.
             //   L: 6 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:3.4MHz`.
             //   P: 3.45 MHz; hits all 6 assigned rows; unique-row coverage 6.
-            aviationBand("HF 3.4 MHz", "aviation:HF:3.4MHz",
+            aviationBand(BandText{"HF 3.4 MHz", "HF 3.4", "MHz"}, "aviation:HF:3.4MHz",
                 3450000LL),
             // Source map for aviation:HF:3.8MHz
             //   K: any "3 MHz" 3.9 MHz-3.95 MHz.
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `aviation:HF:3.8MHz`.
             //   P: 3.925 MHz; hits all 1 assigned rows; unique-row coverage 1.
-            aviationBand("HF 3.8 MHz", "aviation:HF:3.8MHz",
+            aviationBand(BandText{"HF 3.8 MHz", "HF 3.8", "MHz"}, "aviation:HF:3.8MHz",
                 3925000LL),
             // Source map for aviation:HF:4MHz
             //   K: any "4 MHz" 4.65 MHz-4.75 MHz.
             //   O: none.
             //   L: 5 row(s), 5 plan(s); all names/spans: legacy audit section `aviation:HF:4MHz`.
             //   P: 4.7 MHz; hits all 5 assigned rows; unique-row coverage 5.
-            aviationBand("HF 4 MHz", "aviation:HF:4MHz",
+            aviationBand(BandText{"HF 4 MHz", "HF 4", "MHz"}, "aviation:HF:4MHz",
                 4700000LL),
             // Source map for aviation:HF:5MHz
             //   K: any "5 MHz" 5.45 MHz-5.73 MHz.
             //   O: none.
             //   L: 6 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:5MHz`.
             //   P: 5.605 MHz; hits all 6 assigned rows; unique-row coverage 6.
-            aviationBand("HF 5 MHz", "aviation:HF:5MHz",
+            aviationBand(BandText{"HF 5 MHz", "HF 5", "MHz"}, "aviation:HF:5MHz",
                 5605000LL),
             // Source map for aviation:HF:6MHz
             //   K: any "6 MHz" 6.525 MHz-6.765 MHz.
             //   O: none.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `aviation:HF:6MHz`.
             //   P: 6.645 MHz; hits all 4 assigned rows; unique-row coverage 4.
-            aviationBand("HF 6 MHz", "aviation:HF:6MHz",
+            aviationBand(BandText{"HF 6 MHz", "HF 6", "MHz"}, "aviation:HF:6MHz",
                 6645000LL),
             // Source map for aviation:HF:8MHz
             //   K: any "8 MHz" 8.815 MHz-9.04 MHz.
             //   O: none.
             //   L: 5 row(s), 5 plan(s); all names/spans: legacy audit section `aviation:HF:8MHz`.
             //   P: 8.9275 MHz; hits all 5 assigned rows; unique-row coverage 5.
-            aviationBand("HF 8 MHz", "aviation:HF:8MHz",
+            aviationBand(BandText{"HF 8 MHz", "HF 8", "MHz"}, "aviation:HF:8MHz",
                 8927500LL),
             // Source map for aviation:HF:10MHz
             //   K: any "10 MHz" 10.005 MHz-10.1 MHz.
             //   O: none.
             //   L: 5 row(s), 5 plan(s); all names/spans: legacy audit section `aviation:HF:10MHz`.
             //   P: 10.0525 MHz; hits all 5 assigned rows; unique-row coverage 5.
-            aviationBand("HF 10 MHz", "aviation:HF:10MHz",
+            aviationBand(BandText{"HF 10 MHz", "HF 10", "MHz"}, "aviation:HF:10MHz",
                 10052500LL),
             // Source map for aviation:HF:11MHz
             //   K: any "11 MHz" 11.175 MHz-11.4 MHz.
             //   O: none.
             //   L: 6 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:11MHz`.
             //   P: 11.2875 MHz; hits all 6 assigned rows; unique-row coverage 6.
-            aviationBand("HF 11 MHz", "aviation:HF:11MHz",
+            aviationBand(BandText{"HF 11 MHz", "HF 11", "MHz"}, "aviation:HF:11MHz",
                 11287500LL),
             // Source map for aviation:HF:13MHz
             //   K: any "13 MHz" 13.2 MHz-13.36 MHz.
             //   O: none.
             //   L: 6 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:13MHz`.
             //   P: 13.31 MHz; hits all 6 assigned rows; unique-row coverage 6.
-            aviationBand("HF 13 MHz", "aviation:HF:13MHz",
+            aviationBand(BandText{"HF 13 MHz", "HF 13", "MHz"}, "aviation:HF:13MHz",
                 13310000LL),
             // Source map for aviation:HF:15MHz
             //   K: any "15 MHz" 15.01 MHz-15.1 MHz.
             //   O: none.
             //   L: 6 row(s), 6 plan(s); all names/spans: legacy audit section `aviation:HF:15MHz`.
             //   P: 15.055 MHz; hits all 6 assigned rows; unique-row coverage 6.
-            aviationBand("HF 15 MHz", "aviation:HF:15MHz",
+            aviationBand(BandText{"HF 15 MHz", "HF 15", "MHz"}, "aviation:HF:15MHz",
                 15055000LL),
             // Source map for aviation:HF:17MHz
             //   K: any "17 MHz" 17.9 MHz-18.03 MHz.
             //   O: none.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `aviation:HF:17MHz`.
             //   P: 17.965 MHz; hits all 4 assigned rows; unique-row coverage 4.
-            aviationBand("HF 17 MHz", "aviation:HF:17MHz",
+            aviationBand(BandText{"HF 17 MHz", "HF 17", "MHz"}, "aviation:HF:17MHz",
                 17965000LL),
             // Source map for aviation:HF:22MHz
             //   K: any "22 MHz" 21.924 MHz-22 MHz.
             //   O: none.
             //   L: 5 row(s), 5 plan(s); all names/spans: legacy audit section `aviation:HF:22MHz`.
             //   P: 21.9625 MHz; hits all 5 assigned rows; unique-row coverage 5.
-            aviationBand("HF 22 MHz", "aviation:HF:22MHz",
+            aviationBand(BandText{"HF 22 MHz", "HF 22", "MHz"}, "aviation:HF:22MHz",
                 21962500LL),
             // Present in several shipped European plans.
             // Source map for aviation:HF:23MHz
@@ -759,7 +759,7 @@ namespace freq_input {
             //   O: none.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `aviation:HF:23MHz`.
             //   P: 23.275 MHz; hits all 4 assigned rows; unique-row coverage 4.
-            aviationBand("HF 23 MHz", "aviation:HF:23MHz",
+            aviationBand(BandText{"HF 23 MHz", "HF 23", "MHz"}, "aviation:HF:23MHz",
                 23275000LL),
             // Source map for aviation:VHF-COM
             //   K: none.
@@ -800,49 +800,49 @@ namespace freq_input {
             //   O: none.
             //   L: 3 row(s), 3 plan(s); all names/spans: legacy audit section `maritime:HF:2MHz`.
             //   P: 2.182 MHz; hits all 3 assigned rows; unique-row coverage 3.
-            maritimeBand("HF 2 MHz", "maritime:HF:2MHz",
+            maritimeBand(BandText{"HF 2 MHz", "HF 2", "MHz"}, "maritime:HF:2MHz",
                 2182000LL),
             // Source map for maritime:HF:4MHz
             //   K: any "4 MHz" 4.063 MHz-4.438 MHz.
             //   O: none.
             //   L: 11 row(s), 6 plan(s); all names/spans: legacy audit section `maritime:HF:4MHz`.
             //   P: 4.065 MHz, 4.152 MHz, 4.176875 MHz, 4.1945 MHz; hits all 11 assigned rows; unique-row coverage 1/2/1/1.
-            maritimeBand("HF 4 MHz", "maritime:HF:4MHz",
+            maritimeBand(BandText{"HF 4 MHz", "HF 4", "MHz"}, "maritime:HF:4MHz",
                 4065000LL, 4152000LL, 4176875LL, 4194500LL),
             // Source map for maritime:HF:6MHz
             //   K: any "6 MHz" 6.2 MHz-6.525 MHz.
             //   O: none.
             //   L: 6 row(s), 5 plan(s); all names/spans: legacy audit section `maritime:HF:6MHz`.
             //   P: 6.207375 MHz, 6.279375 MHz; hits all 6 assigned rows; unique-row coverage 1/1.
-            maritimeBand("HF 6 MHz", "maritime:HF:6MHz",
+            maritimeBand(BandText{"HF 6 MHz", "HF 6", "MHz"}, "maritime:HF:6MHz",
                 6207375LL, 6279375LL),
             // Source map for maritime:HF:8MHz
             //   K: any "8 MHz" 8.195 MHz-8.815 MHz.
             //   O: none.
             //   L: 6 row(s), 5 plan(s); all names/spans: legacy audit section `maritime:HF:8MHz`.
             //   P: 8.29225 MHz; hits all 6 assigned rows; unique-row coverage 5.
-            maritimeBand("HF 8 MHz", "maritime:HF:8MHz",
+            maritimeBand(BandText{"HF 8 MHz", "HF 8", "MHz"}, "maritime:HF:8MHz",
                 8292250LL),
             // Source map for maritime:HF:12MHz
             //   K: any "12 MHz" 12.23 MHz-13.2 MHz.
             //   O: none.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `maritime:HF:12MHz`.
             //   P: 12.715 MHz; hits all 4 assigned rows; unique-row coverage 4.
-            maritimeBand("HF 12 MHz", "maritime:HF:12MHz",
+            maritimeBand(BandText{"HF 12 MHz", "HF 12", "MHz"}, "maritime:HF:12MHz",
                 12715000LL),
             // Source map for maritime:HF:22MHz
             //   K: any "22 MHz" 22 MHz-22.855 MHz.
             //   O: none.
             //   L: 3 row(s), 3 plan(s); all names/spans: legacy audit section `maritime:HF:22MHz`.
             //   P: 22.4275 MHz; hits all 3 assigned rows; unique-row coverage 3.
-            maritimeBand("HF 22 MHz", "maritime:HF:22MHz",
+            maritimeBand(BandText{"HF 22 MHz", "HF 22", "MHz"}, "maritime:HF:22MHz",
                 22427500LL),
             // Source map for maritime:HF:25MHz
             //   K: any "25 MHz" 25.07 MHz-25.121 MHz.
             //   O: none.
             //   L: 3 row(s), 3 plan(s); all names/spans: legacy audit section `maritime:HF:25MHz`.
             //   P: 25.0955 MHz; hits all 3 assigned rows; unique-row coverage 3.
-            maritimeBand("HF 25 MHz", "maritime:HF:25MHz",
+            maritimeBand(BandText{"HF 25 MHz", "HF 25", "MHz"}, "maritime:HF:25MHz",
                 25095500LL),
             // Source map for maritime:VHF
             //   K: none.
@@ -916,77 +916,77 @@ namespace freq_input {
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `ISM:6.78MHz`.
             //   P: 6.78 MHz; hits all 1 assigned rows; unique-row coverage 1.
-            ismBand("6.78 MHz", "ISM:6.78MHz",
+            ismBand(BandText{"6.78 MHz", "6.78", "MHz"}, "ISM:6.78MHz",
                 6780000LL),
             // Source map for ISM:13.56MHz
             //   K: selector 4 "ISM" 13.553 MHz-13.567 MHz.
             //   O: none.
             //   L: no assigned row.
             //   P: 13.56 MHz; interior/channel-set identifier; no legacy assignment.
-            ismBand("13.56 MHz", "ISM:13.56MHz",
+            ismBand(BandText{"13.56 MHz", "13.56", "MHz"}, "ISM:13.56MHz",
                 13560000LL),
             // Source map for ISM:27.12MHz
             //   K: selector 4 "ISM" 26.957 MHz-27.283 MHz.
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `ISM:27.12MHz`.
             //   P: 27.12 MHz; hits all 1 assigned rows; unique-row coverage 1.
-            ismBand("27.12 MHz", "ISM:27.12MHz",
+            ismBand(BandText{"27.12 MHz", "27.12", "MHz"}, "ISM:27.12MHz",
                 27120000LL),
             // Source map for ISM:40.68MHz
             //   K: none.
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `ISM:40.68MHz`.
             //   P: 40.68 MHz; hits all 1 assigned rows; unique-row coverage 1.
-            ismBand("40.68 MHz", "ISM:40.68MHz",
+            ismBand(BandText{"40.68 MHz", "40.68", "MHz"}, "ISM:40.68MHz",
                 40680000LL),
             // Source map for ISM:433.92MHz
             //   K: none.
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `ISM:433.92MHz`.
             //   P: 433.92 MHz; hits all 1 assigned rows; unique-row coverage 1.
-            ismBand("433.92 MHz", "ISM:433.92MHz",
+            ismBand(BandText{"433.92 MHz", "433.92", "MHz"}, "ISM:433.92MHz",
                 433920000LL),
             // Source map for ISM:868MHz
             //   K: none.
             //   O: G/R1 "EU868" 862 MHz-870 MHz.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `ISM:868MHz`.
             //   P: 867 MHz, 868.25 MHz; hits all 4 assigned rows; unique-row coverage 1/0.
-            ismBand("868 MHz", "ISM:868MHz",
+            ismBand(BandText{"868 MHz", "868", "MHz"}, "ISM:868MHz",
                 867000000LL, 868250000LL),
             // Source map for ISM:915MHz
             //   K: none.
             //   O: G/R2 "US915" 902 MHz-928 MHz; G/R3 "AU915" 915 MHz-928 MHz.
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `ISM:915MHz`.
             //   P: 917 MHz, 921.5 MHz; hits all 2 assigned rows; unique-row coverage 1/0.
-            ismBand("915 MHz", "ISM:915MHz",
+            ismBand(BandText{"915 MHz", "915", "MHz"}, "ISM:915MHz",
                 917000000LL, 921500000LL),
             // Source map for ISM:2.45GHz
             //   K: none.
             //   O: none.
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `ISM:2.45GHz`.
             //   P: 2.45 GHz; hits all 1 assigned rows; unique-row coverage 1.
-            ismBand("2.45 GHz", "ISM:2.45GHz",
+            ismBand(BandText{"2.45 GHz", "2.45", "GHz"}, "ISM:2.45GHz",
                 2450000000LL),
             // Source map for ISM:24.125GHz
             //   K: none.
             //   O: none.
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `ISM:24.125GHz`.
             //   P: 24.25 GHz; hits all 2 assigned rows; unique-row coverage 2.
-            ismBand("24.125 GHz", "ISM:24.125GHz",
+            ismBand(BandText{"24.125 GHz", "24.125", "GHz"}, "ISM:24.125GHz",
                 24250000000LL),
             // Source map for ISM:61.25GHz
             //   K: none.
             //   O: none.
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `ISM:61.25GHz`.
             //   P: 61.5 GHz; hits all 2 assigned rows; unique-row coverage 2.
-            ismBand("61.25 GHz", "ISM:61.25GHz",
+            ismBand(BandText{"61.25 GHz", "61.25", "GHz"}, "ISM:61.25GHz",
                 61500000000LL),
             // Source map for ISM:122.5GHz
             //   K: none.
             //   O: none.
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `ISM:122.5GHz`.
             //   P: 121 GHz; hits all 2 assigned rows; unique-row coverage 2.
-            ismBand("122.5 GHz", "ISM:122.5GHz",
+            ismBand(BandText{"122.5 GHz", "122.5", "GHz"}, "ISM:122.5GHz",
                 121000000000LL)
         );
 
@@ -1001,7 +1001,7 @@ namespace freq_input {
             //   O: none.
             //   L: 4 row(s), 4 plan(s); all names/spans: legacy audit section `RLAN:2.4GHz`.
             //   P: 2.45 GHz; hits all 4 assigned rows; unique-row coverage 4.
-            rlanBand("2.4 GHz", "RLAN:2.4GHz",
+            rlanBand(BandText{"2.4 GHz", "2.4", "GHz"}, "RLAN:2.4GHz",
                 2450000000LL),
             // Source map for RLAN:5150-5250MHz
             //   K: none.
@@ -1011,7 +1011,7 @@ namespace freq_input {
             //   L: no assigned row; all shipped rows containing 5.2 GHz also
             //      cross at least one adjacent canonical RLAN sub-band.
             //   P: 5.2 GHz identifies the interior of this sub-band.
-            rlanBand("5150-5250 MHz", "RLAN:5150-5250MHz",
+            rlanBand(BandText{"5150-5250 MHz", "5150-5250", "MHz"}, "RLAN:5150-5250MHz",
                 5200000000LL),
             // Source map for RLAN:5250-5350MHz
             //   K: none.
@@ -1021,7 +1021,7 @@ namespace freq_input {
             //   L: no assigned row; all shipped rows containing 5.3 GHz also
             //      cross an adjacent canonical RLAN sub-band.
             //   P: 5.3 GHz identifies the interior of this sub-band.
-            rlanBand("5250-5350 MHz", "RLAN:5250-5350MHz",
+            rlanBand(BandText{"5250-5350 MHz", "5250-5350", "MHz"}, "RLAN:5250-5350MHz",
                 5300000000LL),
             // Source map for RLAN:5470-5725MHz
             //   K: none.
@@ -1031,7 +1031,7 @@ namespace freq_input {
             //   L: 1 row(s), 1 plan(s); all names/spans: legacy audit section `RLAN:5470-5725MHz`.
             //   P: 5.6 GHz detects broad composite envelopes; 5.68 GHz maps
             //      Russia's distinct 5.67 GHz-5.725 GHz row.
-            rlanBand("5470-5725 MHz", "RLAN:5470-5725MHz",
+            rlanBand(BandText{"5470-5725 MHz", "5470-5725", "MHz"}, "RLAN:5470-5725MHz",
                 5600000000LL, 5680000000LL),
             // Source map for RLAN:5725-5850MHz
             //   K: none.
@@ -1042,7 +1042,7 @@ namespace freq_input {
             //      while Russia's 5.760 GHz-5.762 GHz row is channel-sized and
             //      intentionally does not contain the identity probe.
             //   P: 5.8 GHz identifies the interior of this sub-band.
-            rlanBand("5725-5850 MHz", "RLAN:5725-5850MHz",
+            rlanBand(BandText{"5725-5850 MHz", "5725-5850", "MHz"}, "RLAN:5725-5850MHz",
                 5800000000LL)
         );
 
@@ -1096,7 +1096,7 @@ namespace freq_input {
             //   P: 725.5 MHz, 780.5 MHz; hits all 1 assigned rows; unique-row coverage 1/0.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 28",
+                BandText{"LTE band 28", "LTE 28"},
                 "cellular:E-UTRA:28",
                 725500000LL, 780500000LL),
             // Source map for cellular:E-UTRA:20
@@ -1106,7 +1106,7 @@ namespace freq_input {
             //   P: 847 MHz, 806 MHz; hits all 4 assigned rows; unique-row coverage 2/1.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 20",
+                BandText{"LTE band 20", "LTE 20"},
                 "cellular:E-UTRA:20",
                 847000000LL, 806000000LL),
             // Source map for cellular:E-UTRA:8
@@ -1116,7 +1116,7 @@ namespace freq_input {
             //   P: 897.5 MHz, 942.5 MHz; hits all 1 assigned rows; unique-row coverage 1/0.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 8",
+                BandText{"LTE band 8", "LTE 8"},
                 "cellular:E-UTRA:8",
                 897500000LL, 942500000LL),
             // Source map for cellular:E-UTRA:3
@@ -1126,7 +1126,7 @@ namespace freq_input {
             //   P: 1.7475 GHz, 1.8425 GHz; hits all 2 assigned rows; unique-row coverage 1/1.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 3",
+                BandText{"LTE band 3", "LTE 3"},
                 "cellular:E-UTRA:3",
                 1747500000LL, 1842500000LL),
             // Source map for cellular:E-UTRA:1
@@ -1136,7 +1136,7 @@ namespace freq_input {
             //   P: 1.95 GHz, 2.14 GHz; hits all 2 assigned rows; unique-row coverage 1/1.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 1",
+                BandText{"LTE band 1", "LTE 1"},
                 "cellular:E-UTRA:1",
                 1950000000LL, 2140000000LL),
             // Source map for cellular:E-UTRA:7
@@ -1146,7 +1146,7 @@ namespace freq_input {
             //   P: 2.535 GHz, 2.655 GHz; hits all 4 assigned rows; unique-row coverage 2/2.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 7",
+                BandText{"LTE band 7", "LTE 7"},
                 "cellular:E-UTRA:7",
                 2535000000LL, 2655000000LL),
             // Source map for cellular:E-UTRA:32
@@ -1156,7 +1156,7 @@ namespace freq_input {
             //   P: 1.474 GHz; hits all 1 assigned rows; unique-row coverage 1.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 32",
+                BandText{"LTE band 32", "LTE 32"},
                 "cellular:E-UTRA:32",
                 1474000000LL),
             // Source map for cellular:E-UTRA:38
@@ -1166,7 +1166,7 @@ namespace freq_input {
             //   P: 2.595 GHz; hits all 1 assigned rows; unique-row coverage 1.
             cellularBand(
                 BandFamily::CellularLte,
-                "LTE band 38",
+                BandText{"LTE band 38", "LTE 38"},
                 "cellular:E-UTRA:38",
                 2595000000LL)
         );
@@ -1177,7 +1177,7 @@ namespace freq_input {
             //   O: G/R1/R2/R3 "VHF Satellite" 137 MHz-138 MHz.
             //   L: 12 row(s), 12 plan(s); all names/spans: legacy audit section `satellite:weather-VHF`.
             //   P: 137.5 MHz; hits all 12 assigned rows; unique-row coverage 12.
-            satelliteBand("Weather VHF", "satellite:weather-VHF",
+            satelliteBand(BandText{"Weather VHF", "Weather", "VHF"}, "satellite:weather-VHF",
                 137500000LL)
         );
 
@@ -1206,7 +1206,7 @@ namespace freq_input {
             //   L: 2 row(s), 2 plan(s); all names/spans: legacy audit section `navigation:ILS-glide-path`.
             //   P: 332 MHz; hits all 2 assigned rows; unique-row coverage 2.
             navigationBand(
-                BandText{"ILS glide path", "ILS Glide"},
+                BandText{"ILS glide path", "ILS", "Glide"},
                 "navigation:ILS-glide-path",
                 332000000LL)
         );

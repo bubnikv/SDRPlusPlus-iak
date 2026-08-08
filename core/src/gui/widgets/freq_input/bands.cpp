@@ -13,6 +13,7 @@
 #include <config.h>
 #include <core.h>
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -24,6 +25,278 @@
 #endif
 
 namespace freq_input {
+
+    namespace {
+
+        std::string_view serviceDisplayName(BandService service) {
+            switch (service) {
+                case BandService::Amateur:        return "Amateur";
+                case BandService::Broadcast:      return "Broadcast";
+                case BandService::Aviation:       return "Aviation";
+                case BandService::Maritime:       return "Marine";
+                case BandService::PersonalRadio:  return "Personal";
+                case BandService::Ism:            return "ISM";
+                case BandService::Satellite:      return "Satellite";
+                case BandService::Navigation:     return "Navigation";
+                case BandService::TimeStandard:   return "Time";
+                case BandService::Cellular:       return "Cellular";
+                case BandService::Rlan:           return "Wi-Fi";
+                case BandService::Meteorological: return "Weather";
+                case BandService::LandMobile:     return "Land mobile";
+                case BandService::Other:          return "Other";
+                case BandService::Count:          break;
+            }
+            return "Other";
+        }
+
+        struct LabelLines {
+            std::string_view first;
+            std::string_view second;
+        };
+
+        // Legacy plan rows do not have curated selector metadata. Split at the
+        // most balanced word boundary, but never manufacture more than the two
+        // lines the key layout reserves for label content.
+        LabelLines splitLegacyLabel(std::string_view label) {
+            std::size_t best = std::string_view::npos;
+            std::size_t bestBalance = label.size();
+            for (std::size_t i = 1; i + 1 < label.size(); ++i) {
+                if (label[i] != ' ') { continue; }
+                const std::size_t right = label.size() - i - 1;
+                const std::size_t balance = i > right ? i - right : right - i;
+                if (balance < bestBalance) {
+                    best = i;
+                    bestBalance = balance;
+                }
+            }
+            if (best == std::string_view::npos) { return { label, {} }; }
+            return { label.substr(0, best), label.substr(best + 1) };
+        }
+
+        ImFont* fontForText(
+            ImFont* preferredFont,
+            float size,
+            std::string_view text)
+        {
+            const char* begin = text.data();
+            const char* end = begin + text.size();
+            return style::fontCovers(preferredFont, begin, end)
+                ? preferredFont
+                : style::fontFor(begin, size, end);
+        }
+
+        bool labelFitsAtSize(
+            ImFont* preferredFont,
+            float size,
+            float maxWidth,
+            std::string_view text)
+        {
+            const char* begin = text.data();
+            const char* end = begin + text.size();
+            ImFont* font = fontForText(preferredFont, size, text);
+            return font->CalcTextSizeA(
+                size, FLT_MAX, 0.0f, begin, end).x <= maxWidth;
+        }
+
+        // All selector lines retain a readable floor. Canonical metadata should
+        // normally avoid this path; legacy plan text has no such guarantee.
+        bool drawFittedLabelLine(
+            ImDrawList* dl,
+            ImFont* preferredFont,
+            float preferredSize,
+            float minimumSize,
+            ImVec2 center,
+            float maxWidth,
+            ImU32 color,
+            std::string_view text)
+        {
+            const char* begin = text.data();
+            const char* end = begin + text.size();
+            ImFont* font = fontForText(preferredFont, preferredSize, text);
+            ImVec2 textSize = font->CalcTextSizeA(
+                preferredSize, FLT_MAX, 0.0f, begin, end);
+            float size = preferredSize;
+            if (textSize.x > maxWidth && textSize.x > 0.0f) {
+                size = preferredSize * maxWidth / textSize.x;
+            }
+            if (size >= minimumSize) {
+                if (size != preferredSize) {
+                    textSize = font->CalcTextSizeA(
+                        size, FLT_MAX, 0.0f, begin, end);
+                }
+                dl->AddText(
+                    font,
+                    size,
+                    ImVec2(
+                        center.x - textSize.x / 2.0f,
+                        center.y - textSize.y / 2.0f),
+                    color,
+                    begin,
+                    end);
+                return false;
+            }
+
+            size = minimumSize;
+            const char* ellipsis = "...";
+            const ImVec2 ellipsisSize = font->CalcTextSizeA(
+                size, FLT_MAX, 0.0f, ellipsis);
+            const float prefixWidth = std::max(0.0f, maxWidth - ellipsisSize.x);
+            const char* remaining = begin;
+            font->CalcTextSizeA(
+                size,
+                prefixWidth,
+                0.0f,
+                begin,
+                end,
+                &remaining);
+            while (remaining > begin && remaining[-1] == ' ') { --remaining; }
+            const ImVec2 visibleSize = font->CalcTextSizeA(
+                size, FLT_MAX, 0.0f, begin, remaining);
+            const float totalWidth = visibleSize.x + ellipsisSize.x;
+            const ImVec2 pos(
+                center.x - totalWidth / 2.0f,
+                center.y - visibleSize.y / 2.0f);
+            dl->AddText(font, size, pos, color, begin, remaining);
+            dl->AddText(
+                font,
+                size,
+                ImVec2(pos.x + visibleSize.x, pos.y),
+                color,
+                ellipsis);
+            return true;
+        }
+
+        bool drawBandKeyLabel(
+            ImDrawList* dl,
+            ImVec2 bmin,
+            ImVec2 bmax,
+            float maxWidth,
+            std::string_view main,
+            std::string_view detail,
+            std::string_view service,
+            bool legacy,
+            ImU32 mainColor,
+            ImU32 subColor)
+        {
+            const float keyHeight = bmax.y - bmin.y;
+            const float cx = (bmin.x + bmax.x) / 2.0f;
+            bool truncated = false;
+            std::string_view continuation;
+
+            // First try the one-line layout down to its intended readable
+            // size. Only then wrap; the continuation remains the same label,
+            // not a dimmer semantic detail.
+            if (legacy && detail.empty()) {
+                const float readableSize = style::dp(
+                    service.empty() ? 18.0f : 16.0f);
+                if (!labelFitsAtSize(
+                        style::labelFont,
+                        readableSize,
+                        maxWidth,
+                        main))
+                {
+                    const LabelLines wrapped = splitLegacyLabel(main);
+                    main = wrapped.first;
+                    continuation = wrapped.second;
+                }
+            }
+
+            struct Line {
+                ImFont* font;
+                float size;
+                float minimumSize;
+                float centerY;
+                ImU32 color;
+                std::string_view text;
+                bool describesBand;
+            };
+            Line lines[3];
+            int lineCount = 0;
+
+            if (!continuation.empty() && service.empty()) {
+                lines[lineCount++] = {
+                    style::labelFont, 18.0f, 13.0f, 0.29f,
+                    mainColor, main, true
+                };
+                lines[lineCount++] = {
+                    style::labelFont, 18.0f, 13.0f, 0.70f,
+                    mainColor, continuation, true
+                };
+            }
+            else if (!continuation.empty()) {
+                lines[lineCount++] = {
+                    style::labelFont, 15.0f, 12.0f, 0.18f,
+                    mainColor, main, true
+                };
+                lines[lineCount++] = {
+                    style::labelFont, 15.0f, 12.0f, 0.49f,
+                    mainColor, continuation, true
+                };
+                lines[lineCount++] = {
+                    style::baseFont, 10.5f, 9.5f, 0.82f,
+                    subColor, service, false
+                };
+            }
+            else if (detail.empty() && service.empty()) {
+                lines[lineCount++] = {
+                    style::labelFont, 22.0f, 13.0f, 0.50f,
+                    mainColor, main, true
+                };
+            }
+            else if (detail.empty()) {
+                lines[lineCount++] = {
+                    style::labelFont, 20.0f, 13.0f, 0.35f,
+                    mainColor, main, true
+                };
+                lines[lineCount++] = {
+                    style::baseFont, 11.0f, 10.0f, 0.76f,
+                    subColor, service, false
+                };
+            }
+            else if (service.empty()) {
+                lines[lineCount++] = {
+                    style::labelFont, 20.0f, 13.0f, 0.34f,
+                    mainColor, main, true
+                };
+                lines[lineCount++] = {
+                    style::baseFont, 12.0f, 11.0f, 0.75f,
+                    subColor, detail, true
+                };
+            }
+            else {
+                // Three restrained rows fit the existing touch target without
+                // costing phone landscape another visible grid row.
+                lines[lineCount++] = {
+                    style::labelFont, 16.0f, 12.0f, 0.21f,
+                    mainColor, main, true
+                };
+                lines[lineCount++] = {
+                    style::baseFont, 11.0f, 10.0f, 0.52f,
+                    subColor, detail, true
+                };
+                lines[lineCount++] = {
+                    style::baseFont, 10.5f, 9.5f, 0.82f,
+                    subColor, service, false
+                };
+            }
+
+            for (int i = 0; i < lineCount; ++i) {
+                const Line& line = lines[i];
+                const bool lineTruncated = drawFittedLabelLine(
+                    dl,
+                    line.font,
+                    style::dp(line.size),
+                    style::dp(line.minimumSize),
+                    ImVec2(cx, bmin.y + keyHeight * line.centerY),
+                    maxWidth,
+                    line.color,
+                    line.text);
+                if (line.describesBand) { truncated |= lineTruncated; }
+            }
+            return truncated;
+        }
+
+    }
 
     namespace canonical_bands {
 
@@ -476,9 +749,18 @@ namespace freq_input {
         ImGui::Spacing();
 
         std::vector<const canonical_bands::Entry*> shown;
+        BandService firstShownService = BandService::Count;
+        bool mixedServices = false;
         for (const auto& e : avail) {
             if (activeGroup.services.contains(e.band.resolved.service())) {
                 shown.push_back(&e);
+                const BandService service = e.band.resolved.service();
+                if (firstShownService == BandService::Count) {
+                    firstShownService = service;
+                }
+                else if (service != firstShownService) {
+                    mixedServices = true;
+                }
             }
         }
         const std::string& activeBandId =
@@ -626,7 +908,6 @@ namespace freq_input {
                 }
                 ImVec2 bmin = ImGui::GetItemRectMin();
                 ImVec2 bmax = ImGui::GetItemRectMax();
-                float cx = (bmin.x + bmax.x) / 2.0f;
                 float maxW = keyW - style::dp(8.0f);
                 const BandMapping* mapping = b.resolved.mapping;
                 const std::string_view main = mapping
@@ -635,17 +916,29 @@ namespace freq_input {
                 const std::string_view sub = mapping
                     ? mapping->selectorDetail
                     : std::string_view{};
+                const std::string_view service = mixedServices
+                    ? serviceDisplayName(b.resolved.service())
+                    : std::string_view{};
                 const ImU32 keyMain = active ? ImGui::GetColorU32(selCols.content) : mainCol;
                 const ImU32 keySub = active ? ImGui::GetColorU32(selSub) : subCol;
                 dl->PushClipRect(bmin, bmax, true);
-                if (sub.empty()) {
-                    drawCenteredLabel(dl, style::labelFont, style::dp(22.0f), ImVec2(cx, (bmin.y + bmax.y) / 2.0f), maxW, keyMain, main.data());
-                }
-                else {
-                    drawCenteredLabel(dl, style::labelFont, style::dp(22.0f), ImVec2(cx, bmin.y + keyH * 0.36f), maxW, keyMain, main.data());
-                    drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(cx, bmin.y + keyH * 0.76f), maxW, keySub, sub.data());
-                }
+                const bool truncated = drawBandKeyLabel(
+                    dl,
+                    bmin,
+                    bmax,
+                    maxW,
+                    main,
+                    sub,
+                    service,
+                    mapping == nullptr,
+                    keyMain,
+                    keySub);
                 dl->PopClipRect();
+#ifndef __ANDROID__
+                if (truncated && ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", b.name.c_str());
+                }
+#endif
             }
             ImGui::EndChild();
         }
