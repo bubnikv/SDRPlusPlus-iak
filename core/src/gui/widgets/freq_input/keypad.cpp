@@ -161,7 +161,7 @@ namespace freq_input {
         // move the keys or widen the dialog.
         const ImVec2 sp = ImGui::GetStyle().ItemSpacing;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::BeginChild("##sdrpp_finp_readout",
+        ImGui::BeginChild("##sdrpp_freq_input_readout",
                           ImVec2(m.readoutWidth, m.readoutHeight),
                           false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -242,7 +242,7 @@ namespace freq_input {
         // disabled-state alpha automatically.
         ImGui::SetCursorPos(cellPos(3, 2));
         ImGui::BeginDisabled(entry.empty());
-        bool bksp = ImGui::Button("##sdrpp_finp_bksp", m.keySize);
+        bool bksp = ImGui::Button("##sdrpp_freq_input_bksp", m.keySize);
         {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImVec2 bmin = ImGui::GetItemRectMin();
@@ -272,9 +272,9 @@ namespace freq_input {
         ImGui::SetCursorPos(cellPos(0, 3));
         if (ImGui::Button("CE", ImVec2(m.funcWidth, m.keySize.y))) { entry.clear(); }
         ImGui::SetCursorPos(cellPos(1, 3));
-        if (ImGui::Button("Cancel##sdrpp_finp", ImVec2(m.funcWidth, m.keySize.y))) { out.close = true; }
+        if (ImGui::Button("Cancel##sdrpp_freq_input", ImVec2(m.funcWidth, m.keySize.y))) { out.close = true; }
         ImGui::SetCursorPos(cellPos(2, 3));
-        if (ImGui::Button("ENT##sdrpp_finp", ImVec2(m.funcWidth, 2.0f * m.keySize.y + sp.y))) {
+        if (ImGui::Button("ENT##sdrpp_freq_input", ImVec2(m.funcWidth, 2.0f * m.keySize.y + sp.y))) {
             commit(ctx, out);
             out.close = true;
         }

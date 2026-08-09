@@ -2,12 +2,15 @@
 #include <gui/widgets/band_mapping.h>
 #include <module.h>
 #include <radio_interface.h>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <optional>
 #include <string>
-#include <string_view>
-#include <vector>
 
 namespace bandplan {
     struct Band_t;
+    struct BandPlan_t;
 }
 
 // One band stacking register: a previously operated frequency and mode, in the
@@ -15,15 +18,89 @@ namespace bandplan {
 // previously operated frequency and mode are stored". See
 // doc/research/band-stacking.md for what the reference implementations keep.
 struct BandRegister {
-    bool populated = false;
     double freq = 0;  // VFO tune frequency, Hz, display domain
-    int mode = -1;    // RADIO_IFACE_MODE_*, -1 = nothing stored; radioModeName() to show it
+    // RADIO_IFACE_MODE_*, or -1 when recall should resolve the current band-plan
+    // default. Slot population is represented separately by std::optional.
+    int mode = -1;
+};
+
+// One band's fixed three-register set. Populated slots are always packed into
+// a contiguous prefix, with slot 0 current; an empty slot is never rotated.
+class BandRegisterSet {
+public:
+    static constexpr std::size_t SIZE = 3;
+    using Slot = std::optional<BandRegister>;
+
+    constexpr std::size_t size() const noexcept { return SIZE; }
+    const Slot& operator[](std::size_t index) const {
+        assert(index < SIZE);
+        return slots[index];
+    }
+    const Slot& top() const { return slots[0]; }
+
+    // Loader/building primitive: append after the populated prefix.
+    bool append(const BandRegister& reg) {
+        for (Slot& slot : slots) {
+            if (slot) { continue; }
+            slot = reg;
+            return true;
+        }
+        return false;
+    }
+    bool seedTop(const BandRegister& reg) {
+        if (slots[0]) { return false; }
+        slots[0] = reg;
+        return true;
+    }
+    void storeTop(const BandRegister& reg) { slots[0] = reg; }
+    void cyclePopulated() {
+        auto end = std::find_if(
+            slots.begin(),
+            slots.end(),
+            [](const Slot& slot) { return !slot; });
+        if (end != slots.begin()) {
+            std::rotate(slots.begin(), end - 1, end);
+        }
+    }
+    // Select a populated slot, or first materialize the selected empty slot.
+    // Returns the selected register now at slot 0, or nullopt on no target.
+    std::optional<BandRegister> select(
+        std::size_t index,
+        std::optional<BandRegister> materialization = std::nullopt)
+    {
+        if (index >= SIZE) { return std::nullopt; }
+        if (!slots[index]) {
+            if (!materialization) { return std::nullopt; }
+            slots[index] = *materialization;
+        }
+        std::rotate(
+            slots.begin(),
+            slots.begin() + index,
+            slots.begin() + index + 1);
+        return slots[0];
+    }
+
+private:
+    std::array<Slot, SIZE> slots{};
+};
+
+enum class BandRecallResult {
+    NoTarget,
+    Recalled
+};
+
+// Immutable data captured when a register popup opens. Empty rows are enabled
+// only when the captured VFO state belongs to the popup's band; recall still
+// validates the live state in case an external tuner changes it meanwhile.
+struct BandRegisterPopupSnapshot {
+    BandRegisterSet registers;
+    bool canMaterializeEmpty = false;
 };
 
 // The band stacking data layer: what is remembered per band, and what happens
 // when the user asks for one.
 //
-// The F-INP band grid is a view over this. It draws keys and register lists and
+// The frequency-input band grid is a view over this. It draws keys and register lists and
 // reports gestures; every decision -- which register, which frequency, which
 // mode, what to write back, what a first visit means -- is made here.
 //
@@ -38,46 +115,46 @@ struct BandRegister {
 // doc/design/band-stack.md.
 class BandStack {
 public:
-    // The band's three rotating slots. Unpopulated entries remain present so
-    // pressing the active band can rotate into an empty slot and populate it.
-    // Entry 0 is always the active register.
-    std::vector<BandRegister> registersFor(std::string_view bandId) const;
+    // A register-popup open. Return a snapshot, seeding an empty top entry from
+    // the current VFO when it belongs to this stable band, otherwise from the
+    // supplied band default. Never tunes, rotates, or changes the active band.
+    BandRegisterPopupSnapshot openRegisters(
+        const freq_input::BandMapping& mapping,
+        double defaultFrequency);
 
-    // Resolve within the services visible on the current picker page. The
-    // supplied current service wins when it contains the frequency; otherwise
-    // the first matching band from another visible service is used. Opening
-    // or changing the page never writes a register.
-    std::string activateBandForServices(
+    // Pure visible-page resolution. The preferred service wins when it contains
+    // the frequency; otherwise the first match in another visible service wins.
+    const freq_input::BandMapping* resolveBandForServices(
         freq_input::BandServiceSet services,
-        freq_input::BandService currentService,
-        double frequency);
+        freq_input::BandService preferredService,
+        double frequency) const;
 
-    // A band-key tap. `activeBandId` is the visible source selected by
-    // activateBandForServices(), not a globally inferred write-back target.
-    // Repeating that band stores entry 0, rotates left, and recalls the new 0.
+    // A band-key tap. `activeMapping` is the visible source selected by
+    // resolveBandForServices(), not a globally inferred write-back target.
+    // Repeating that band stores entry 0, rotates the populated entries, and
+    // recalls the new 0. Empty trailing slots never participate in rotation.
     void selectBand(
-        std::string_view bandId,
+        const freq_input::BandMapping& mapping,
         double defaultFrequency,
-        const std::string& activeBandId);
+        const freq_input::BandMapping* activeMapping);
 
     // Navigation fallback for a legacy row which has no stable identity. It
     // can tune the row but deliberately cannot own band-stack registers.
     void selectLegacySegment(
         const bandplan::Band_t& segment,
-        const std::string& activeBandId);
+        const freq_input::BandMapping* activeMapping);
 
-    // A register-list pick: store the visible source, rotate the picked target
-    // entry to index 0 while preserving cyclic order, and recall it when set.
-    void recallRegister(
-        std::string_view bandId,
+    // A register-list pick: store the visible source, materialize a selected
+    // empty slot only from an in-band VFO, rotate prefix [0, index] right once
+    // to promote the target to slot 0, and recall it.
+    BandRecallResult recallRegister(
+        const freq_input::BandMapping& mapping,
         int index,
-        const std::string& activeBandId);
+        const freq_input::BandMapping* activeMapping);
 
-    // Persist the current selector memory when closing or suspending the
-    // application.
-    // Band matching is restricted to the current service; shutdown never
-    // changes service.
-    void commitCurrent();
+    // Persist the current band memory when closing or suspending the
+    // application. Matching is restricted to the current service.
+    void commitCurrentBand();
 
 private:
     // Keep in sync with heuristic_mode() in scripts/enrich_bandplans.py.
@@ -85,10 +162,18 @@ private:
         freq_input::BandService service,
         freq_input::BandFamily family,
         double frequency);
+    static int resolvedMode(
+        const bandplan::Band_t& segment,
+        double frequency,
+        int mode);
+    static std::optional<BandRegister> makeRegister(
+        const bandplan::BandPlan_t* plan,
+        const freq_input::BandMapping& mapping,
+        double frequency,
+        int mode);
     void applyTarget(
         const freq_input::BandMapping& mapping,
-        double freq,
-        int mode);
+        const BandRegister& target);
     void applySegmentTarget(
         const bandplan::Band_t& segment,
         double freq,

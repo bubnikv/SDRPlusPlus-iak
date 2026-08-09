@@ -1,5 +1,6 @@
 #pragma once
 #include <gui/widgets/band_mapping.h>
+#include <gui/widgets/band_stack.h>
 #include <imgui.h>
 #include <stdint.h>
 #include <algorithm>
@@ -8,9 +9,10 @@
 
 namespace bandplan {
     struct Band_t;
+    struct BandPlan_t;
 }
 
-// The F-INP direct-entry dialog: a modal with BAND, SPECTRUM and F-INP pages, opened
+// The frequency-input dialog: a modal with Band, Spectrum and Frequency pages, opened
 // by the top bar's keypad button or by a long press on a frequency digit.
 //
 // The digit widget in frequency_select.h owns one Dialog and hands it a Context
@@ -21,11 +23,6 @@ namespace freq_input {
 
     namespace canonical_bands {
         class Cache;
-    }
-
-    namespace band_state {
-        class ActiveCache;
-        class RegisterCache;
     }
 
     // The tuning situation a page works against: where the radio is now, and
@@ -134,7 +131,7 @@ namespace freq_input {
         bool consumedCancel = false;
     };
 
-    // F-INP page: direct numeric entry in MHz, IC-705 style. See keypad.cpp.
+    // Frequency page: direct numeric entry in MHz, IC-705 style. See keypad.cpp.
     class Keypad {
     public:
         void onOpen();
@@ -163,17 +160,25 @@ namespace freq_input {
         ~Bands();
 
         void onOpen();
+        void onActivate();
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:
+        void resetTransientState();
+
         // Expensive canonical projection of the immutable selected plan,
         // rebuilt only when the plan revision or source tuning limits change.
         std::unique_ptr<canonical_bands::Cache> canonicalCache;
 
-        // Resolution and register data are event/change driven. Neither config
-        // access nor whole-plan validation belongs in the steady draw path.
-        std::unique_ptr<band_state::ActiveCache> activeCache;
-        std::unique_ptr<band_state::RegisterCache> registerCache;
+        // Pure active-band resolution is memoized by exactly the inputs it
+        // consumes; static mapping pointers have application lifetime.
+        bool activeValid = false;
+        const bandplan::BandPlan_t* activePlan = nullptr;
+        uint64_t activePlanRevision = 0;
+        uint64_t activeFrequency = 0;
+        BandServiceSet activeServices;
+        BandService activePreferredService = BandService::Other;
+        const BandMapping* activeMapping = nullptr;
 
         // Stable presentation-group identity. Labels and service membership
         // belong to the current width-dependent picker layout.
@@ -188,9 +193,11 @@ namespace freq_input {
         // the band key for 1 second").
         int pressBand = -1;  // index into the shown[] grid, -1 = none
         bool longPressDone = false;
-        // Stable ID rather than a pointer into the selected plan or the
-        // per-frame canonical projection.
-        std::string regPopupBandId;
+        // Popup data is a snapshot taken by BandStack when the long-press
+        // opens it. Canonical mapping pointers are static application data.
+        const BandMapping* regPopupMapping = nullptr;
+        std::string regPopupTitle;
+        BandRegisterPopupSnapshot regPopupSnapshot;
         // Where that list opens, refreshed from the key every frame the key is
         // drawn: ImGui will not fit a popup whose position the caller has set,
         // so the placement is ours, and it needs both the key's rectangle and
@@ -231,7 +238,7 @@ namespace freq_input {
 
     private:
         bool requestOpen = false;
-        int page = 2; // 0 = BAND, 1 = SPECTRUM, 2 = F-INP
+        int page = 2; // 0 = Band, 1 = Spectrum, 2 = Frequency
         // Re-centre once when the viewport changes size. Android handles
         // rotation live (configChanges in the manifest), so a dialog open
         // across one would otherwise be left off-centre or half off-screen.

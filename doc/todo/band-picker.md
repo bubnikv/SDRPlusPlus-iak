@@ -134,11 +134,12 @@ interval to it after tuning (see how the VFO exposes `setSnapInterval` /
 
 ## Config
 
-New keys in the root config (add defaults where `core.cpp` builds
-`defConfig`): `freqEntryPage` ("band" | "keypad"), `freqEntryCategory`
-(string bucket name), `bandMemory` (object: band name → `{freq, mode}`).
-Read/write through `core::configManager.read()` / `.edit()`; write only on user
-actions (band select, page/category switch), never per-frame.
+The implementation supersedes the original flat-key proposal. Frequency-input
+preferences and memory live under `frequencyMemory`: `page`, `band.group`,
+`band.preferredService`, `band.stackingRegisters`, `spectrum.activeRange`, and
+`spectrum.lastFrequency`. Read/write through `core::configManager.read()` /
+`.edit()`; write only on user actions or lifecycle persistence boundaries,
+never per-frame.
 
 ## Gotchas
 
@@ -152,8 +153,8 @@ actions (band select, page/category switch), never per-frame.
   `lockWaterfallControls`.
 - Frequencies in `FrequencySelect` are display-domain `uint64_t` Hz;
   band plan `start`/`end` are `double` Hz.
-- Band names are unique within a plan but not across plans; `bandMemory`
-  keyed by name is accepted (validated by containment on restore).
+- Register stacks use stable canonical band IDs and are validated against the
+  selected band's segment union on restore.
 - `hapticTick()` on band select on Android (`#ifdef __ANDROID__`, pattern
   in `frequency_select.cpp` long-press handler).
 - Match surrounding code style; comments only for non-obvious constraints.

@@ -46,7 +46,7 @@ namespace core {
     CommandArgsParser args;
 
     bool saveState() {
-        gui::bandStack.commitCurrent();
+        freq_memory::commitCurrent();
         return ConfigManager::flushAll();
     }
 
@@ -173,10 +173,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["fftRate"] = 20;
     defConfig["fftSize"] = 65536;
     defConfig["fftWindow"] = "Nuttall";
-    defConfig["bandPickerGroupId"] = "ham";
-    defConfig["freqEntryPage"] = "keypad";
     defConfig["frequency"] = 100000000.0;
-    defConfig["frequencyMemory"] = freq_memory::defaults();
+    defConfig[freq_memory::ROOT] = freq_memory::defaults();
     defConfig["fullWaterfallUpdate"] = false;
     defConfig["max"] = 0.0;
     defConfig["maximized"] = false;
@@ -536,7 +534,7 @@ int sdrpp_main(int argc, char* argv[]) {
 #ifndef __ANDROID__
     // The render loop has ended but modules are still alive, so the selected
     // radio mode can still be sampled for the active band's stack.
-    gui::bandStack.commitCurrent();
+    freq_memory::commitCurrent();
 
     // Config shutdown is terminal, so destroy every module instance (and join
     // its workers) before the module's _END_ closes its global ConfigManager.

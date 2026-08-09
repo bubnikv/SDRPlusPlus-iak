@@ -98,22 +98,14 @@ namespace freq_input {
     void Spectrum::onOpen() {
         auto configAccess = core::configManager.read();
         lastRangeId = freq_memory::spectrum(configAccess).value(
-            freq_memory::ACTIVE_ID,
+            freq_memory::ACTIVE_RANGE,
             "");
     }
 
-    // Which grid owns the frequency memory: BandStack::commitCurrent() reads the
-    // selector to decide where the current frequency belongs when it is written
-    // back. The band grid claims it from
-    // BandStack::activateBandForServices(), which runs when its page resolves a
-    // band, so this page claims it when it becomes visible. Doing it per frame,
-    // as draw() used to, wrote the same value while taking the config lock and
-    // rebuilding the section path every frame the page was up.
+    // Which grid owns the frequency memory: the lifecycle coordinator reads the
+    // selector to decide where the current frequency belongs when written back.
     void Spectrum::onActivate() {
-        auto configAccess = core::configManager.edit();
-        freq_memory::root(configAccess).set(
-            freq_memory::SELECTOR,
-            freq_memory::SELECTOR_SPECTRUM);
+        freq_memory::activate(freq_memory::SELECTOR_SPECTRUM);
     }
 
     Outcome Spectrum::draw(const Context& ctx, const Metrics& m) {
@@ -141,8 +133,6 @@ namespace freq_input {
             }
         }
 
-        ImGui::TextDisabled("ITU through VHF / IEEE 521-2026 from UHF");
-
         const std::int64_t currentFrequency =
             static_cast<std::int64_t>(ctx.frequency);
         const SpectrumRange* active = nullptr;
@@ -159,7 +149,7 @@ namespace freq_input {
         {
             lastRangeId = std::string(active->rangeId);
             auto configAccess = core::configManager.edit();
-            freq_memory::spectrum(configAccess).set(freq_memory::ACTIVE_ID, lastRangeId);
+            freq_memory::spectrum(configAccess).set(freq_memory::ACTIVE_RANGE, lastRangeId);
         }
 
         if (ranges.empty()) {
@@ -246,7 +236,7 @@ namespace freq_input {
 
                     out.frequency = static_cast<std::uint64_t>(
                         rememberedFrequency(memory, available));
-                    spectrum.set(freq_memory::ACTIVE_ID, range.rangeId);
+                    spectrum.set(freq_memory::ACTIVE_RANGE, range.rangeId);
                 }
 
                 lastRangeId = std::string(range.rangeId);
@@ -257,8 +247,7 @@ namespace freq_input {
         }
 
         if (hasPartialRange) {
-            ImGui::TextDisabled(
-                "* Source-limited range; canonical ID is unchanged");
+            ImGui::TextDisabled("* Range limited by the source");
         }
         return out;
     }

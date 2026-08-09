@@ -1,7 +1,6 @@
 #include <gui/widgets/band_stack.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/freq_memory.h>
-#include <gui/widgets/freq_input/spectrum_ranges.h>
 #include <gui/gui.h>
 #include <gui/tuner.h>
 #include <config.h>
@@ -10,14 +9,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 
 namespace gui {
     BandStack bandStack;
 }
-
-// IC-705 parity and UI contract: every band has three rotating optional
-// entries, with entry 0 always current.
-static const size_t MAX_REGISTERS = 3;
 
 // for getting / setting radio mode
 //FIXME we may consider adding mode identifiers to demodulators such as USB for FT8.
@@ -26,54 +22,72 @@ static bool isRadioVFO(const std::string& vfoName) {
         && core::modComManager.getModuleName(vfoName) == "radio";
 }
 
-// One stable band_id's three rotating optional slots. Entry 0 is always
-// current. Invalid persisted entries become empty; there is no public-release
-// migration path.
-static std::vector<BandRegister> readRegisters(
+// One stable band_id's three rotating optional slots. Invalid persisted entries
+// are discarded and the survivors are packed into the model's populated prefix;
+// there is no public-release migration path.
+static BandRegisterSet readRegisters(
     const ConfigManager::ReadSection& mem,
     const bandplan::BandPlan_t* plan,
     const freq_input::BandMapping& mapping)
 {
-    std::vector<BandRegister> regs(MAX_REGISTERS);
+    BandRegisterSet regs;
     const json* entries = mem.section(mapping.bandId).peek();
     if (!entries || !entries->is_array()) { return regs; }
-    for (std::size_t i = 0; i < MAX_REGISTERS && i < entries->size(); i++) {
+    const std::size_t count = std::min(entries->size(), BandRegisterSet::SIZE);
+    for (std::size_t i = 0; i < count; i++) {
         const json& o = (*entries)[i];
         if (!o.is_object()) { continue; }
-        double f = o.value("freq", 0.0);
-        if (f <= 0.0 || !plan ||
+        const auto freqIt = o.find("freq");
+        if (freqIt == o.end() || !freqIt->is_number()) { continue; }
+        const double f = freqIt->get<double>();
+        if (!std::isfinite(f) || f <= 0.0 || !plan ||
             !plan->findMappedSegmentAtFrequency(mapping, f))
         {
             continue;
         }
-        int m = o.value("mode", -1);
-        if (m < 0 || m >= _RADIO_IFACE_MODE_COUNT) { m = -1; }
-        regs[i] = { true, f, m };
+
+        int m = -1;
+        const auto modeIt = o.find("mode");
+        if (modeIt != o.end()) {
+            if (modeIt->is_number_unsigned()) {
+                const std::uint64_t value = modeIt->get<std::uint64_t>();
+                if (value <
+                    static_cast<std::uint64_t>(_RADIO_IFACE_MODE_COUNT))
+                {
+                    m = static_cast<int>(value);
+                }
+            }
+            else if (modeIt->is_number_integer()) {
+                const std::int64_t value = modeIt->get<std::int64_t>();
+                if (value >= 0 && value < _RADIO_IFACE_MODE_COUNT) {
+                    m = static_cast<int>(value);
+                }
+            }
+        }
+        regs.append({ f, m });
     }
     return regs;
 }
 
-// Returns whether the stored entries actually differ from what's already there,
-// so re-tuning to the frequency a band is already parked on doesn't dirty the
-// config.
-static bool writeRegisters(
+static void writeRegisters(
     ConfigManager::EditSection mem,
     const freq_input::BandMapping& mapping,
-    const std::vector<BandRegister>& registers)
+    const BandRegisterSet& registers)
 {
     json out = json::array();
-    for (std::size_t i = 0; i < MAX_REGISTERS; i++) {
-        if (i >= registers.size() || !registers[i].populated) {
-            out.push_back(nullptr);
-        }
-        else {
+    for (std::size_t i = 0; i < registers.size(); i++) {
+        const BandRegisterSet::Slot& slot = registers[i];
+        if (slot) {
             out.push_back({
-                { "freq", registers[i].freq },
-                { "mode", registers[i].mode }
+                { "freq", slot->freq },
+                { "mode", slot->mode }
             });
         }
+        else { out.push_back(nullptr); }
     }
-    return mem.set(mapping.bandId, out);
+    // ConfigManager compares values, so writing an unchanged stack does not
+    // dirty the config.
+    mem.set(mapping.bandId, out);
 }
 
 // Resolve one stable band inside an explicit set of services. Prefer the
@@ -118,8 +132,9 @@ static bool updateTopRegister(
     {
         return false;
     }
-    std::vector<BandRegister> registers = readRegisters(mem, plan, mapping);
-    registers[0] = { true, freq, mode };
+    if (mode < 0 || mode >= _RADIO_IFACE_MODE_COUNT) { mode = -1; }
+    BandRegisterSet registers = readRegisters(mem, plan, mapping);
+    registers.storeTop({ freq, mode });
     writeRegisters(mem, mapping, registers);
     return true;
 }
@@ -129,49 +144,49 @@ static bool updateTopRegister(
 static bool storeVisibleBand(
     ConfigManager::EditSection mem,
     const bandplan::BandPlan_t* plan,
-    const std::string& activeBandId,
+    const freq_input::BandMapping* activeMapping,
     double frequency,
     int mode)
 {
-    const freq_input::BandMapping* mapping =
-        freq_input::findBandMappingById(activeBandId);
-    return mapping &&
-        updateTopRegister(mem, plan, *mapping, frequency, mode);
+    return activeMapping &&
+        updateTopRegister(mem, plan, *activeMapping, frequency, mode);
 }
 
-std::vector<BandRegister> BandStack::registersFor(
-    std::string_view bandId) const
+BandRegisterPopupSnapshot BandStack::openRegisters(
+    const freq_input::BandMapping& mapping,
+    double defaultFrequency)
 {
-    const freq_input::BandMapping* mapping =
-        freq_input::findBandMappingById(bandId);
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    if (!mapping || !plan) { return std::vector<BandRegister>(MAX_REGISTERS); }
-    // Reads resolve the path without creating it, so a band never visited isn't
-    // given an entry in the config as a side effect of being looked up.
-    auto configAccess = core::configManager.read();
-    return readRegisters(freq_memory::stackingRegisters(configAccess), plan, *mapping);
+    if (!plan) { return {}; }
+
+    const double currentFrequency = (double)gui::freqSelect.frequency;
+    const std::optional<BandRegister> current =
+        makeRegister(plan, mapping, currentFrequency, currentMode());
+    std::optional<BandRegister> initial = current;
+    if (!initial) {
+        initial = makeRegister(plan, mapping, defaultFrequency, -1);
+    }
+
+    auto configAccess = core::configManager.edit();
+    ConfigManager::EditSection mem =
+        freq_memory::stackingRegisters(configAccess);
+    BandRegisterSet registers = readRegisters(mem, plan, mapping);
+    if (initial && registers.seedTop(*initial)) {
+        writeRegisters(mem, mapping, registers);
+    }
+    return { registers, current.has_value() };
 }
 
-std::string BandStack::activateBandForServices(
+const freq_input::BandMapping* BandStack::resolveBandForServices(
     freq_input::BandServiceSet services,
-    freq_input::BandService currentService,
-    double frequency)
+    freq_input::BandService preferredService,
+    double frequency) const
 {
-    const freq_input::BandMapping* active = resolveBandInServices(
+    return resolveBandInServices(
         gui::waterfall.bandplan,
         frequency,
         services,
-        currentService);
-
-    auto configAccess = core::configManager.edit();
-    freq_memory::root(configAccess).set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
-    if (active) {
-        ConfigManager::EditSection band = freq_memory::band(configAccess);
-        band.set(freq_memory::ACTIVE_SERVICE,
-                 freq_input::bandServiceKey(active->service));
-        band.set(freq_memory::ACTIVE_ID, active->bandId);
-    }
-    return active ? std::string(active->bandId) : std::string();
+        preferredService);
 }
 
 // Service/frequency mode convention applied when the target segment carries no
@@ -210,9 +225,41 @@ int BandStack::heuristicMode(
     return -1; // no mode change for other band types
 }
 
+int BandStack::resolvedMode(
+    const bandplan::Band_t& segment,
+    double frequency,
+    int mode)
+{
+    if (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) { return mode; }
+    mode = radioModeFromName(segment.defMode.c_str());
+    if (mode < 0) {
+        mode = heuristicMode(
+            segment.resolved.service(),
+            segment.resolved.family(),
+            frequency);
+    }
+    return mode;
+}
+
+std::optional<BandRegister> BandStack::makeRegister(
+    const bandplan::BandPlan_t* plan,
+    const freq_input::BandMapping& mapping,
+    double frequency,
+    int mode)
+{
+    if (frequency <= 0.0 || !plan) { return std::nullopt; }
+    const bandplan::Band_t* segment =
+        plan->findMappedSegmentAtFrequency(mapping, frequency);
+    if (!segment) { return std::nullopt; }
+    return BandRegister{
+        frequency,
+        resolvedMode(*segment, frequency, mode)
+    };
+}
+
 void BandStack::selectLegacySegment(
     const bandplan::Band_t& segment,
-    const std::string& activeBandId)
+    const freq_input::BandMapping* activeMapping)
 {
     if (segment.resolved.mapping ||
         !segment.resolved.isBandOrSegment() ||
@@ -238,12 +285,11 @@ void BandStack::selectLegacySegment(
         storeVisibleBand(
             freq_memory::stackingRegisters(configAccess),
             gui::waterfall.bandplan,
-            activeBandId,
+            activeMapping,
             currentFrequency,
             curMode);
         ConfigManager::EditSection band = freq_memory::band(configAccess);
-        band.set(freq_memory::ACTIVE_SERVICE, freq_input::bandServiceKey(segment.resolved.service()));
-        band.set(freq_memory::ACTIVE_ID, "");
+        band.set(freq_memory::PREFERRED_SERVICE, freq_input::bandServiceKey(segment.resolved.service()));
         freq_memory::root(configAccess).set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
     }
 
@@ -251,156 +297,120 @@ void BandStack::selectLegacySegment(
 }
 
 void BandStack::selectBand(
-    std::string_view bandId,
+    const freq_input::BandMapping& mapping,
     double defaultFrequency,
-    const std::string& activeBandId)
+    const freq_input::BandMapping* activeMapping)
 {
-    const bandplan::BandPlan_t    *plan    = gui::waterfall.bandplan;
-    const freq_input::BandMapping *mapping = freq_input::findBandMappingById(bandId);
-    assert(plan != nullptr);
-    assert(mapping != nullptr);
-    if (mapping == nullptr)
-        return;
-    assert(bandId == mapping->bandId);
-    const int                      curMode = currentMode();
-    const double                   currentFrequency = (double)gui::freqSelect.frequency;
-    double                         targetFreq = 0.0;
-    int                            targetMode = -1;
-    bool                           apply = false;
+    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
+    if (!plan) { return; }
+    const int curMode = currentMode();
+    const double currentFrequency = (double)gui::freqSelect.frequency;
+    std::optional<BandRegister> target;
 
     {
         auto configAccess = core::configManager.edit();
-        ConfigManager::EditSection mem = freq_memory::stackingRegisters(configAccess);
+        ConfigManager::EditSection root = freq_memory::root(configAccess);
+        ConfigManager::EditSection band = root.section(freq_memory::SELECTOR_BAND);
+        ConfigManager::EditSection mem = band.section(freq_memory::STACKING_REGISTERS);
         const bool storedSource = storeVisibleBand(
             mem,
             plan,
-            activeBandId,
+            activeMapping,
             currentFrequency,
             curMode);
-        const bool repeatTap = storedSource && activeBandId == bandId;
+        const bool repeatTap = storedSource && activeMapping == &mapping;
 
-        ConfigManager::EditSection band = freq_memory::band(configAccess);
-        band.set(freq_memory::ACTIVE_SERVICE, freq_input::bandServiceKey(mapping->service));
-        band.set(freq_memory::ACTIVE_ID, bandId);
-        freq_memory::root(configAccess).set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
+        band.set(freq_memory::PREFERRED_SERVICE, freq_input::bandServiceKey(mapping.service));
+        root.set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
 
-        std::vector<BandRegister> registers = readRegisters(mem, plan, *mapping);
+        BandRegisterSet registers = readRegisters(mem, plan, mapping);
         if (repeatTap) {
-            std::rotate(
-                registers.begin(),
-                registers.end() - 1,
-                registers.end());
-            writeRegisters(mem, *mapping, registers);
+            registers.cyclePopulated();
+            writeRegisters(mem, mapping, registers);
         }
 
-        if (!registers.empty() && registers[0].populated) {
-            targetFreq = registers[0].freq;
-            targetMode = registers[0].mode;
-            apply = true;
-        }
-        else if (!repeatTap && defaultFrequency > 0.0 &&
-                 plan &&
-                 plan->findMappedSegmentAtFrequency(*mapping, defaultFrequency))
-        {
-            registers[0] = { true, defaultFrequency, -1 };
-            targetFreq = defaultFrequency;
-            targetMode = -1; // default mode
-            writeRegisters(mem, *mapping, registers);
-            apply = true;
+        target = registers.top();
+        if (!target && !repeatTap) {
+            target = makeRegister(plan, mapping, defaultFrequency, -1);
+            if (target) {
+                registers.seedTop(*target);
+                writeRegisters(mem, mapping, registers);
+            }
         }
     }
 
-    if (apply)
-        applyTarget(*mapping, targetFreq, targetMode);
+    if (target) { applyTarget(mapping, *target); }
 }
 
-void BandStack::recallRegister(
-    std::string_view bandId,
+BandRecallResult BandStack::recallRegister(
+    const freq_input::BandMapping& mapping,
     int index,
-    const std::string& activeBandId)
+    const freq_input::BandMapping* activeMapping)
 {
-    const freq_input::BandMapping* mapping =
-        freq_input::findBandMappingById(bandId);
-    if (!mapping) { return; }
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
+    if (!plan || index < 0 || index >= (int)BandRegisterSet::SIZE) {
+        return BandRecallResult::NoTarget;
+    }
     // Could be -1 if current VFO is a decoder or there is no VFO active.
     const int curMode = currentMode();
     const double currentFrequency = (double)gui::freqSelect.frequency;
-    double targetFreq = 0.0;
-    int targetMode = -1;
-    bool applyStoredTarget = false;
+    std::optional<BandRegister> materialization;
+    BandRegister target;
 
     {
         auto configAccess = core::configManager.edit();
-        ConfigManager::EditSection mem = freq_memory::stackingRegisters(configAccess);
+        ConfigManager::EditSection root = freq_memory::root(configAccess);
+        ConfigManager::EditSection band = root.section(freq_memory::SELECTOR_BAND);
+        ConfigManager::EditSection mem = band.section(freq_memory::STACKING_REGISTERS);
+
+        BandRegisterSet registers = readRegisters(mem, plan, mapping);
+        if (!registers[(std::size_t)index]) {
+            // EditSection paths are lazy. Returning here performs no config
+            // mutation because no writer has been called yet.
+            materialization = makeRegister(
+                plan,
+                mapping,
+                currentFrequency,
+                curMode);
+            if (!materialization) { return BandRecallResult::NoTarget; }
+        }
+
         storeVisibleBand(
             mem,
             plan,
-            activeBandId,
+            activeMapping,
             currentFrequency,
             curMode);
 
-        std::vector<BandRegister> registers = readRegisters(mem, plan, *mapping);
-        if (index >= 0 && index < (int)registers.size()) {
-            std::rotate(
-                registers.begin(),
-                registers.begin() + index,
-                registers.begin() + index + 1);
-            if (registers[0].populated) {
-                targetFreq = registers[0].freq;
-                targetMode = registers[0].mode;
-                applyStoredTarget = true;
-            }
-            else if (currentFrequency > 0.0 && plan &&
-                     plan->findMappedSegmentAtFrequency(
-                         *mapping,
-                         currentFrequency))
-            {
-                // The selected empty slot is now current. Seed it with the VFO
-                // state only when that state belongs to this stable band ID.
-                registers[0] = { true, currentFrequency, curMode };
-            }
-            writeRegisters(mem, *mapping, registers);
-        }
-        ConfigManager::EditSection band = freq_memory::band(configAccess);
-        band.set(freq_memory::ACTIVE_SERVICE,
-                 freq_input::bandServiceKey(mapping->service));
-        band.set(freq_memory::ACTIVE_ID, mapping->bandId);
-        freq_memory::root(configAccess).set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
+        // Source and target may be the same band, so reload after write-back.
+        registers = readRegisters(mem, plan, mapping);
+        const std::optional<BandRegister> selected =
+            registers.select((std::size_t)index, materialization);
+        assert(selected);
+        if (!selected) { return BandRecallResult::NoTarget; }
+        target = *selected;
+        writeRegisters(mem, mapping, registers);
+        band.set(freq_memory::PREFERRED_SERVICE,
+                 freq_input::bandServiceKey(mapping.service));
+        root.set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
     }
 
-    if (applyStoredTarget) {
-        applyTarget(*mapping, targetFreq, targetMode);
-    }
+    applyTarget(mapping, target);
+    return BandRecallResult::Recalled;
 }
 
-void BandStack::commitCurrent() {
+void BandStack::commitCurrentBand() {
     // Could be -1 if current VFO is a decoder or there is no VFO active.
     const int mode = currentMode();
     const auto currentFrequency = double(gui::freqSelect.frequency);
     auto configAccess = core::configManager.edit();
-
-    const std::string selector = freq_memory::root(configAccess).value(
-        freq_memory::SELECTOR,
-        freq_memory::SELECTOR_BAND);
-    if (selector == freq_memory::SELECTOR_SPECTRUM) {
-        const freq_input::SpectrumRange* range =
-            freq_input::spectrumRangeAtFrequency(
-                (std::int64_t)std::llround(currentFrequency));
-        if (range) {
-            ConfigManager::EditSection spectrum = freq_memory::spectrum(configAccess);
-            spectrum.section(freq_memory::LAST_FREQUENCY)
-                .set(range->rangeId, currentFrequency);
-            spectrum.set(freq_memory::ACTIVE_ID, range->rangeId);
-        }
-        return;
-    }
-
-    ConfigManager::EditSection mem = freq_memory::stackingRegisters(configAccess);
+    ConfigManager::EditSection root = freq_memory::root(configAccess);
+    ConfigManager::EditSection band = root.section(freq_memory::SELECTOR_BAND);
+    ConfigManager::EditSection mem = band.section(freq_memory::STACKING_REGISTERS);
     const freq_input::BandService service =
         freq_input::bandServiceFromKey(
-            freq_memory::band(configAccess).value(
-                freq_memory::ACTIVE_SERVICE,
+            band.value(
+                freq_memory::PREFERRED_SERVICE,
                 "other"));
     // Shutdown may search only the current service.
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
@@ -409,12 +419,8 @@ void BandStack::commitCurrent() {
         currentFrequency,
         freq_input::BandServiceSet::single(service),
         service);
-    if (current &&
-        updateTopRegister(mem, plan, *current, currentFrequency, mode))
-    {
-        // The stable band may follow manual tuning inside the current service;
-        // the service itself is deliberately never changed on save.
-        freq_memory::band(configAccess).set(freq_memory::ACTIVE_ID, current->bandId);
+    if (current) {
+        updateTopRegister(mem, plan, *current, currentFrequency, mode);
     }
 }
 
@@ -423,16 +429,18 @@ void BandStack::commitCurrent() {
 // the stable identity.
 void BandStack::applyTarget(
     const freq_input::BandMapping& mapping,
-    double freq,
-    int mode)
+    const BandRegister& target)
 {
-    assert(freq > 0.0);
+    assert(target.freq > 0.0);
+    if (target.freq <= 0.0) { return; }
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
     assert(plan);
+    if (!plan) { return; }
     const bandplan::Band_t* segment =
-        plan->findMappedSegmentAtFrequency(mapping, freq);
+        plan->findMappedSegmentAtFrequency(mapping, target.freq);
     assert(segment);
-    applySegmentTarget(*segment, freq, mode);
+    if (!segment) { return; }
+    applySegmentTarget(*segment, target.freq, target.mode);
 }
 
 void BandStack::applySegmentTarget(
@@ -441,15 +449,7 @@ void BandStack::applySegmentTarget(
     int mode)
 {
     assert(freq > 0.0 && segment.containsFrequency(freq));
-    if (mode < 0) {
-        mode = radioModeFromName(segment.defMode.c_str());
-        if (mode < 0) {
-            mode = heuristicMode(
-                segment.resolved.service(),
-                segment.resolved.family(),
-                freq);
-        }
-    }
+    mode = resolvedMode(segment, freq, mode);
 
     std::string vfoName = gui::waterfall.selectedVFO;
     // RADIO_IFACE_CMD_SET_MODE has no early-out on the radio side: selectDemodByID()

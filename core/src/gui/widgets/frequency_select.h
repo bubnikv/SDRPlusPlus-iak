@@ -11,7 +11,7 @@ public:
     void draw();
     float getWidth();
     void setFrequency(int64_t freq);
-    // Open the F-INP direct-entry dialog (same one the digit long-press opens).
+    // Open the frequency-input dialog (same one the digit long-press opens).
     void openKeypad() { dialog.open(); }
 
     uint64_t frequency;
@@ -49,12 +49,12 @@ private:
     float wheelAccum = 0.0f;
 
     // Press tracking on digits: a quick release steps the digit, a motionless
-    // hold opens the F-INP direct-entry dialog.
+    // hold opens the frequency-input dialog.
     int pressDigit = -1;  // digit index the press started on, -1 = none
     int pressDir = 0;     // +1 = top half (increment), -1 = bottom half (decrement)
     bool longPressDone = false;
 
-    // The F-INP dialog this widget opens. It draws nothing until asked; see
+    // The frequency-input dialog this widget opens. It draws nothing until asked; see
     // freq_input.h for what it is handed and what it hands back.
     freq_input::Dialog dialog;
 };

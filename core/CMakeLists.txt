@@ -50,6 +50,10 @@ if (OPT_BUILD_TESTS AND NOT ANDROID)
     target_compile_definitions(config_manager_tests PRIVATE
         OPT_CONFIG_MULTIPLE_INSTANCES=${SDRPP_CONFIG_MULTIPLE_INSTANCES})
     add_test(NAME config_manager_tests COMMAND config_manager_tests)
+
+    add_executable(band_register_set_tests tests/band_register_set_tests.cpp)
+    target_link_libraries(band_register_set_tests PRIVATE sdrpp_core)
+    add_test(NAME band_register_set_tests COMMAND band_register_set_tests)
 endif ()
 
 target_compile_definitions(sdrpp_core PRIVATE

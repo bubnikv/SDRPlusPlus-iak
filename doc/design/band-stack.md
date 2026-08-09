@@ -9,11 +9,13 @@ proposes the state machine and data model to replace it.
 **Status (updated 2026-07-31).** Part 8 — the extraction step — has been
 implemented. Current `master` also has an interim subset of P1: plan rows now
 receive stable `band_id` values and collapse to canonical selector keys, while
-each `bandMemory[band_id]` is exactly three rotating optional entries. Entry 0
-is always current: ordinary write-back updates it in place, repeat tap rotates
-left, and a register-list pick rotates that row to the top. No current pointer
-is stored. Opening resolves only inside the restored visible group without
-writing; lifecycle save is additionally locked to the current service. There
+each `bandMemory[band_id]` is exactly three rotating optional entries. Populated
+entries form a contiguous prefix and entry 0 is always current: ordinary
+write-back updates it in place, repeat tap rotates only that populated prefix,
+and a register-list pick materializes an empty row before rotating it to the
+top. An empty socket is never pushed. No current pointer is stored. Opening
+resolves only inside the restored visible group without writing; lifecycle save
+is additionally locked to the current service. There
 is deliberately no migration for pre-release development data. The
 service-owned catalog and shadow/dwell work in Parts 2–7 have not landed.
 Part 1 remains a point-in-time review of the earlier implementation. What
@@ -29,24 +31,41 @@ landed before that interim subset:
 The last of those is not in Part 8's plan; it is the other half of §1.1's
 complaint, done for the same reason and recorded in §1.1 below.
 
-**Config keys (updated 2026-08-04).** The six flat keys this note names
-throughout were gathered into one `frequencyMemory` subtree, and the whole
-persisted layout is now declared in `gui/widgets/freq_memory.h` — no other file
-spells the key names out. The prose below keeps the old names because it also
-reviews the implementation that used them; the mapping is:
+**Config keys (updated 2026-08-09).** Frequency-input preferences and memory
+state live in one `frequencyMemory` subtree. The complete persisted layout is
+declared in `gui/widgets/freq_memory.h` — no other file spells the key names
+out:
+
+```text
+frequencyMemory:
+  version: 1
+  page: "band" | "spectrum" | "keypad"
+  selector: "band" | "spectrum"
+  band:
+    group: "ham" | "broadcast" | "air" | "marine" | "utility" | "all"
+    preferredService: <BandService key>
+    stackingRegisters: { <band ID>: [ <register|null>, ... x3 ] }
+  spectrum:
+    activeRange: <spectrum range ID>
+    lastFrequency: { <spectrum range ID>: <frequency> }
+```
+
+The prose below keeps the old names because it also reviews the implementation
+that used them; the mapping is:
 
 | Was | Is |
 |---|---|
 | `lastMemorySelector` | `frequencyMemory.selector` |
-| `lastActiveBandService` | `frequencyMemory.band.activeService` |
-| `lastActiveBandId` | `frequencyMemory.band.activeId` |
+| `lastActiveBandService` | `frequencyMemory.band.preferredService` |
+| `lastActiveBandId` | removed; visible-band resolution is derived |
 | `bandMemory` | `frequencyMemory.band.stackingRegisters` |
-| `spectrumLastRangeId` | `frequencyMemory.spectrum.activeId` |
+| `spectrumLastRangeId` | `frequencyMemory.spectrum.activeRange` |
 | `spectrumRangeMemory` | `frequencyMemory.spectrum.lastFrequency` |
 
-There is no migration: an existing `config.json` keeps its old keys as unused
-entries and starts from the defaults, consistent with the no-migration policy
-for pre-release development data stated above.
+There is no migration for pre-release keys or layouts. An existing
+`config.json` may keep old keys as unused entries. The write-only band active ID
+is omitted; spectrum `activeRange` remains because it restores the highlighted
+range.
 
 The original verdict below was that the data model was keyed on mutable,
 duplicate band-plan names and could not represent the active register. The
@@ -252,25 +271,27 @@ open and belong to P1 or later.
    frequency, ENT, listen all evening, quit — stores nothing at all (note gap
    3). After the extraction this is no longer a placement problem: `commit()`
    has somewhere to live, it just has no callers yet.
-6. **[open] `regPopupBand` is a raw `const bandplan::Band_t*`**
+6. **[fixed] `regPopupBand` is a raw `const bandplan::Band_t*`**
    (`frequency_select.h:89`, now `freq_input::Bands::regPopupBand` in
    `gui/widgets/freq_input.h`) held across frames into the
    `std::vector<Band_t>` inside
    `bandplan::bandplans`. `bandplan::loadBandPlan()` / `loadFromDir()` reallocate
    that vector. Only reachable via a plan reload while the popup is open, but it
-   is a dangling pointer by construction.
+   is a dangling pointer by construction. *The popup now stores a pointer to
+   the static canonical `BandMapping` plus a value snapshot of its registers, so
+   plan reloads cannot invalidate either.*
 7. **[fixed, `a78257ef`] `conf["bandMemory"]` is read with non-const
    `operator[]`** (`:944`) under `acquire()` / `release()` — not
    `release(true)` — which inserts a `null` into the config without marking it
    dirty. Harmless today, wrong idiom, and that read re-runs on every frame the
-   register popup is open (global config mutex in a draw loop). *`registersFor()`
-   binds the config `const` and looks up with `find`, which fixes the insert by
-   construction; the per-frame acquire while the popup is open remains, argued
-   in §8.8.*
+   register popup is open (global config mutex in a draw loop). *The read helper
+   resolves through a non-materializing section, and the popup now captures one
+   value snapshot on long-press, eliminating both the insertion and per-frame
+   config access.*
 8. **[fixed, `a78257ef`] Capacity 3 is hard-coded in two places** (`:511`,
    `:532`). The note points out three is a hardware panel constraint; Thetis's
    stacks are unbounded lists filtered by named `BandStackFilter`s. *Now one
-   `MAX_REGISTERS` in `band_stack.cpp`.*
+   `BandRegisterSet::SIZE` beside the fixed array model.*
 9. **[open] No lock, no label, no delete, no "store to slot k".** With automatic
    write-back into three slots, a lock is what keeps a curated entry (the FT8
    frequency) from being consumed. Thetis's rule is one line: skip the commit if
@@ -521,7 +542,10 @@ module ABI — and removes any way for the shadow to go stale against the radio.
 
 ### 2.4 Invariants
 
-- `regs.size() == 3`; an entry may be empty and `regs[0]` is always current.
+- `regs.size() == 3`; populated entries form a contiguous prefix, and `regs[0]`
+  is current whenever the prefix is non-empty. Rotation is restricted to that
+  prefix. A selected empty row is first materialized and then promoted; an
+  empty socket is never pushed through populated entries.
 - Every populated `regs[i].freq` lies inside the bucket's ranges. Revalidated on load —
   and because bucket ranges are code-defined and stable, revalidation now almost
   never discards anything, unlike today's revalidation against editable plan
@@ -549,8 +573,11 @@ module ABI — and removes any way for the shadow to go stale against the radio.
 }
 ```
 
-`m` is `RADIO_IFACE_MODE_*` (NFM 0, WFM 1, AM 2, DSB 3, USB 4, CW 5, LSB 6,
-RAW 7, CWR 8) or −1. `display` absent means inherit the global `min`/`max`.
+`m` is a snapshot of `RADIO_IFACE_MODE_*` (NFM 0, WFM 1, AM 2, DSB 3, USB 4,
+CW 5, LSB 6, RAW 7, CWR 8), so changing a plan default does not reinterpret a
+stored register. An unavailable value of −1 defers to the containing
+segment's current default/convention at recall. `display` absent means inherit
+the global `min`/`max`.
 Bucket ids are stable, human-readable, and independent of the selected plan.
 
 ### 2.6 Migration — and a constraint that dictates where it runs
@@ -700,15 +727,17 @@ own default mode.
 |---|---|
 | Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
 | Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate right once, then recall the new top when populated |
-| Long-press band key | Open the register list. **No commit yet** — the user may be about to cancel |
-| Register *k* picked from the list | Validate and overwrite the visible source, rotate *k* to index 0 preserving cyclic order, then recall it when populated |
+| Long-press band key | Seed an empty top register from the current in-band VFO state, otherwise the band default; then open the register list. Never overwrite, tune, or rotate |
+| Register *k* picked from the list | If empty, materialize it from the VFO only when the VFO belongs to that band; otherwise do nothing and keep the popup open. Then overwrite the visible source, rotate prefix `[0, k]` right once to promote *k* to index 0, and recall it |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
-| F-INP dialog opened or group changed | Resolve visibly inside that group; activate/scroll but do not write |
+| Frequency-input Band page opened or group changed | Resolve visibly inside that group and activate/scroll. Write no register; selector ownership and a fallback service may be persisted |
 | Application shutdown | Resolve inside the last group **and current service only**, then overwrite the top without rotating |
 | Android `APP_CMD_PAUSE` | `commit()` — see 3.7 |
 
-**No dialog-open or dwell write-back.** Registers change only on an explicit
-band/register transition or at an application persistence boundary. Android
+**No dialog-open or dwell write-back.** Opening a register list is an explicit
+gesture and may seed its empty top entry as described above. Other registers
+change only on an explicit band/register transition or at an application
+persistence boundary. Android
 pause/stop remains such a boundary because the process may be killed without a
 later destruction callback. Its save resolver is restricted to the last group
 and current service, so it can follow manual tuning from 20 m to 40 m but cannot
@@ -1268,15 +1297,13 @@ rather than needing an interim fix:
   `Band_t` by value would fix the dangling-pointer class, but it pulls
   `bandplan.h` into `frequency_select.h` and is thrown away in P1, where the
   popup identifies its band as a `(bucket id, slot)` pair and needs no `Band_t`
-  at all. *Still true after the widget split: the member moved to
-  `freq_input::Bands`, but `freq_input.h` reaches `gui.h` through
-  `frequency_select.h`, so the include cost is unchanged and so is the
-  conclusion.*
+  at all. *This too was removed by the later cleanup: the popup now holds the
+  static canonical `BandMapping`, not a plan-owned `Band_t`.*
 - **The register list keeps calling into the data layer per frame** while the
   popup is open. Snapshotting on the long-press would be tidier, but the actual
-  defect at `:944` is the non-const `operator[]` insert, which `registersFor()`
-  fixes by construction; three registers behind one mutex acquire while a modal
-  is open is not worth widget state to avoid.
+  defect at `:944` is the non-const `operator[]` insert. *This did not survive
+  the later cleanup: the popup now receives a register/capability snapshot from
+  `openRegisters()` and performs no per-frame config access.*
 
 ### 8.9 Intended behaviour deltas
 

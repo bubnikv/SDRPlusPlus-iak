@@ -103,7 +103,7 @@ void FrequencySelect::moveCursorToDigit(int i) {
     backend::setMouseScreenPos(nxpos, ypos);
 }
 
-// The tuning situation handed to the F-INP dialog each frame.
+// The tuning situation handed to the frequency-input dialog each frame.
 freq_input::Context FrequencySelect::inputContext() const {
     freq_input::Context ctx;
     ctx.frequency = frequency;
@@ -291,7 +291,7 @@ void FrequencySelect::draw() {
         }
 
         // A press armed on a digit half steps it on a quick release; held
-        // motionless past the threshold it opens the F-INP dialog instead.
+        // motionless past the threshold it opens the frequency-input dialog instead.
         // Stepping waits for the release so the two can't both fire.
         if (pressDigit >= 0) {
             if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {

@@ -1,4 +1,5 @@
 #include <gui/widgets/freq_input.h>
+#include <gui/widgets/freq_memory.h>
 #include <gui/widgets/popup_dialog.h>
 #include <gui/widgets/segmented_control.h>
 #include <gui/style.h>
@@ -8,6 +9,9 @@
 #include <cmath>
 
 namespace freq_input {
+
+    static constexpr const char* DIALOG_ID =
+        "Bands / Frequency##sdrpp_freq_input_dialog";
 
     // Columns of `minKey` that fit in `avail`, clamped to a sane band.
     static int colsThatFit(float avail, float minKey, float spacing, int lo, int hi) {
@@ -162,16 +166,17 @@ namespace freq_input {
             bands.onOpen();
             spectrum.onOpen();
             // Last-used page.
-            const std::string storedPage =
-                core::configManager.read().value("freqEntryPage", "keypad");
+            auto configAccess = core::configManager.read();
+            const std::string storedPage = freq_memory::root(configAccess).value(
+                freq_memory::PAGE,
+                "keypad");
             if (storedPage == "band") { page = 0; }
             else if (storedPage == "spectrum") { page = 1; }
             else { page = 2; }
-            // Opening straight onto a page counts as entering it. BAND resolves
-            // (and so claims the memory) from its own draw; SPECTRUM has to be
-            // told, here and at the toggle below.
-            if (page == 1) { spectrum.onActivate(); }
-            ImGui::OpenPopup("F-INP##sdrpp_freq_keypad");
+            // Opening straight onto a page counts as entering it.
+            if (page == 0) { bands.onActivate(); }
+            else if (page == 1) { spectrum.onActivate(); }
+            ImGui::OpenPopup(DIALOG_ID);
         }
 
         const ImVec2 viewport = ImGui::GetMainViewport()->Size;
@@ -198,11 +203,9 @@ namespace freq_input {
                                 recenter ? ImGuiCond_Always : ImGuiCond_Appearing,
                                 ImVec2(0.5f, 0.5f));
         recenter = false;
-        // No title bar: it would read "F-INP" on all three pages, contradicting
-        // the segment below it on two of them, and its height is the scarcest
-        // thing this dialog has on a phone in landscape. The page toggle names
-        // the dialog.
-        if (!ImGui::BeginPopupModal("F-INP##sdrpp_freq_keypad", NULL,
+        // No title bar: its height is the scarcest thing this dialog has on a
+        // phone in landscape, and the page toggle names the available views.
+        if (!ImGui::BeginPopupModal(DIALOG_ID, NULL,
                                     ImGuiWindowFlags_AlwaysAutoResize |
                                     ImGuiWindowFlags_NoTitleBar |
                                     ImGuiWindowFlags_NoMove))
@@ -216,20 +219,22 @@ namespace freq_input {
         // Page toggle plus the dialog's one dismiss control, in the same place
         // on every page -- the pages below no longer carry a Cancel of their
         // own. `page` is the segment index by construction.
-        static const char* pageLabels[] = { "BAND", "SPECTRUM", "F-INP" };
+        static const char* pageLabels[] = { "BAND", "SPECTRUM", "Frequency" };
         const float closeW = m.toggleHeight;
-        if (doSegmentedControl("##sdrpp_finp_page", page, pageLabels, 3,
+        if (doSegmentedControl("##sdrpp_freq_input_page", page, pageLabels, 3,
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
-            if (page == 0) { bands.onOpen(); }
+            if (page == 0) { bands.onActivate(); }
             else if (page == 1) { spectrum.onActivate(); }
-            core::configManager.edit().set("freqEntryPage",
-                                    (page == 0) ? "band" :
-                                    (page == 1) ? "spectrum" : "keypad");
+            auto configAccess = core::configManager.edit();
+            freq_memory::root(configAccess).set(
+                freq_memory::PAGE,
+                (page == 0) ? "band" :
+                (page == 1) ? "spectrum" : "keypad");
         }
         ImGui::SameLine();
         const bool closePressed =
-            ImGui::Button("##sdrpp_finp_close", ImVec2(closeW, m.toggleHeight));
+            ImGui::Button("##sdrpp_freq_input_close", ImVec2(closeW, m.toggleHeight));
         drawCloseIcon();
         ImGui::Spacing();
 
