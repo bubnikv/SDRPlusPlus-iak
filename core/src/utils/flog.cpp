@@ -167,6 +167,11 @@ namespace flog {
             // Switch back to default color and print rest of log string
             SetConsoleTextAttribute(conHndl, COLOR_WHITE);
             fprintf(outStream, "] %s\n", out.c_str());
+
+            // Windows fully buffers stdout when it isn't a console (redirected to
+            // a file or a pipe), so a crash discards the last lines written —
+            // exactly the ones naming the crash.
+            fflush(outStream);
 #elif defined(__ANDROID__)
             // Print format string
             __android_log_print(TYPE_PRIORITIES[type], FLOG_ANDROID_TAG, COLOR_WHITE "[%02d/%02d/%02d %02d:%02d:%02d.%03d] [%s%s" COLOR_WHITE "] %s\n",
