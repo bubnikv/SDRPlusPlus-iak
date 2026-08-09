@@ -149,10 +149,15 @@ namespace freq_input {
 
     Outcome Dialog::draw(const Context& ctx) {
         Outcome out;
+        const float initialHeightFloor = style::dp(320.0f);
 
         if (requestOpen) {
             requestOpen = false;
             lastSize = ImVec2(0.0f, 0.0f);
+            // A modest baseline absorbs the usual page-height differences
+            // without requesting the full safe-area height. It is a floor, not
+            // a fixed size: taller content may grow it.
+            heightFloor = initialHeightFloor;
             keypad.onOpen();
             bands.onOpen();
             spectrum.onOpen();
@@ -172,6 +177,11 @@ namespace freq_input {
         const ImVec2 viewport = ImGui::GetMainViewport()->Size;
         if (viewport.x != lastViewport.x || viewport.y != lastViewport.y) {
             lastViewport = viewport;
+            // A high-water mark belongs to the geometry in which it was
+            // measured. Re-establish it after rotation or resizing rather than
+            // carrying (for example) a tall portrait page into landscape.
+            lastSize = ImVec2(0.0f, 0.0f);
+            heightFloor = initialHeightFloor;
             recenter = true;
         }
         // Bound the window before it sizes itself: with AlwaysAutoResize it
@@ -180,7 +190,10 @@ namespace freq_input {
         // Constrained, it scrolls instead. The pages size themselves to fit and
         // should never reach this; it is the backstop for the ones that cannot,
         // such as a viewport too short for four rows of keys.
-        ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), SafeArea::get().size());
+        const ImVec2 maxSize = SafeArea::get().size();
+        const float constrainedHeightFloor = (std::min)(heightFloor, maxSize.y);
+        ImGui::SetNextWindowSizeConstraints(
+            ImVec2(0.0f, constrainedHeightFloor), maxSize);
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
                                 recenter ? ImGuiCond_Always : ImGuiCond_Appearing,
                                 ImVec2(0.5f, 0.5f));
@@ -233,19 +246,20 @@ namespace freq_input {
         }
         if (out.close) { ImGui::CloseCurrentPopup(); }
 
-        // The dialog is as tall as the page it is showing, and the pages differ
-        // by up to a band grid's worth of rows. ImGui pins an open window by its
-        // top-left corner, and its own clamp only keeps that corner on screen --
-        // nothing pulls a bottom edge back in -- so a taller page arriving under
-        // a shorter one pushed its last rows off a phone in landscape. Re-centre
-        // on the next frame whenever the measured size moves. SetNextWindowPos
-        // applies its pivot to the size ImGui computes for that same frame, so
-        // the correction lands whole rather than chasing the change.
+        // Preserve the greatest height reached in the current viewport. A
+        // shorter page then leaves slack below its content instead of shrinking
+        // and moving the centred dialog. Growth remains content-driven and is
+        // capped by maxSize above; an oversized page scrolls inside the modal.
+        // Width changes and growth are re-centred on the next frame so the
+        // window cannot run off an edge.
         const ImVec2 size = ImGui::GetWindowSize();
-        if (size.x != lastSize.x || size.y != lastSize.y) {
-            lastSize = size;
+        const bool widthChanged = size.x != lastSize.x;
+        const bool grew = size.y > lastSize.y;
+        heightFloor = (std::max)(heightFloor, size.y);
+        if (widthChanged || grew) {
             recenter = true;
         }
+        lastSize = size;
         ImGui::EndPopup();
         return out;
     }

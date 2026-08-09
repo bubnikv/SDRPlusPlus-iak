@@ -236,12 +236,16 @@ namespace freq_input {
         // rotation live (configChanges in the manifest), so a dialog open
         // across one would otherwise be left off-centre or half off-screen.
         ImVec2 lastViewport = ImVec2(0.0f, 0.0f);
-        // ...and whenever the content does, which is the more frequent case:
-        // the dialog is as tall as the page it shows. Measured rather than
-        // derived from the events that cause it, so that a band category with
-        // more rows, a register list, or a source gaining tuning limits are
-        // all covered without every page having to report a resize.
+        // Width changes and vertical growth still re-centre the dialog, but
+        // shorter content does not: heightFloor is a high-water mark for the
+        // current viewport while the dialog is open. This keeps page/category
+        // switches from moving the controls up and down while still allowing
+        // genuinely taller content to fit. The window is measured rather than
+        // resize events being enumerated, so a
+        // category, register count, or source-limit change is covered without
+        // every page having to report it.
         ImVec2 lastSize = ImVec2(0.0f, 0.0f);
+        float heightFloor = 0.0f;
         bool recenter = false;
         Keypad keypad;
         Bands bands;
