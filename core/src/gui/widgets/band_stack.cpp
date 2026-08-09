@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
+#include <utility>
 
 namespace gui {
     BandStack bandStack;
@@ -48,21 +48,8 @@ static BandRegisterSet readRegisters(
 
         int m = -1;
         const auto modeIt = o.find("mode");
-        if (modeIt != o.end()) {
-            if (modeIt->is_number_unsigned()) {
-                const std::uint64_t value = modeIt->get<std::uint64_t>();
-                if (value <
-                    static_cast<std::uint64_t>(_RADIO_IFACE_MODE_COUNT))
-                {
-                    m = static_cast<int>(value);
-                }
-            }
-            else if (modeIt->is_number_integer()) {
-                const std::int64_t value = modeIt->get<std::int64_t>();
-                if (value >= 0 && value < _RADIO_IFACE_MODE_COUNT) {
-                    m = static_cast<int>(value);
-                }
-            }
+        if (modeIt != o.end() && modeIt->is_string()) {
+            m = radioModeFromName(modeIt->get_ref<const std::string&>().c_str());
         }
         regs.append({ f, m });
     }
@@ -78,10 +65,11 @@ static void writeRegisters(
     for (std::size_t i = 0; i < registers.size(); i++) {
         const BandRegisterSet::Slot& slot = registers[i];
         if (slot) {
-            out.push_back({
-                { "freq", slot->freq },
-                { "mode", slot->mode }
-            });
+            json entry = { { "freq", slot->freq } };
+            if (radioModeValid(slot->mode)) {
+                entry["mode"] = radioModeName(slot->mode);
+            }
+            out.push_back(std::move(entry));
         }
         else { out.push_back(nullptr); }
     }
@@ -132,7 +120,7 @@ static bool updateTopRegister(
     {
         return false;
     }
-    if (mode < 0 || mode >= _RADIO_IFACE_MODE_COUNT) { mode = -1; }
+    if (!radioModeValid(mode)) { mode = -1; }
     BandRegisterSet registers = readRegisters(mem, plan, mapping);
     registers.storeTop({ freq, mode });
     writeRegisters(mem, mapping, registers);
@@ -230,7 +218,7 @@ int BandStack::resolvedMode(
     double frequency,
     int mode)
 {
-    if (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) { return mode; }
+    if (radioModeValid(mode)) { return mode; }
     mode = radioModeFromName(segment.defMode.c_str());
     if (mode < 0) {
         mode = heuristicMode(

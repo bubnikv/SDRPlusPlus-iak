@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cassert>
 #include <cmath>
+#include <radio_interface.h>
 
 namespace bandplan {
     namespace {
@@ -102,6 +103,16 @@ namespace bandplan {
              bandIndex++)
         {
             Band_t& band = plan.bands[bandIndex];
+            if (!band.defMode.empty() &&
+                !radioModeValid(radioModeFromName(band.defMode.c_str())))
+            {
+                flog::warn(
+                    "Band '{}' in plan '{}' has unknown def_mode '{}'; "
+                    "the runtime convention will be used",
+                    band.name,
+                    plan.name,
+                    band.defMode);
+            }
             const freq_input::LegacyBandClassification classification =
                 freq_input::classifyLegacyBand(
                     band.type,
@@ -157,7 +168,15 @@ namespace bandplan {
             if (file.path().extension().generic_string() != ".json") {
                 continue;
             }
-            loadBandPlan(path);
+            try {
+                loadBandPlan(path);
+            }
+            catch (const std::exception& e) {
+                flog::error("Could not load band plan '{}': {}", path, e.what());
+            }
+            catch (...) {
+                flog::error("Could not load band plan '{}': unknown error", path);
+            }
         }
     }
 

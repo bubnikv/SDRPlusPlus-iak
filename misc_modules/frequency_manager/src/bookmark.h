@@ -37,6 +37,22 @@ struct BookmarkRectangle {
 FrequencyBookmark bookmarkFromJson(const json& j);
 json bookmarkToJson(const FrequencyBookmark& bm);
 
+enum class ExternalBookmarkModeStatus {
+    Unrecorded,
+    Resolved,
+    Invalid
+};
+
+struct ExternalBookmarkParseResult {
+    FrequencyBookmark bookmark;
+    ExternalBookmarkModeStatus modeStatus;
+};
+
+// External files may use this fork's canonical string or upstream SDR++'s
+// numeric mode. Internal config loading deliberately uses bookmarkFromJson()
+// and remains string-only.
+ExternalBookmarkParseResult bookmarkFromExternalJson(const json& j);
+
 bool compareWaterfallBookmarks(const WaterfallBookmark& wbm1, const WaterfallBookmark& wbm2);
 bool compareBookmarksFreqAsc(const std::pair<std::string, FrequencyBookmark>& a, const std::pair<std::string, FrequencyBookmark>& b);
 bool compareBookmarksFreqDesc(const std::pair<std::string, FrequencyBookmark>& a, const std::pair<std::string, FrequencyBookmark>& b);

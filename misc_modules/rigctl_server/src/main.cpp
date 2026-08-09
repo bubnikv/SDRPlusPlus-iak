@@ -342,8 +342,8 @@ private:
         // rejects the whole command in that state. Still guarded rather than
         // asserted alone, because an NDEBUG build must not put radioModeName()'s
         // "--" placeholder on the wire for a client to parse as a mode.
-        assert(mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT);
-        if (mode < 0 || mode >= _RADIO_IFACE_MODE_COUNT) { return "RAW"; }
+        assert(radioModeValid(mode));
+        if (!radioModeValid(mode)) { return "RAW"; }
         return radioModeName(mode);
     }
 

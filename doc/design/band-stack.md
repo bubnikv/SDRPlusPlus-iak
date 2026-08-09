@@ -45,6 +45,7 @@ frequencyMemory:
     group: "ham" | "broadcast" | "air" | "marine" | "utility" | "all"
     preferredService: <BandService key>
     stackingRegisters: { <band ID>: [ <register|null>, ... x3 ] }
+      <register>: { freq: <Hz number>, mode?: <canonical radio-mode string> }
   spectrum:
     activeRange: <spectrum range ID>
     lastFrequency: { <spectrum range ID>: <frequency> }
@@ -65,7 +66,8 @@ that used them; the mapping is:
 There is no migration for pre-release keys or layouts. An existing
 `config.json` may keep old keys as unused entries. The write-only band active ID
 is omitted; spectrum `activeRange` remains because it restores the highlighted
-range.
+range. Register readers accept only the canonical string; writes omit the field
+when no mode was recorded. Pre-release numeric modes are not migrated.
 
 The original verdict below was that the data model was keyed on mutable,
 duplicate band-plan names and could not represent the active register. The

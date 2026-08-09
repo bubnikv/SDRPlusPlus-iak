@@ -74,8 +74,18 @@ public:
         {
             auto configAccess = config.edit();
             ConfigManager::EditSection inst = configAccess.section(name);
-            inst.ensure("selectedDemodId", 1);
-            inst.tryGet("selectedDemodId", selectedDemodID);
+            std::string selectedDemod;
+            if (inst.tryGet("selectedDemod", selectedDemod)) {
+                const int mode = radioModeFromName(selectedDemod.c_str());
+                if (radioModeValid(mode)) {
+                    selectedDemodID = mode;
+                }
+                else {
+                    flog::warn("Unknown selectedDemod '{0}' for radio '{1}'; using WFM",
+                               selectedDemod, name);
+                }
+            }
+            inst.set("selectedDemod", radioModeName(selectedDemodID));
         }
 
         // Initialize the VFO
@@ -187,6 +197,17 @@ public:
         RADIO_DEMOD_CWR,
         _RADIO_DEMOD_COUNT,
     };
+
+    static_assert(RADIO_DEMOD_NFM == RADIO_IFACE_MODE_NFM, "NFM mode IDs diverged");
+    static_assert(RADIO_DEMOD_WFM == RADIO_IFACE_MODE_WFM, "WFM mode IDs diverged");
+    static_assert(RADIO_DEMOD_AM  == RADIO_IFACE_MODE_AM,  "AM mode IDs diverged");
+    static_assert(RADIO_DEMOD_DSB == RADIO_IFACE_MODE_DSB, "DSB mode IDs diverged");
+    static_assert(RADIO_DEMOD_USB == RADIO_IFACE_MODE_USB, "USB mode IDs diverged");
+    static_assert(RADIO_DEMOD_CW  == RADIO_IFACE_MODE_CW,  "CW mode IDs diverged");
+    static_assert(RADIO_DEMOD_LSB == RADIO_IFACE_MODE_LSB, "LSB mode IDs diverged");
+    static_assert(RADIO_DEMOD_RAW == RADIO_IFACE_MODE_RAW, "RAW mode IDs diverged");
+    static_assert(RADIO_DEMOD_CWR == RADIO_IFACE_MODE_CWR, "CWR mode IDs diverged");
+    static_assert(_RADIO_DEMOD_COUNT == _RADIO_IFACE_MODE_COUNT, "radio mode counts diverged");
 
 private:
     static void menuHandler(void* ctx) {
@@ -416,7 +437,7 @@ private:
         selectDemod(demod);
 
         // Save config
-        config.edit().section(name).set("selectedDemodId", (int)id);
+        config.edit().section(name).set("selectedDemod", radioModeName((int)id));
         auto endTime = std::chrono::high_resolution_clock::now();
         flog::warn("Demod switch took {0} us", (int64_t)((std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime)).count()));
     }

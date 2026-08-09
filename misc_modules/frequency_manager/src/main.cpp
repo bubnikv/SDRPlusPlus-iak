@@ -284,7 +284,7 @@ private:
             // value in the file -- never by selection, and picking a real mode
             // is one-way.
             {
-                bool modeNotSet = (editedBookmark.mode < 0 || editedBookmark.mode >= _RADIO_IFACE_MODE_COUNT);
+                bool modeNotSet = !radioModeValid(editedBookmark.mode);
                 const char* preview = modeNotSet ? "(not set)" : RADIO_IFACE_MODE_NAMES[editedBookmark.mode];
                 if (modeNotSet) { ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled)); }
                 bool modeOpen = ImGui::BeginCombo(("##freq_manager_edit_mode" + name).c_str(), preview);
@@ -1085,13 +1085,22 @@ private:
 
         // Load every bookmark
         int importedCount = 0;
+        int invalidModeCount = 0;
         for (auto const [_name, bm] : importedBookmarks["bookmarks"].items()) {
             if (bookmarks.find(_name) != bookmarks.end()) {
                 flog::warn("Bookmark with the name '{0}' already exists in list, skipping", _name);
                 continue;
             }
             try {
-                bookmarks[_name] = bookmarkFromJson(bm);
+                ExternalBookmarkParseResult parsed = bookmarkFromExternalJson(bm);
+                bookmarks[_name] = parsed.bookmark;
+                if (parsed.modeStatus == ExternalBookmarkModeStatus::Invalid) {
+                    invalidModeCount++;
+                    flog::warn(
+                        "Bookmark '{0}' has an invalid or unsupported mode; "
+                        "importing it without a mode",
+                        _name);
+                }
                 importedCount++;
             }
             catch (const std::exception& e) {
@@ -1101,6 +1110,9 @@ private:
         saveByName(selectedListName);
 
         flog::info("Imported {0} bookmarks", importedCount);
+        if (invalidModeCount) {
+            flog::warn("{0} imported bookmarks had no usable mode", invalidModeCount);
+        }
     }
 
     void exportBookmarks(std::string path) {

@@ -6,6 +6,8 @@ The detailed per-release history of the SDR++ iak fork, including alpha and beta
 
 This beta turns the alpha's experimental band picker and waterfall autoscale into more complete, stable features. It also adds a native macOS audio sink and spectrum-range navigation, makes network connection handling bounded and cancellable, and substantially hardens configuration persistence, server operation and fractional-scale rendering.
 
+**Alpha testers:** delete the fork's config directory before upgrading to this beta. Pre-release numeric radio modes and frequency-memory layouts are deliberately not migrated.
+
 ### Added
 
 - **Bands / Frequency — Spectrum page:** jump between named radio-spectrum ranges, clipped to the active source's tuning limits, while remembering the last frequency used in each range. The dialog's page selector and the Bands-page category selector now use a shared touch-friendly segmented control.
@@ -20,7 +22,7 @@ This beta turns the alpha's experimental band picker and waterfall autoscale int
 - The Bands / Frequency dialog now sizes itself from the viewport, varies grid columns and rows with available space, recentres after rotation/resize, keeps its readout and controls stable as messages change, and avoids nested scrolling on small landscape screens.
 - Configuration access across core and all modules now uses scoped read/edit transactions. Unchanged values no longer dirty and rewrite `config.json`; malformed values fall back safely; lock lifetimes are shorter; shutdown flushes pending saves; desktop instances merge concurrent edits; and focused persistence/Windows-lock tests were added.
 - Relative module/resource/config paths are resolved from the executable rather than the process working directory. Windows builds also declare UTF-8 as the active code page and initialize console output accordingly. Prompted by [AlexandreRouma/SDRPlusPlus#1265](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1265).
-- Radio-mode names now come from one compile-time-checked table across the UI, demodulators, recorder and rigctl. Rigctl capability reporting now includes CWR.
+- Radio-mode names now come from one compile-time-checked table across the UI, demodulators, recorder and rigctl. Band-stack registers, bookmarks and the selected demodulator persist those stable names, removing enum-order dependencies from the first public beta's on-disk formats. Explicit bookmark import still accepts upstream SDR++'s numeric modes and normalizes them to names; export remains this-fork format. Rigctl capability reporting now includes CWR.
 - Fractional UI scales render more crisply: fonts, waterfall/FFT geometry, toolbar icons, meter bars, menu strokes and frequency digits use consistent whole-pixel metrics. Added the 125% and 175% presets requested in [AlexandreRouma/SDRPlusPlus#1116](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1116) and [PR #1115](https://github.com/AlexandreRouma/SDRPlusPlus/pull/1115); ineffective sub-100% choices are disabled on standard-DPI displays.
 - Developer documentation was reorganized into design, research, bug and to-do sections and expanded with band mapping/stacking, radio-mode, UI-thread, configuration and community-fork reviews.
 
@@ -35,6 +37,7 @@ This beta turns the alpha's experimental band picker and waterfall autoscale int
 - Fixed the menu iterator invalidation crash when a draw handler creates a module ([AlexandreRouma/SDRPlusPlus#816](https://github.com/AlexandreRouma/SDRPlusPlus/issues/816)), and closed partially opened RtAudio streams before switching to null-drain fallback.
 - DSP correctness fixes: guard SNR calculation when no out-of-band bins exist, avoid a negative shift while configuring an upsampling rational resampler, and publish the frequency translator phase increment without a data race or narrowing conversion.
 - Config loading no longer deadlocks on early returns; BladeRF settings are not read after unlocking; LimeSDR's LNAW fallback compares antenna names correctly; shutdown saves retry only genuinely transient Windows replacement interference and fail promptly for read-only/structurally invalid destinations.
+- A malformed user band-plan file no longer aborts startup: the file is named in the log and skipped while the remaining plans load. Unknown `def_mode` strings are also reported before falling back to the runtime convention.
 - Assorted layout/build fixes: stable VFO-change reporting, valid positive band spans, Windows `min`/`max` and `ERROR` macro collisions, CMake runtime-DLL policy warnings, and stale waterfall lines/locks/buffers in auto-range processing.
 
 ## v1.4.0-alpha - 2026-07-19

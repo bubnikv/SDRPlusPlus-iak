@@ -2,6 +2,7 @@
 #include <radio_interface.h>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 
 // Bookmarks are not all self-written: importBookmarks() feeds this an arbitrary
 // user-supplied file, having checked only that a "bookmarks" object exists. So
@@ -17,8 +18,12 @@ FrequencyBookmark bookmarkFromJson(const json& j) {
     // bookmark asking for it must be one the user actually chose. -1 says "no
     // usable mode was recorded", and applyBookmark() then leaves the
     // demodulator alone -- the same convention the band stack registers use.
-    bm.mode = (j.contains("mode") && j["mode"].is_number_integer()) ? (int)j["mode"] : -1;
-    if (bm.mode < 0 || bm.mode >= _RADIO_IFACE_MODE_COUNT) { bm.mode = -1; }
+    bm.mode = -1;
+    const auto modeIt = j.find("mode");
+    if (modeIt != j.end() && modeIt->is_string()) {
+        bm.mode = radioModeFromName(
+            modeIt->get_ref<const std::string&>().c_str());
+    }
     bm.startTime = (j.contains("startTime") && j["startTime"].is_number_integer()) ? (int)j["startTime"] : 0;
     bm.endTime = (j.contains("endTime") && j["endTime"].is_number_integer()) ? (int)j["endTime"] : 0;
     for (int i = 0; i < 7; i++) { bm.days[i] = true; }
@@ -38,7 +43,7 @@ json bookmarkToJson(const FrequencyBookmark& bm) {
     json j;
     j["frequency"] = bm.frequency;
     j["bandwidth"] = bm.bandwidth;
-    j["mode"] = bm.mode;
+    if (radioModeValid(bm.mode)) { j["mode"] = radioModeName(bm.mode); }
     j["startTime"] = bm.startTime;
     j["endTime"] = bm.endTime;
     json days = json::array();
@@ -47,6 +52,46 @@ json bookmarkToJson(const FrequencyBookmark& bm) {
     j["geoinfo"] = bm.geoinfo;
     j["notes"] = bm.notes;
     return j;
+}
+
+ExternalBookmarkParseResult bookmarkFromExternalJson(const json& j) {
+    ExternalBookmarkParseResult result{
+        bookmarkFromJson(j),
+        ExternalBookmarkModeStatus::Unrecorded
+    };
+
+    const auto modeIt = j.find("mode");
+    if (modeIt == j.end()) { return result; }
+
+    if (modeIt->is_string()) {
+        result.modeStatus = radioModeValid(result.bookmark.mode)
+            ? ExternalBookmarkModeStatus::Resolved
+            : ExternalBookmarkModeStatus::Invalid;
+        return result;
+    }
+
+    int mode = -1;
+    if (modeIt->is_number_unsigned()) {
+        const std::uint64_t value = modeIt->get<std::uint64_t>();
+        if (value < static_cast<std::uint64_t>(_RADIO_IFACE_MODE_COUNT)) {
+            mode = static_cast<int>(value);
+        }
+    }
+    else if (modeIt->is_number_integer()) {
+        const std::int64_t value = modeIt->get<std::int64_t>();
+        if (value >= 0 && value < _RADIO_IFACE_MODE_COUNT) {
+            mode = static_cast<int>(value);
+        }
+    }
+
+    if (radioModeValid(mode)) {
+        result.bookmark.mode = mode;
+        result.modeStatus = ExternalBookmarkModeStatus::Resolved;
+    }
+    else {
+        result.modeStatus = ExternalBookmarkModeStatus::Invalid;
+    }
+    return result;
 }
 
 bool compareWaterfallBookmarks(const WaterfallBookmark& wbm1, const WaterfallBookmark& wbm2) {

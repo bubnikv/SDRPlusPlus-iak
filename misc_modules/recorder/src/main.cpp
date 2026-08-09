@@ -546,7 +546,7 @@ private:
             // is kept anyway so an NDEBUG build writes that placeholder rather
             // than radioModeName()'s "--" into a filename.
             assert(mode < _RADIO_IFACE_MODE_COUNT);
-            if (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) { modeStr = radioModeName(mode); }
+            if (radioModeValid(mode)) { modeStr = radioModeName(mode); }
         }
 
         // Replace in template

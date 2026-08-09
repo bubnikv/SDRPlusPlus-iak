@@ -1,9 +1,32 @@
 # Demodulator mode representations across the app
 
-Date: 2026-07-26. The ground truth is the integer `RADIO_IFACE_MODE_*`
-(`core/src/radio_interface.h`) — that is what travels over module-com, and what
-bookmarks, band stack registers and `selectedDemodId` store. Everything below is
-a *spelling* of that integer.
+Date: 2026-07-26; persistence update 2026-08-09. The runtime ground truth is the
+integer `RADIO_IFACE_MODE_*` (`core/src/radio_interface.h`) — that is what
+travels over module-com. New local persisted state uses its canonical name:
+band-stack registers store `mode: "USB"` (and omit an unresolved mode), while
+the radio stores `selectedDemod: "USB"`, and bookmarks store `mode: "USB"`
+(also omitted when unresolved). This is the fork's first public beta, so none of
+these sites carries a migration path for pre-release numeric values.
+
+The persistence policies deliberately differ by compatibility boundary:
+
+| Site | Canonical write | Invalid or obsolete input |
+|---|---|---|
+| module-com | integer `RADIO_IFACE_MODE_*` | runtime ABI; unchanged |
+| `config.json` band-stack register | `mode: "USB"`; absent when unresolved | treat as unresolved |
+| `radio_config.json` selected demodulator | `selectedDemod: "USB"` | default to WFM and repair the string |
+| frequency-manager config and bookmark export | `mode: "USB"`; absent when unresolved | treat as unrecorded and leave the active demodulator alone |
+| explicit bookmark import | accept canonical strings and range-checked upstream integers | normalize into the string-only internal format; report invalid modes |
+
+Input comparison is ASCII case-insensitive; output always uses the canonical
+table spelling. Numeric persisted values are not interpreted at any of these
+three internal sites; numeric modes are accepted only at the explicit external
+bookmark-import boundary.
+
+The per-mode profile objects beneath each radio instance are a separate matter:
+their keys come from the canonical `getName()` output and JSON object-key lookup
+is case-sensitive. Thus `selectedDemod: "usb"` resolves to USB, but a hand-added
+profile object named `"usb"` does not replace the canonical `"USB"` profile.
 
 **Status: unified.** There used to be six spellings; there is now one table,
 `RADIO_IFACE_MODE_NAMES[]`, plus a single documented exception for the Hamlib
@@ -297,12 +320,16 @@ squelch, CTCSS, de-emphasis and NR settings if the migration goes wrong, and the
 only gain is tidiness in a file nobody reads. A comment on `NFM::getName()`
 noting that the string is a legacy config key, not a display name, is enough.
 
-## Applying the same test to CW-R
+## Historical alternative: spelling CW reverse as CW-R
 
-The identical logic settles the earlier CW-R question in the same direction:
-the visible UI button already says `CW-R`, the demod config key already *is*
-`"CW-R"`, and the IC-705 this feature is modelled on writes `CW-R`. Hamlib's
-`CWR` stays behind rigctl's table. So canonical should be **`CW-R`**, with
+This analysis is retained as decision history, but it was not the implemented
+choice. The canonical persisted spelling is `CWR`; `CW-R` is accepted on input
+only.
+
+The analysis at the time argued in the following direction: the visible UI
+button said `CW-R`, the demod config key was `"CW-R"`, and the IC-705 this
+feature is modelled on writes `CW-R`. It proposed keeping Hamlib's `CWR` behind
+rigctl's table and making the canonical spelling **`CW-R`**, with
 `radioModeFromName()` accepting `"CWR"` too so a hand-edited band plan still
 parses.
 
@@ -326,11 +353,14 @@ which is exactly the radio menu's labels, reordered.
 
 ---
 
-## Decision: how to spell CW-R
+## Superseded proposal: how to spell CW-R
 
-The one genuine choice. Nothing persists the string today — bookmarks and band
-stack registers store the integer — so either spelling is free right now, and
-this is the moment to pick.
+This section records the proposal considered before unification. It is
+superseded by the `CWR` decision and the table at the top of this document.
+
+At the time this was the one genuine choice. Nothing persisted the string —
+bookmarks and band-stack registers stored the integer — so either spelling was
+then free.
 
 | | `"CWR"` | `"CW-R"` |
 |---|---|---|

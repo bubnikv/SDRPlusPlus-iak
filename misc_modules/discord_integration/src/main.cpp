@@ -94,7 +94,7 @@ private:
                 int modeNum = -1;
                 core::modComManager.callInterface(selectedName, RADIO_IFACE_CMD_GET_MODE, NULL, &modeNum);
                 assert(modeNum < _RADIO_IFACE_MODE_COUNT);
-                if (modeNum >= 0 && modeNum < _RADIO_IFACE_MODE_COUNT) { strcpy(mode, radioModeName(modeNum)); }
+                if (radioModeValid(modeNum)) { strcpy(mode, radioModeName(modeNum)); }
             }
         }
 

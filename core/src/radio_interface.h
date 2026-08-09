@@ -56,6 +56,8 @@ enum {
 // below turns that omission into a compile error instead -- which is the whole
 // point of this table, RADIO_IFACE_MODE_CWR having already been appended once
 // to an enum whose name tables did not follow.
+// These names are also persisted identifiers. Renaming one requires a storage
+// migration and a permanent input alias, not merely a display-text change.
 inline constexpr const char* RADIO_IFACE_MODE_NAMES[] = {
     "NFM", "WFM", "AM", "DSB", "USB", "CW", "LSB", "RAW", "CWR"
 };
@@ -67,10 +69,22 @@ constexpr const char* radioModeName(int mode) {
     return (mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT) ? RADIO_IFACE_MODE_NAMES[mode] : "--";
 }
 
-// strcmp is not constexpr in C++17, and these strings are four bytes at most.
+constexpr bool radioModeValid(int mode) {
+    return mode >= 0 && mode < _RADIO_IFACE_MODE_COUNT;
+}
+
+// ASCII-only comparison: persisted and hand-written mode names are accepted
+// case-insensitively, while writers always emit the canonical spelling above.
+constexpr char radioModeFoldAscii(char c) {
+    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+}
+
 constexpr bool radioModeNameEq(const char* a, const char* b) {
-    while (*a && *a == *b) { ++a; ++b; }
-    return *a == *b;
+    while (*a && *b && radioModeFoldAscii(*a) == radioModeFoldAscii(*b)) {
+        ++a;
+        ++b;
+    }
+    return *a == '\0' && *b == '\0';
 }
 
 // Mode for a name, -1 if unrecognised. Foreign spellings are accepted on input
@@ -86,10 +100,16 @@ constexpr int radioModeFromName(const char* name) {
     return -1;
 }
 
-// Both directions agree, checked at compile time rather than trusted.
-static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_NFM)) == RADIO_IFACE_MODE_NFM, "NFM does not round-trip");
-static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_WFM)) == RADIO_IFACE_MODE_WFM, "WFM does not round-trip");
-static_assert(radioModeFromName(radioModeName(RADIO_IFACE_MODE_CWR)) == RADIO_IFACE_MODE_CWR, "CWR does not round-trip");
+constexpr bool radioModeNamesRoundTrip() {
+    for (int mode = 0; mode < _RADIO_IFACE_MODE_COUNT; mode++) {
+        if (radioModeFromName(radioModeName(mode)) != mode) { return false; }
+    }
+    return true;
+}
+
+// Every canonical name is unique and agrees with its numeric mode.
+static_assert(radioModeNamesRoundTrip(), "canonical radio mode names do not round-trip");
 static_assert(radioModeFromName("FM") == RADIO_IFACE_MODE_NFM, "the Hamlib spelling must still parse");
 static_assert(radioModeFromName("CW-R") == RADIO_IFACE_MODE_CWR, "the Icom spelling must still parse");
+static_assert(radioModeFromName("usb") == RADIO_IFACE_MODE_USB, "mode names must parse case-insensitively");
 static_assert(radioModeFromName("nope") == -1, "an unknown name must not resolve");
