@@ -1,0 +1,127 @@
+From c5a50c41d6cabd3bd756685ed185849c2077f690 Mon Sep 17 00:00:00 2001
+From: Vojtech Bubnik <bubnikv@gmail.com>
+Date: Sun, 9 Aug 2026 06:00:51 +0200
+Subject: [PATCH] Fix CoreAudio device names: convert as UTF-8 and check the
+ conversion
+
+RtApiCore::getDeviceInfo() builds info.name from two CFStringRefs (the
+device manufacturer and the device name) via CFStringGetCString(). Both
+conversions have the same two defects.
+
+1. The wrong encoding is selected on every Apple build.
+
+   The encoding is picked by
+
+       #if defined( UNICODE ) || defined( _UNICODE )
+         ... kCFStringEncodingUTF8 ...
+       #else
+         ... CFStringGetSystemEncoding() ...
+       #endif
+
+   UNICODE and _UNICODE are Win32 TCHAR macros. They are never defined
+   when compiling the CoreAudio backend, so the UTF-8 branch is dead and
+   the conversion always uses CFStringGetSystemEncoding(). That encoding
+   is locale-dependent and not guaranteed to be UTF-8, so a device whose
+   name contains non-ASCII characters can come back in a legacy encoding
+   (historically MacRoman). Callers that put the name into a UTF-8
+   context -- a JSON or XML config file, a UTF-8 GUI toolkit -- then get
+   mojibake, or an outright serialization failure for byte sequences that
+   are not valid UTF-8.
+
+   Since the intent of the dead branch was clearly UTF-8, and device
+   names are conventionally UTF-8 everywhere else in RtAudio (the WASAPI
+   backend converts with WideCharToMultiByte(CP_UTF8, ...), PulseAudio
+   hands back UTF-8 by specification), drop the guard and always request
+   kCFStringEncodingUTF8.
+
+2. The return value of CFStringGetCString() is ignored.
+
+   CFStringGetCString() returns false and leaves the buffer *untouched*
+   when the string cannot be represented in the requested encoding or
+   does not fit. The buffer comes straight from malloc(), so the
+   strlen() on the next line then reads uninitialized heap memory, and
+   whatever it finds is appended to info.name -- an uninitialized read
+   whose length is unbounded until it happens upon a zero byte.
+
+   Check the result and simply leave that part of the name empty when
+   the conversion fails.
+
+Also size the buffer with CFStringGetMaximumSizeForEncoding() instead of
+the hand-rolled `length * 3 + 1`. The old expression happens to be large
+enough for UTF-8, but the framework call states the requirement instead
+of relying on the reader to verify it, and it tracks the encoding actually
+being requested.
+
+No functional change on any non-Apple backend: this code is inside
+__MACOSX_CORE__.
+---
+ RtAudio.cpp | 43 +++++++++++++++++++++++--------------------
+ 1 file changed, 23 insertions(+), 20 deletions(-)
+
+diff --git a/RtAudio.cpp b/RtAudio.cpp
+index 6174191..b91c4e2 100644
+--- a/RtAudio.cpp
++++ b/RtAudio.cpp
+@@ -713,18 +713,25 @@ RtAudio::DeviceInfo RtApiCore :: getDeviceInfo( unsigned int device )
+     return info;
+   }
+ 
+-  //const char *mname = CFStringGetCStringPtr( cfname, CFStringGetSystemEncoding() );
+-  int length = CFStringGetLength(cfname);
+-  char *mname = (char *)malloc(length * 3 + 1);
+-#if defined( UNICODE ) || defined( _UNICODE )
+-  CFStringGetCString(cfname, mname, length * 3 + 1, kCFStringEncodingUTF8);
+-#else
+-  CFStringGetCString(cfname, mname, length * 3 + 1, CFStringGetSystemEncoding());
+-#endif
+-  info.name.append( (const char *)mname, strlen(mname) );
++  // Device name strings are UTF-8. The UNICODE / _UNICODE guard that used to
++  // select kCFStringEncodingUTF8 here is a Win32 TCHAR macro which is never
++  // defined on an Apple build, so this always fell through to the
++  // CFStringGetSystemEncoding() branch -- a locale-dependent encoding that is
++  // not guaranteed to be UTF-8. Callers storing the name in a UTF-8 context
++  // (JSON, XML, ...) then get mojibake or an encoding error.
++  //
++  // CFStringGetCString() additionally leaves the buffer untouched and returns
++  // false when the string cannot be represented in the requested encoding.
++  // The result was ignored, so the following strlen() read uninitialized heap
++  // memory. Check it, and leave the name empty when the conversion fails.
++  CFIndex length = CFStringGetLength( cfname );
++  CFIndex maxSize = CFStringGetMaximumSizeForEncoding( length, kCFStringEncodingUTF8 ) + 1;
++  char *mname = (char *)malloc( maxSize );
++  if ( mname && CFStringGetCString( cfname, mname, maxSize, kCFStringEncodingUTF8 ) )
++    info.name.append( (const char *)mname );
+   info.name.append( ": " );
+   CFRelease( cfname );
+-  free(mname);
++  free( mname );
+ 
+   property.mSelector = kAudioObjectPropertyName;
+   result = AudioObjectGetPropertyData( id, &property, 0, NULL, &dataSize, &cfname );
+@@ -735,17 +742,13 @@ RtAudio::DeviceInfo RtApiCore :: getDeviceInfo( unsigned int device )
+     return info;
+   }
+ 
+-  //const char *name = CFStringGetCStringPtr( cfname, CFStringGetSystemEncoding() );
+-  length = CFStringGetLength(cfname);
+-  char *name = (char *)malloc(length * 3 + 1);
+-#if defined( UNICODE ) || defined( _UNICODE )
+-  CFStringGetCString(cfname, name, length * 3 + 1, kCFStringEncodingUTF8);
+-#else
+-  CFStringGetCString(cfname, name, length * 3 + 1, CFStringGetSystemEncoding());
+-#endif
+-  info.name.append( (const char *)name, strlen(name) );
++  length = CFStringGetLength( cfname );
++  maxSize = CFStringGetMaximumSizeForEncoding( length, kCFStringEncodingUTF8 ) + 1;
++  char *name = (char *)malloc( maxSize );
++  if ( name && CFStringGetCString( cfname, name, maxSize, kCFStringEncodingUTF8 ) )
++    info.name.append( (const char *)name );
+   CFRelease( cfname );
+-  free(name);
++  free( name );
+ 
+   // Get the output stream "configuration".
+   AudioBufferList	*bufferList = nil;
+-- 
+2.51.0.windows.2
+

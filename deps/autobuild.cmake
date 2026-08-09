@@ -122,7 +122,9 @@ set(_deps_install_prefix "${_build_dir}/destdir/usr/local")
 #
 # Hash inputs are every file the deps sub-build's configure or compile
 # pipeline can read: each recipe (deps/+<name>/*.cmake), each patch
-# (deps/+<name>/patches/*), the shared cmake helpers (deps/cmake/*.cmake),
+# (deps/+<name>/patches/* and deps/+<name>/*.patch — some recipes keep a
+# single patch flat next to the recipe), the shared cmake helpers
+# (deps/cmake/*.cmake),
 # the deps CMakeLists.txt / CMakePresets.json, the consumer-side collector
 # (cmake/sdrpp_collect_required_deps.cmake) that picks the dep root set, and
 # the shared list helpers (cmake/sdrpp_dep_list_helpers.cmake) both sides
@@ -134,6 +136,7 @@ set(_deps_marker "${_deps_install_prefix}/share/sdrpp-deps/recipe-hash")
 file(GLOB_RECURSE _recipe_hash_inputs
     LIST_DIRECTORIES FALSE
     "${_deps_src_dir}/+*/*.cmake"
+    "${_deps_src_dir}/+*/*.patch"
     "${_deps_src_dir}/+*/patches/*"
     "${_deps_src_dir}/cmake/*.cmake")
 list(APPEND _recipe_hash_inputs
