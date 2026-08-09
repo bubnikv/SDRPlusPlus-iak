@@ -4,7 +4,7 @@ Working survey of the fork landscape: what each fork carries and whether it is
 worth merging. Kept as raw notes on purpose — one line of description, then the
 links. Forks that got a full review have their own file here:
 
-- [Brown (sannysanoff)](brown.md) — TX, FT8, noise reduction, mobile UI
+- [Brown (sannysanoff)](brown.md) — TX, FT8, noise reduction, mobile UI; re-reviewed 2026-08-09 (agent/e2e test infra, 3 small fixes worth taking)
 - [qrp73](qrp73.md)
 - [ericek111](ericek111.md)
 - [qmx-panadapter (SteffenLav)](qmx-panadapter.md)
