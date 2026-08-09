@@ -362,7 +362,10 @@ private:
             SmGui::ForceSync();
             if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
                 _this->refresh();
-                _this->selectDevice(config.read().value("device", std::string()));
+                // Read into a local first: as an argument the access would
+                // still be held while selectDevice() takes one of its own.
+                std::string devName = config.read().value("device", std::string());
+                _this->selectDevice(devName);
             }
             return;
         }
@@ -387,7 +390,8 @@ private:
         SmGui::FillWidth();
         if (SmGui::Button(CONCAT("Refresh##_dev_select_", _this->name))) {
             _this->refresh();
-            _this->selectDevice(config.read().value("device", std::string()));
+            std::string devName = config.read().value("device", std::string());
+            _this->selectDevice(devName);
         }
 
         if (_this->running) { SmGui::EndDisabled(); }

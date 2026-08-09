@@ -34,7 +34,11 @@ namespace freq_memory {
     inline constexpr const char* STACKING_REGISTERS = "stackingRegisters";
     inline constexpr const char* LAST_FREQUENCY     = "lastFrequency";
 
-    void activate(std::string_view selector);
+    // Records which grid owns the frequency memory. It takes the caller's edit
+    // access rather than opening one: every caller is already writing something
+    // else in the same breath, and one access per action keeps the config mutex
+    // taken once -- and cannot nest, which acquiring here could.
+    void activate(ConfigManager::EditAccess& configAccess, std::string_view selector);
     void commitCurrent();
 
     template <class Access>

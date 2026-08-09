@@ -538,9 +538,10 @@ int sdrpp_main(int argc, char* argv[]) {
 
     // Config shutdown is terminal, so destroy every module instance (and join
     // its workers) before the module's _END_ closes its global ConfigManager.
-    while (!core::moduleManager.instances.empty()) {
-        core::moduleManager.deleteInstance(core::moduleManager.instances.begin()->first);
-    }
+//FIXME see doc/bugs/desktop-module-teardown.md
+//    while (!core::moduleManager.instances.empty()) {
+//        core::moduleManager.deleteInstance(core::moduleManager.instances.begin()->first);
+//    }
 
     // Shut down all modules
     for (auto& [name, mod] : core::moduleManager.modules) {

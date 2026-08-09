@@ -2,6 +2,44 @@
 
 Major releases only. For the detailed per-release history including alpha and beta pre-releases, see [changelog-full.md](changelog-full.md).
 
+## v1.4.0-beta
+
+The version jumps from the 1.2.2 series to 1.4.0-beta because this release builds on upstream SDR++'s continuously evolving 1.3.0 codebase.
+
+A feature and reliability release focused on touch operation, faster tuning and a more robust experience across desktop, Android and server use.
+
+**Alpha testers:** delete the fork's config directory before upgrading. Pre-release numeric radio modes and frequency-memory layouts are not migrated.
+
+### User interface and tuning
+
+- Touch-friendly UI overhaul with Android-sized controls, a Material 3 dark theme, drag-scroll with fling, visible splitter handles and haptic feedback. The touch style can also be previewed on desktop.
+- Android Back now dismisses popups and backgrounds the app naturally; holding the hamburger button opens the exit confirmation. Small-screen dialogs and the About view are easier to navigate.
+- New Bands / Frequency dialog with an IC-705-style direct-entry keypad, category-filtered band selection and a Spectrum page for moving between named frequency ranges.
+- Three-register band stacking remembers frequency and mode per band. Band identities, overlap resolution, defaults and register rotation were stabilized for split and mixed-service band plans.
+- Waterfall scaling now uses **Ref + Range**, with robust one-shot auto-fit or continuous tracking over the visible spectrum. The original auto-range was contributed by [@ericek111](https://github.com/ericek111) ([upstream #1729](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1729)); new colormaps were contributed by [@konung-yaropolk](https://github.com/konung-yaropolk) ([upstream #1694](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1694)). Cursor-anchored mouse/pinch zoom was also added.
+- Cleaner desktop presentation at fractional scales, including whole-pixel rendering and new 125% and 175% presets ([upstream #1116](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1116), [PR #1115](https://github.com/AlexandreRouma/SDRPlusPlus/pull/1115)); dialogs now share consistent Enter, Escape and click-outside behavior ([upstream #1758](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1758)).
+- More reliable mouse-wheel and precision-touchpad input: fractional tuning steps are accumulated correctly and wheel actions no longer leak from menus or sliders into VFO tuning.
+- Compact radio-mode selector and editable CW pitch presets.
+- Right-click spectrum bookmark creation, contributed by [@Zaryob](https://github.com/Zaryob) from [upstream PR #1476](https://github.com/AlexandreRouma/SDRPlusPlus/pull/1476) ([#1475](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1475)).
+- Per-device SDRplay PPM correction, contributed by [@M0OPK](https://github.com/M0OPK) ([upstream #1781](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1781)).
+- International RDS text rendering based on work by [@attah](https://github.com/attah) ([upstream #1164](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1164)).
+
+### Platforms and connectivity
+
+- Native macOS CoreAudio output sink, ported from SDR++Brown by [@sannysanoff](https://github.com/sannysanoff), with UTF-8 device names, device-rate tracking and a safe null-output fallback ([upstream #1776](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1776)).
+- SDR++ Server and SpyServer connections are asynchronous, cancellable and bounded by DNS/connect timeouts; the remaining blocking TCP paths also gained finite timeouts and clearer errors. The original work was contributed by [@edudant](https://github.com/edudant) in [fork PR #20](https://github.com/bubnikv/SDRPlusPlus-iak/pull/20), resolving [fork #19](https://github.com/bubnikv/SDRPlusPlus-iak/issues/19).
+- Server and rigctl handling was hardened against dead links, socket leaks and shutdown races. Hamlib interoperability now includes additional VFO tokens, receive-only PTT replies and CWR capability reporting (upstream [#1462](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1462), [#1061](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1061), [#1506](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1506), [#1092](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1092)).
+- Relative config, module and resource paths now resolve from the executable instead of the launch directory ([upstream #1265](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1265)). Windows builds use UTF-8 console handling and flush logs reliably; the logging fix was ported from SDR++Brown with [@sannysanoff](https://github.com/sannysanoff).
+
+### Reliability and compatibility
+
+- Configuration access now uses scoped transactions throughout the application. Unchanged settings are not rewritten, malformed values fall back safely, shutdown flushes pending saves and concurrent desktop instances merge edits more reliably.
+- Radio modes, bookmarks, the selected demodulator and band memories now persist using stable names and identities rather than internal enum ordering. Explicit bookmark import remains compatible with upstream numeric modes.
+- Missing or unusable audio devices no longer crash startup or stall the DSP pipeline ([upstream #1754](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1754)); short audio reads are padded safely using a fix ported from SDR++Brown with [@sannysanoff](https://github.com/sannysanoff), and partially opened streams are closed before fallback.
+- Fixed crashes and races involving window resizing, scanner restarts, dynamic menu creation, concurrent mode changes and server-mode source panels (upstream [#1658](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1658), [#816](https://github.com/AlexandreRouma/SDRPlusPlus/issues/816), [#1437](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1437), [#1630](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1630)).
+- Fixed an Android RS41 radiosonde decoder abort caused by a serial-field over-read. Thanks to [@jprincl](https://github.com/jprincl).
+- Additional fixes cover malformed band-plan/resource files, configuration deadlocks and Windows save interference, stale waterfall auto-range data, socket lifetime and several DSP boundary/race conditions.
+
 ## v1.2.2 - 2026-07-14 — first public release of SDR++ iak
 
 The first public release of the **SDR++ iak** fork, maintained by Vojtech Bubnik (OK1IAK) since March 2026. It builds on [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus) by Alexandre Rouma (@AlexandreRouma) and stays merged with the current upstream master. The fork installs side by side with upstream SDR++ (own package names, config directory and Android app ID). This entry summarizes everything since the fork.

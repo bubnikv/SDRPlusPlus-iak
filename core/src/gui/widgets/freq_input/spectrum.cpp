@@ -95,8 +95,7 @@ namespace freq_input {
 
     }
 
-    void Spectrum::onOpen() {
-        auto configAccess = core::configManager.read();
+    void Spectrum::onOpen(const ConfigManager::ReadAccess& configAccess) {
         lastRangeId = freq_memory::spectrum(configAccess).value(
             freq_memory::ACTIVE_RANGE,
             "");
@@ -104,8 +103,8 @@ namespace freq_input {
 
     // Which grid owns the frequency memory: the lifecycle coordinator reads the
     // selector to decide where the current frequency belongs when written back.
-    void Spectrum::onActivate() {
-        freq_memory::activate(freq_memory::SELECTOR_SPECTRUM);
+    void Spectrum::onActivate(ConfigManager::EditAccess& configAccess) {
+        freq_memory::activate(configAccess, freq_memory::SELECTOR_SPECTRUM);
     }
 
     Outcome Spectrum::draw(const Context& ctx, const Metrics& m) {

@@ -163,19 +163,23 @@ namespace freq_input {
             // a fixed size: taller content may grow it.
             heightFloor = initialHeightFloor;
             keypad.onOpen();
-            bands.onOpen();
-            spectrum.onOpen();
-            // Last-used page.
-            auto configAccess = core::configManager.read();
-            const std::string storedPage = freq_memory::root(configAccess).value(
-                freq_memory::PAGE,
-                "keypad");
-            if (storedPage == "band") { page = 0; }
-            else if (storedPage == "spectrum") { page = 1; }
-            else { page = 2; }
-            // Opening straight onto a page counts as entering it.
-            if (page == 0) { bands.onActivate(); }
-            else if (page == 1) { spectrum.onActivate(); }
+            // Both pages' restored state and the last-used page come from one
+            // access, which then records the page being entered. Opening the
+            // dialog is a single config transaction rather than four.
+            {
+                auto configAccess = core::configManager.edit();
+                bands.onOpen(configAccess);
+                spectrum.onOpen(configAccess);
+                const std::string storedPage = freq_memory::root(configAccess).value(
+                    freq_memory::PAGE,
+                    "keypad");
+                if (storedPage == "band") { page = 0; }
+                else if (storedPage == "spectrum") { page = 1; }
+                else { page = 2; }
+                // Opening straight onto a page counts as entering it.
+                if (page == 0) { bands.onActivate(configAccess); }
+                else if (page == 1) { spectrum.onActivate(configAccess); }
+            }
             ImGui::OpenPopup(DIALOG_ID);
         }
 
@@ -224,9 +228,9 @@ namespace freq_input {
         if (doSegmentedControl("##sdrpp_freq_input_page", page, pageLabels, 3,
                                ImVec2(m.totalWidth - closeW - sp, m.toggleHeight)))
         {
-            if (page == 0) { bands.onActivate(); }
-            else if (page == 1) { spectrum.onActivate(); }
             auto configAccess = core::configManager.edit();
+            if (page == 0) { bands.onActivate(configAccess); }
+            else if (page == 1) { spectrum.onActivate(configAccess); }
             freq_memory::root(configAccess).set(
                 freq_memory::PAGE,
                 (page == 0) ? "band" :

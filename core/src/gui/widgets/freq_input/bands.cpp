@@ -589,9 +589,8 @@ namespace freq_input {
         activeValid = false;
     }
 
-    void Bands::onOpen() {
+    void Bands::onOpen(const ConfigManager::ReadAccess& configAccess) {
         resetTransientState();
-        auto configAccess = core::configManager.read();
         auto band = freq_memory::band(configAccess);
         groupId = band.value(freq_memory::GROUP, "ham");
         currentService = bandServiceFromKey(
@@ -600,9 +599,9 @@ namespace freq_input {
                 "other"));
     }
 
-    void Bands::onActivate() {
+    void Bands::onActivate(ConfigManager::EditAccess& configAccess) {
         resetTransientState();
-        freq_memory::activate(freq_memory::SELECTOR_BAND);
+        freq_memory::activate(configAccess, freq_memory::SELECTOR_BAND);
     }
 
     Outcome Bands::draw(const Context& ctx, const Metrics& m) {

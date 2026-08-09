@@ -166,6 +166,9 @@ public:
     // possible; helpers should accept the existing capability by reference. No
     // ConfigManager may be entered while another config access is active on the
     // thread: copy values out and release the access before calling external code.
+    // Beware the argument position in particular -- f(cfg.read().value(...))
+    // keeps the temporary access alive until f() returns, so f() must not take
+    // one of its own. Assign to a local on its own statement instead.
     class ReadAccess;
     class EditAccess;
     class ReadSection;

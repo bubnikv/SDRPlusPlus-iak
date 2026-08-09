@@ -9,8 +9,7 @@
 
 namespace freq_memory {
 
-    void activate(std::string_view selector) {
-        auto configAccess = core::configManager.edit();
+    void activate(ConfigManager::EditAccess& configAccess, std::string_view selector) {
         root(configAccess).set(SELECTOR, std::string(selector));
     }
 

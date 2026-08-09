@@ -1,6 +1,7 @@
 #pragma once
 #include <gui/widgets/band_mapping.h>
 #include <gui/widgets/band_stack.h>
+#include <config.h>
 #include <imgui.h>
 #include <stdint.h>
 #include <algorithm>
@@ -159,8 +160,10 @@ namespace freq_input {
         Bands();
         ~Bands();
 
-        void onOpen();
-        void onActivate();
+        // Both take the dialog's access: opening the dialog settles every page's
+        // state in one config transaction. See freq_memory::activate().
+        void onOpen(const ConfigManager::ReadAccess& configAccess);
+        void onActivate(ConfigManager::EditAccess& configAccess);
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:
@@ -214,11 +217,11 @@ namespace freq_input {
     // service-band stacking registers. See spectrum.cpp.
     class Spectrum {
     public:
-        void onOpen();
+        void onOpen(const ConfigManager::ReadAccess& configAccess);
         // This page has become the visible one. It claims the frequency memory
         // here, mirroring how the band grid claims it when it resolves a band,
         // rather than restating the claim on every frame it is drawn.
-        void onActivate();
+        void onActivate(ConfigManager::EditAccess& configAccess);
         Outcome draw(const Context& ctx, const Metrics& m);
 
     private:

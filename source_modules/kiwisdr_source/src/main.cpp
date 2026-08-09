@@ -110,6 +110,7 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
         // in the streamed (remote client) UI.
         if (core::args["server"].b()) { return; }
 
+        json recent;
         {
             auto configAccess = config.read();
             std::string host;
@@ -129,9 +130,11 @@ struct KiwiSDRSourceModule : public ModuleManager::Instance {
             if (configAccess.tryGet("kiwisdr_buffer_ms", storedBufferMs)) {
                 bufferMs = std::clamp<int>(storedBufferMs, BUFFER_MS_MIN, BUFFER_MS_MAX);
             }
-            json recent = configAccess.value("kiwisdr_recent", json());
-            if (!recent.is_null()) { loadRecent(recent); }
+            recent = configAccess.value("kiwisdr_recent", json());
         }
+        // Parsed outside the access: loadRecent() walks the whole list and
+        // builds a string per entry, none of which needs the config mutex.
+        if (!recent.is_null()) { loadRecent(recent); }
 
         kiwiSdrClient.init(kiwisdrHostPort());
         chain.init(&rawStream, &stream);
