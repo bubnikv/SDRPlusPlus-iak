@@ -536,12 +536,21 @@ int sdrpp_main(int argc, char* argv[]) {
     // radio mode can still be sampled for the active band's stack.
     freq_memory::commitCurrent();
 
-    // Config shutdown is terminal, so destroy every module instance (and join
-    // its workers) before the module's _END_ closes its global ConfigManager.
-//FIXME see doc/bugs/desktop-module-teardown.md
-//    while (!core::moduleManager.instances.empty()) {
-//        core::moduleManager.deleteInstance(core::moduleManager.instances.begin()->first);
-//    }
+    // Module instances are deliberately NOT destroyed here. Bulk teardown runs
+    // largely unaudited destructors, and the source menu's reselect fallback
+    // turns any source that never unregisters into a use-after-free. The OS
+    // reclaims the instances at process exit instead.
+    //
+    // The cost is that each module's _END_ below closes its ConfigManager while
+    // that module's instances are still alive, and config access after such a
+    // shutdown throws. Module config access is confined to the GUI thread,
+    // which the render loop has already retired, so the exposure is bounded.
+    //
+    // FIXME: restore the loop only together with the quiescent shutdown phase
+    // described in doc/bugs/desktop-module-teardown.md.
+    // while (!core::moduleManager.instances.empty()) {
+    //     core::moduleManager.deleteInstance(core::moduleManager.instances.begin()->first);
+    // }
 
     // Shut down all modules
     for (auto& [name, mod] : core::moduleManager.modules) {

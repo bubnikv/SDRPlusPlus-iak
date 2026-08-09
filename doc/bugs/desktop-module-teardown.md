@@ -13,12 +13,29 @@ This is a release-risk workaround, not the final lifecycle design. It avoids
 running largely unaudited module destructors during application shutdown. Keep
 the config-access refactor and its terminal config persistence.
 
+The known registration imbalances listed below are also left for post-release.
+A correct destructor must stop the device before unregistering, and the six
+affected modules cannot be tested without their hardware. An untested
+destructor change on a hardware path is a larger release risk than a defect
+that has been reachable, and unreported, in every prior release and that no
+longer has an automatic trigger. Restoring instance deletion requires the same
+audit, so the destructor fixes are exercised by the testing that validates the
+new shutdown phase.
+
 One residual risk is that module `_END_()` functions now call
-`ConfigManager::shutdown()` while their instances still exist. A worker that
-continues to access its module config after `_END_()` could fail. Process exit
-follows immediately, and this is closer to the previously released lifecycle
-than bulk instance destruction, so this bounded risk is accepted for this
-release.
+`ConfigManager::shutdown()` while their instances still exist. The lifecycle
+state is terminal, so `ConfigManager::acquire()` throws `std::logic_error` from
+that point on. On the GUI thread that would propagate out of `sdrpp_main()`; on
+a module worker thread it is an uncaught exception and therefore
+`std::terminate`. The exposure is bounded because module config access is
+confined to constructors, `postInit()` and menu handlers, all of which run on
+the GUI thread that the render loop has already retired. Sampling the
+thread-bearing modules (`scanner`, `spots`, `iq_exporter`,
+`discord_integration`, `recorder`, `rigctl_server`, `rigctl_client`,
+`websdr_view`, `frequency_manager`, and the networked sources) found no config
+access on a worker thread. Process exit follows immediately, and the ordering
+is otherwise the previously released one, so this bounded risk is accepted for
+this release.
 
 ## Regression origin
 
