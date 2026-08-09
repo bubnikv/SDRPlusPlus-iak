@@ -58,8 +58,9 @@ namespace freq_input {
         // When the rectangle is larger than the area the near edge wins: the
         // start of a list is worth more than its end.
         ImVec2 fit(ImVec2 wanted, ImVec2 size) const {
-            return ImVec2(std::max(lo.x, std::min(wanted.x, hi.x - size.x)),
-                          std::max(lo.y, std::min(wanted.y, hi.y - size.y)));
+            return ImVec2(
+                (std::max)(lo.x, (std::min)(wanted.x, hi.x - size.x)),
+                (std::max)(lo.y, (std::min)(wanted.y, hi.y - size.y)));
         }
 
         static SafeArea get();
