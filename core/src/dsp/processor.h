@@ -56,6 +56,7 @@ namespace dsp {
 
         virtual void setInput(stream<I>* in) {
             assert(_block_init);
+            assert(in); // there is no detached state: run() dereferences _in unconditionally
             std::lock_guard<std::recursive_mutex> lck(ctrlMtx);
             tempStop();
             unregisterInput(_in);
