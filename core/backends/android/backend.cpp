@@ -527,6 +527,11 @@ namespace backend {
             ImGuiWindow* modal = ImGui::GetTopMostPopupModal();
             if (modal && !ImGui::IsWindowChildOf(hit->RootWindow, modal, true)) return NULL;
 
+            // A titled root window moves only from its title bar. Do not let a
+            // scrollable body make the touch recognizer swallow that handle.
+            ImGuiWindow* root = hit->RootWindow;
+            if (!(root->Flags & ImGuiWindowFlags_NoTitleBar) && root->TitleBarRect().Contains(pos)) return NULL;
+
             // Scrollbars keep their native thumb-drag behavior.
             if ((hit->ScrollbarY && ImGui::GetWindowScrollbarRect(hit, ImGuiAxis_Y).Contains(pos)) ||
                 (hit->ScrollbarX && ImGui::GetWindowScrollbarRect(hit, ImGuiAxis_X).Contains(pos))) return NULL;
@@ -728,6 +733,7 @@ namespace backend {
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
 
         // Disable loading/saving of .ini file from disk.
         // FIXME: Consider using LoadIniSettingsFromMemory() / SaveIniSettingsToMemory() to save in appropriate location for Android.

@@ -953,7 +953,7 @@ namespace freq_input {
                 registerPopupPos(regPopupKeyMin, regPopupKeyMax, regPopupSize),
                 ImGuiCond_Always);
         }
-        if (ImGui::BeginPopup("##sdrpp_band_registers")) {
+        if (ImGui::BeginPopup("##sdrpp_band_registers", ImGuiWindowFlags_NoMove)) {
             // Dismissal. ImGui closes a popup on an outside click only when
             // that click lands on a window it can see, and a modal suppresses
             // hovering of everything behind it while skipping the click-on-void

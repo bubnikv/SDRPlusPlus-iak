@@ -204,7 +204,8 @@ namespace freq_input {
         // the dialog.
         if (!ImGui::BeginPopupModal("F-INP##sdrpp_freq_keypad", NULL,
                                     ImGuiWindowFlags_AlwaysAutoResize |
-                                    ImGuiWindowFlags_NoTitleBar))
+                                    ImGuiWindowFlags_NoTitleBar |
+                                    ImGuiWindowFlags_NoMove))
         {
             return out;
         }

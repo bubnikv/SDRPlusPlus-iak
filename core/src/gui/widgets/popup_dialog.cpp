@@ -12,7 +12,7 @@ bool PopupDialog::begin(const char* id, ImGuiWindowFlags flags) {
         ImGui::OpenPopup(id);
         armRequested = false;
     }
-    if (!ImGui::BeginPopup(id, flags)) {
+    if (!ImGui::BeginPopup(id, flags | ImGuiWindowFlags_NoMove)) {
         // Closed at the ImGui level (Android back gesture, click outside).
         open = false;
         return false;

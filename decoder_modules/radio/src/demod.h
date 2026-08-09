@@ -115,7 +115,7 @@ namespace demod {
         ImVec2 controlMax = ImGui::GetItemRectMax();
         ImGui::SetNextWindowPos(ImVec2(controlMin.x, controlMax.y), ImGuiCond_Appearing);
         ImGui::SetNextWindowSize(ImVec2(controlWidth, 0.0f), ImGuiCond_Appearing);
-        if (ImGui::BeginPopup("presets")) {
+        if (ImGui::BeginPopup("presets", ImGuiWindowFlags_NoMove)) {
             float selectedValue = (float)value;
             drawHzPresetPopup((float)value, (float)minValue, (float)maxValue, presets, &selectedValue);
             if constexpr (std::is_same_v<T, int>) {

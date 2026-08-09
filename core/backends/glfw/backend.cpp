@@ -192,6 +192,7 @@ namespace backend {
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
         io.IniFilename = NULL;
 
         // Setup Platform/Renderer bindings

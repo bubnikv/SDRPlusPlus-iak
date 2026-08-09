@@ -838,7 +838,7 @@ namespace SmGui {
     }
 
     bool BeginPopup(const char *str_id, ImGuiWindowFlags flags) {
-        if (!serverMode) { return ImGui::BeginPopup(str_id, flags); }
+        if (!serverMode) { return ImGui::BeginPopup(str_id, flags | ImGuiWindowFlags_NoMove); }
         if (rdl) {
             rdl->pushStep(DRAW_STEP_BEGIN_POPUP, false);
             rdl->pushString(str_id);

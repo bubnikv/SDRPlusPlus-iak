@@ -38,7 +38,7 @@ public:
 
             std::string id = "Edit Action##scheduler_edit_action";
             ImGui::OpenPopup(id.c_str());
-            if (ImGui::BeginPopup(id.c_str(), ImGuiWindowFlags_NoResize)) {
+            if (ImGui::BeginPopup(id.c_str(), ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
                 bool valid = false;
                 bool open = actions[editedAction]->showEditMenu(valid);
 

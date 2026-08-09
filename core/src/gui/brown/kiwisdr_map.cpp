@@ -76,7 +76,7 @@ void KiwiSDRMapSelector::drawPopup(std::function<void(const std::string&, const 
     const ImVec2 popupSize = lockedFullscreenPopup ? displaySize : displaySize * 0.75f;
     ImGuiWindowFlags popupFlags = 0;
     if (!desktopPopup) {
-        popupFlags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+        popupFlags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
     }
     if (lockedFullscreenPopup) {
         popupFlags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
@@ -397,7 +397,7 @@ void KiwiSDRMapSelector::handleHitTest() {
 }
 
 void KiwiSDRMapSelector::drawClusterPicker() {
-    if (!ImGui::BeginPopup("##kiwi-cluster-pick")) return;
+    if (!ImGui::BeginPopup("##kiwi-cluster-pick", ImGuiWindowFlags_NoMove)) return;
     ImGui::TextUnformatted("Multiple stations here - pick one:");
     // Cap the visible height so a dense cluster (e.g. central Europe) scrolls
     // instead of running off the screen; zooming in still thins the stack.
