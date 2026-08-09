@@ -6,14 +6,15 @@ from primary sources what a band-stack register actually contains (Icom CI-V
 This note reviews what this fork ships today (`12ec9799`, `d9c915fb`) and
 proposes the state machine and data model to replace it.
 
-**Status (updated 2026-07-31).** Part 8 — the extraction step — has been
+**Status (updated 2026-08-09).** Part 8 — the extraction step — has been
 implemented. Current `master` also has an interim subset of P1: plan rows now
 receive stable `band_id` values and collapse to canonical selector keys, while
-each `bandMemory[band_id]` is exactly three rotating optional entries. Populated
-entries form a contiguous prefix and entry 0 is always current: ordinary
-write-back updates it in place, repeat tap rotates only that populated prefix,
-and a register-list pick materializes an empty row before rotating it to the
-top. An empty socket is never pushed. No current pointer is stored. Opening
+each `bandMemory[band_id]` is exactly three rotating optional entries. Entry 0
+is always current: ordinary write-back updates it in place, repeat tap rotates
+all three fixed positions right and initializes an empty new top from the saved
+current state, and a register-list pick materializes an empty row before
+rotating it to the top. Empty positions retain their slot identity. No current
+pointer is stored. Opening
 resolves only inside the restored visible group without writing; lifecycle save
 is additionally locked to the current service. There
 is deliberately no migration for pre-release development data. The
@@ -544,10 +545,11 @@ module ABI — and removes any way for the shadow to go stale against the radio.
 
 ### 2.4 Invariants
 
-- `regs.size() == 3`; populated entries form a contiguous prefix, and `regs[0]`
-  is current whenever the prefix is non-empty. Rotation is restricted to that
-  prefix. A selected empty row is first materialized and then promoted; an
-  empty socket is never pushed through populated entries.
+- `regs.size() == 3`; each index is a fixed physical position and may be empty.
+  `regs[0]` is current whenever populated. A repeat tap rotates all three
+  positions right; if the new top is empty, it is initialized from the state
+  saved immediately before rotation. A selected empty row is first materialized
+  and then promoted by rotating only the prefix through that row.
 - Every populated `regs[i].freq` lies inside the bucket's ranges. Revalidated on load —
   and because bucket ranges are code-defined and stable, revalidation now almost
   never discards anything, unlike today's revalidation against editable plan
@@ -728,8 +730,8 @@ own default mode.
 | Trigger | Action |
 |---|---|
 | Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
-| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate right once, then recall the new top when populated |
-| Long-press band key | Seed an empty top register from the current in-band VFO state, otherwise the band default; then open the register list. Never overwrite, tune, or rotate |
+| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate all three positions right once, initialize an empty new top from the just-saved state, then recall it |
+| Long-press band key | Seed an empty top register from the current in-band VFO state, otherwise the band default; for the visibly active band, keep a live display overlay refreshed while the popup is open without persisting it. Never overwrite a populated register, tune, or rotate |
 | Register *k* picked from the list | If empty, materialize it from the VFO only when the VFO belongs to that band; otherwise do nothing and keep the popup open. Then overwrite the visible source, rotate prefix `[0, k]` right once to promote *k* to index 0, and recall it |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
 | Frequency-input Band page opened or group changed | Resolve visibly inside that group and activate/scroll. Write no register; selector ownership and a fallback service may be persisted |

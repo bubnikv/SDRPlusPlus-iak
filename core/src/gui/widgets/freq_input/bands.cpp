@@ -809,7 +809,8 @@ namespace freq_input {
                         regPopupTitle = b.name;
                         regPopupSnapshot = gui::bandStack.openRegisters(
                             *regPopupMapping,
-                            entry.defaultFrequency);
+                            entry.defaultFrequency,
+                            activeMapping);
                         openRegPopup = true;
                         // Anchor the register list to the key it belongs to.
                         // registerPopupPos() turns the rectangle and the size
@@ -910,6 +911,13 @@ namespace freq_input {
             }
 
             if (regPopupMapping) {
+                // External tuning can change the current register while the
+                // popup is open. Refresh its display-only overlay so a row
+                // always recalls the value the user sees.
+                gui::bandStack.refreshRegisterPopup(
+                    *regPopupMapping,
+                    activeMapping,
+                    regPopupSnapshot);
                 ImGui::TextDisabled("%s", regPopupTitle.c_str());
                 const BandRegisterSet& regs = regPopupSnapshot.registers;
                 const ImVec2 rowSz = registerRowSize(keyW, m);

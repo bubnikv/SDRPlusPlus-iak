@@ -24,8 +24,8 @@ struct BandRegister {
     int mode = -1;
 };
 
-// One band's fixed three-register set. Populated slots are always packed into
-// a contiguous prefix, with slot 0 current; an empty slot is never rotated.
+// One band's fixed three-register set, with slot 0 current. Empty positions are
+// preserved because repeat selection rotates all three physical registers.
 class BandRegisterSet {
 public:
     static constexpr std::size_t SIZE = 3;
@@ -38,14 +38,11 @@ public:
     }
     const Slot& top() const { return slots[0]; }
 
-    // Loader/building primitive: append after the populated prefix.
-    bool append(const BandRegister& reg) {
-        for (Slot& slot : slots) {
-            if (slot) { continue; }
-            slot = reg;
-            return true;
-        }
-        return false;
+    // Loader/building primitive which preserves the physical slot number.
+    bool setSlot(std::size_t index, const BandRegister& reg) {
+        if (index >= SIZE) { return false; }
+        slots[index] = reg;
+        return true;
     }
     bool seedTop(const BandRegister& reg) {
         if (slots[0]) { return false; }
@@ -53,14 +50,12 @@ public:
         return true;
     }
     void storeTop(const BandRegister& reg) { slots[0] = reg; }
-    void cyclePopulated() {
-        auto end = std::find_if(
-            slots.begin(),
-            slots.end(),
-            [](const Slot& slot) { return !slot; });
-        if (end != slots.begin()) {
-            std::rotate(slots.begin(), end - 1, end);
-        }
+    // Save the state being left, then rotate third -> top -> second -> third.
+    // If the newly selected top was empty, initialize it from that saved state.
+    void repeatWithCurrent(const BandRegister& current) {
+        slots[0] = current;
+        std::rotate(slots.begin(), slots.end() - 1, slots.end());
+        if (!slots[0]) { slots[0] = current; }
     }
     // Select a populated slot, or first materialize the selected empty slot.
     // Returns the selected register now at slot 0, or nullopt on no target.
@@ -89,13 +84,34 @@ enum class BandRecallResult {
     Recalled
 };
 
-// Immutable data captured when a register popup opens. Empty rows are enabled
-// only when the captured VFO state belongs to the popup's band; recall still
-// validates the live state in case an external tuner changes it meanwhile.
+// A register popup's stored baseline and current display. The baseline is
+// captured when the popup opens and is never changed by display refreshes. The
+// live overlay and empty-row capability are refreshed while the popup is open;
+// recall validates the live state once more before committing anything.
 struct BandRegisterPopupSnapshot {
+    BandRegisterSet storedRegisters;
     BandRegisterSet registers;
     bool canMaterializeEmpty = false;
 };
+
+// Pure popup transitions used by BandStack and its contract tests. A live top
+// is only a display overlay for the visibly active band. The stored baseline
+// changes only when its top was empty and could be seeded during preparation.
+struct BandRegisterPopupPreparation {
+    BandRegisterPopupSnapshot snapshot;
+    bool topSeeded = false;
+};
+
+BandRegisterPopupPreparation prepareBandRegisterPopup(
+    const BandRegisterSet& storedRegisters,
+    std::optional<BandRegister> current,
+    std::optional<BandRegister> fallback,
+    bool targetIsActive);
+
+void refreshBandRegisterPopup(
+    BandRegisterPopupSnapshot& snapshot,
+    std::optional<BandRegister> current,
+    bool targetIsActive);
 
 // The band stacking data layer: what is remembered per band, and what happens
 // when the user asks for one.
@@ -115,12 +131,20 @@ struct BandRegisterPopupSnapshot {
 // doc/design/band-stack.md.
 class BandStack {
 public:
-    // A register-popup open. Return a snapshot, seeding an empty top entry from
-    // the current VFO when it belongs to this stable band, otherwise from the
-    // supplied band default. Never tunes, rotates, or changes the active band.
+    // A register-popup open. For the visibly active band, overlay the current
+    // VFO on the returned snapshot without overwriting a populated stored top.
+    // Seed an empty top from an in-band VFO, otherwise from the supplied band
+    // default. Never tunes, rotates, or changes the active band.
     BandRegisterPopupSnapshot openRegisters(
         const freq_input::BandMapping& mapping,
-        double defaultFrequency);
+        double defaultFrequency,
+        const freq_input::BandMapping* activeMapping);
+
+    // Refresh only the popup's live view. Never persists, tunes, or rotates.
+    void refreshRegisterPopup(
+        const freq_input::BandMapping& mapping,
+        const freq_input::BandMapping* activeMapping,
+        BandRegisterPopupSnapshot& snapshot);
 
     // Pure visible-page resolution. The preferred service wins when it contains
     // the frequency; otherwise the first match in another visible service wins.
@@ -131,8 +155,8 @@ public:
 
     // A band-key tap. `activeMapping` is the visible source selected by
     // resolveBandForServices(), not a globally inferred write-back target.
-    // Repeating that band stores entry 0, rotates the populated entries, and
-    // recalls the new 0. Empty trailing slots never participate in rotation.
+    // Repeating that band stores entry 0, rotates all three entries right,
+    // initializes an empty new 0 from the saved current state, and recalls it.
     void selectBand(
         const freq_input::BandMapping& mapping,
         double defaultFrequency,
@@ -166,11 +190,15 @@ private:
         const bandplan::Band_t& segment,
         double frequency,
         int mode);
-    static std::optional<BandRegister> makeRegister(
+    static std::optional<BandRegister> captureRegister(
         const bandplan::BandPlan_t* plan,
         const freq_input::BandMapping& mapping,
         double frequency,
         int mode);
+    static std::optional<BandRegister> defaultRegister(
+        const bandplan::BandPlan_t* plan,
+        const freq_input::BandMapping& mapping,
+        double frequency);
     void applyTarget(
         const freq_input::BandMapping& mapping,
         const BandRegister& target);

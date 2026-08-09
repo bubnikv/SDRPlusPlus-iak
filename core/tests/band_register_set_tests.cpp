@@ -3,87 +3,252 @@
 
 namespace {
 
-    BandRegister reg(double frequency) {
-        return { frequency, RADIO_IFACE_MODE_USB };
+    BandRegister reg(double frequency, int mode) {
+        return { frequency, mode };
     }
 
     void expect(bool condition, const char* message) {
         if (!condition) { throw std::runtime_error(message); }
     }
 
-    void expectFrequency(
+    void expectRegister(
         const BandRegisterSet& registers,
         std::size_t index,
-        double frequency)
+        double frequency,
+        int mode)
     {
         expect(registers[index].has_value(), "expected populated register");
         expect(registers[index]->freq == frequency, "unexpected frequency");
+        expect(registers[index]->mode == mode, "unexpected mode");
     }
 
-    void testAppendAndCapacity() {
+    void expectEmpty(const BandRegisterSet& registers, std::size_t index) {
+        expect(!registers[index], "expected empty register");
+    }
+
+    BandRegisterSet fullStack() {
         BandRegisterSet registers;
-        expect(registers.append(reg(1.0)), "first append failed");
-        expect(registers.append(reg(2.0)), "second append failed");
-        expect(registers.append(reg(3.0)), "third append failed");
-        expect(!registers.append(reg(4.0)), "append exceeded fixed capacity");
-        expectFrequency(registers, 0, 1.0);
-        expectFrequency(registers, 1, 2.0);
-        expectFrequency(registers, 2, 3.0);
+        registers.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        registers.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
+        registers.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        return registers;
     }
 
-    void testCycleUsesOnlyPopulatedPrefix() {
-        BandRegisterSet one;
-        one.append(reg(1.0));
-        one.cyclePopulated();
-        expectFrequency(one, 0, 1.0);
-        expect(!one[1], "single-entry cycle pushed an empty slot");
-
-        BandRegisterSet two;
-        two.append(reg(1.0));
-        two.append(reg(2.0));
-        two.cyclePopulated();
-        expectFrequency(two, 0, 2.0);
-        expectFrequency(two, 1, 1.0);
-        expect(!two[2], "two-entry cycle pushed an empty slot");
-
-        BandRegisterSet three;
-        three.append(reg(1.0));
-        three.append(reg(2.0));
-        three.append(reg(3.0));
-        three.cyclePopulated();
-        expectFrequency(three, 0, 3.0);
-        expectFrequency(three, 1, 1.0);
-        expectFrequency(three, 2, 2.0);
+    void testFixedSlotLoading() {
+        BandRegisterSet registers;
+        expect(registers.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM)),
+               "first slot failed");
+        expect(registers.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW)),
+               "third slot failed");
+        expect(!registers.setSlot(3, reg(4.0, RADIO_IFACE_MODE_USB)),
+               "write exceeded fixed capacity");
+        expectRegister(registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
+        expectEmpty(registers, 1);
+        expectRegister(registers, 2, 3.0, RADIO_IFACE_MODE_CW);
     }
 
-    void testSelectAndMaterialize() {
-        BandRegisterSet populated;
-        populated.append(reg(1.0));
-        populated.append(reg(2.0));
-        populated.append(reg(3.0));
-        expect(populated.select(1).has_value(), "populated selection failed");
-        expectFrequency(populated, 0, 2.0);
-        expectFrequency(populated, 1, 1.0);
-        expectFrequency(populated, 2, 3.0);
+    void testRepeatRotationContract() {
+        const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
+
+        BandRegisterSet full = fullStack();
+        full.repeatWithCurrent(current);
+        expectRegister(full, 0, 3.0, RADIO_IFACE_MODE_CW);
+        expectRegister(full, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(full, 2, 2.0, RADIO_IFACE_MODE_AM);
+
+        BandRegisterSet emptyThird;
+        emptyThird.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        emptyThird.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
+        emptyThird.repeatWithCurrent(current);
+        expectRegister(emptyThird, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(emptyThird, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(emptyThird, 2, 2.0, RADIO_IFACE_MODE_AM);
+
+        BandRegisterSet emptyMiddle;
+        emptyMiddle.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        emptyMiddle.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        emptyMiddle.repeatWithCurrent(current);
+        expectRegister(emptyMiddle, 0, 3.0, RADIO_IFACE_MODE_CW);
+        expectRegister(emptyMiddle, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(emptyMiddle, 2);
+
+        BandRegisterSet onlyTop;
+        onlyTop.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        onlyTop.repeatWithCurrent(current);
+        expectRegister(onlyTop, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(onlyTop, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(onlyTop, 2);
+
+        BandRegisterSet noTop;
+        noTop.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        noTop.repeatWithCurrent(current);
+        expectRegister(noTop, 0, 3.0, RADIO_IFACE_MODE_CW);
+        expectRegister(noTop, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(noTop, 2);
+    }
+
+    void testRegisterSelectionContract() {
+        const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
+
+        BandRegisterSet second = fullStack();
+        second.storeTop(current);
+        expect(second.select(1).has_value(), "second-register selection failed");
+        expectRegister(second, 0, 2.0, RADIO_IFACE_MODE_AM);
+        expectRegister(second, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(second, 2, 3.0, RADIO_IFACE_MODE_CW);
+
+        BandRegisterSet third = fullStack();
+        third.storeTop(current);
+        expect(third.select(2).has_value(), "third-register selection failed");
+        expectRegister(third, 0, 3.0, RADIO_IFACE_MODE_CW);
+        expectRegister(third, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(third, 2, 2.0, RADIO_IFACE_MODE_AM);
 
         BandRegisterSet sparse;
-        sparse.append(reg(1.0));
+        sparse.storeTop(current);
+        sparse.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
         expect(!sparse.select(2), "empty selection unexpectedly succeeded");
-        expectFrequency(sparse, 0, 1.0);
-        expect(!sparse[1] && !sparse[2], "failed selection mutated the set");
+        expectRegister(sparse, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(sparse, 1, 2.0, RADIO_IFACE_MODE_AM);
+        expectEmpty(sparse, 2);
 
-        expect(sparse.select(2, reg(3.0)).has_value(),
+        const BandRegister materialized = reg(20.0, RADIO_IFACE_MODE_LSB);
+        expect(sparse.select(2, materialized).has_value(),
                "empty selection was not materialized");
-        expectFrequency(sparse, 0, 3.0);
-        expectFrequency(sparse, 1, 1.0);
-        expect(!sparse[2], "materialization left a gap in the prefix");
+        expectRegister(sparse, 0, 20.0, RADIO_IFACE_MODE_LSB);
+        expectRegister(sparse, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(sparse, 2, 2.0, RADIO_IFACE_MODE_AM);
+
+        BandRegisterSet middleHole;
+        middleHole.storeTop(current);
+        middleHole.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        expect(middleHole.select(2).has_value(), "sparse third selection failed");
+        expectRegister(middleHole, 0, 3.0, RADIO_IFACE_MODE_CW);
+        expectRegister(middleHole, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(middleHole, 2);
+    }
+
+    void testPopupOpenContract() {
+        const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
+        const BandRegister fallback = reg(20.0, RADIO_IFACE_MODE_AM);
+        const BandRegisterSet stored = fullStack();
+
+        const BandRegisterPopupPreparation active = prepareBandRegisterPopup(
+            stored,
+            current,
+            fallback,
+            true);
+        expect(!active.topSeeded, "active popup overwrote a populated top");
+        expectRegister(
+            active.snapshot.storedRegisters,
+            0,
+            1.0,
+            RADIO_IFACE_MODE_NFM);
+        expectRegister(active.snapshot.registers, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expect(active.snapshot.canMaterializeEmpty,
+               "in-band active popup disabled empty rows");
+
+        const BandRegisterPopupPreparation inactiveOverlap =
+            prepareBandRegisterPopup(stored, current, fallback, false);
+        expect(!inactiveOverlap.topSeeded,
+               "inactive overlapping popup overwrote a populated top");
+        expectRegister(
+            inactiveOverlap.snapshot.storedRegisters,
+            0,
+            1.0,
+            RADIO_IFACE_MODE_NFM);
+        expectRegister(
+            inactiveOverlap.snapshot.registers,
+            0,
+            1.0,
+            RADIO_IFACE_MODE_NFM);
+        expect(inactiveOverlap.snapshot.canMaterializeEmpty,
+               "in-band overlapping popup disabled empty rows");
+
+        BandRegisterSet emptyTop;
+        emptyTop.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
+        const BandRegisterPopupPreparation seededCurrent =
+            prepareBandRegisterPopup(emptyTop, current, fallback, false);
+        expect(seededCurrent.topSeeded, "empty top did not capture in-band VFO");
+        expectRegister(
+            seededCurrent.snapshot.storedRegisters,
+            0,
+            10.0,
+            RADIO_IFACE_MODE_USB);
+
+        const BandRegisterPopupPreparation seededFallback =
+            prepareBandRegisterPopup(emptyTop, std::nullopt, fallback, false);
+        expect(seededFallback.topSeeded, "empty top did not use fallback");
+        expectRegister(
+            seededFallback.snapshot.storedRegisters,
+            0,
+            20.0,
+            RADIO_IFACE_MODE_AM);
+        expect(!seededFallback.snapshot.canMaterializeEmpty,
+               "out-of-band popup enabled empty rows");
+
+        const BandRegisterPopupPreparation unseeded = prepareBandRegisterPopup(
+            emptyTop,
+            std::nullopt,
+            std::nullopt,
+            false);
+        expect(!unseeded.topSeeded, "popup seeded without a valid source");
+        expectEmpty(unseeded.snapshot.storedRegisters, 0);
+
+        BandRegisterPopupSnapshot refreshed = active.snapshot;
+        refreshBandRegisterPopup(
+            refreshed,
+            reg(11.0, RADIO_IFACE_MODE_LSB),
+            true);
+        expectRegister(refreshed.registers, 0, 11.0, RADIO_IFACE_MODE_LSB);
+        expectRegister(
+            refreshed.storedRegisters,
+            0,
+            1.0,
+            RADIO_IFACE_MODE_NFM);
+
+        refreshBandRegisterPopup(
+            refreshed,
+            reg(12.0, RADIO_IFACE_MODE_CW),
+            false);
+        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
+        expect(refreshed.canMaterializeEmpty,
+               "in-band inactive refresh disabled empty rows");
+
+        refreshBandRegisterPopup(refreshed, std::nullopt, false);
+        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
+        expectRegister(refreshed.registers, 1, 2.0, RADIO_IFACE_MODE_AM);
+        expectRegister(refreshed.registers, 2, 3.0, RADIO_IFACE_MODE_CW);
+        expect(!refreshed.canMaterializeEmpty,
+               "out-of-band refresh enabled empty rows");
+        expectRegister(
+            refreshed.storedRegisters,
+            0,
+            1.0,
+            RADIO_IFACE_MODE_NFM);
+        expectRegister(
+            refreshed.storedRegisters,
+            1,
+            2.0,
+            RADIO_IFACE_MODE_AM);
+        expectRegister(
+            refreshed.storedRegisters,
+            2,
+            3.0,
+            RADIO_IFACE_MODE_CW);
+
+        refreshBandRegisterPopup(refreshed, std::nullopt, true);
+        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
+        expect(!refreshed.canMaterializeEmpty,
+               "active out-of-band refresh enabled empty rows");
     }
 
 }
 
 int main() {
-    testAppendAndCapacity();
-    testCycleUsesOnlyPopulatedPrefix();
-    testSelectAndMaterialize();
+    testFixedSlotLoading();
+    testRepeatRotationContract();
+    testRegisterSelectionContract();
+    testPopupOpenContract();
     return 0;
 }

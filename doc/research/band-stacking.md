@@ -215,10 +215,13 @@ Implemented in `core/src/gui/widgets/band_stack.cpp`:
 `bandMemory[<stable band_id>]` is
 an array of exactly three optional `{freq, mode}` entries, revalidated against
 the stable band's segment union on read. Entry 0 is always current. Leaving a
-band overwrites entry 0 without reordering; tapping the active band stores it
-and rotates left; choosing a long-press row rotates that entry to the top while
+band overwrites entry 0 without reordering; tapping the active band stores it,
+rotates all three physical positions right, and fills an empty new top from the
+just-saved state. Choosing a long-press row rotates that entry to the top while
 preserving cyclic order. Opening resolves only inside the restored visible
-group and writes no register. Desktop shutdown and Android lifecycle hooks may
+group and writes no populated register; a register popup may initialize an
+empty top, and keeps a non-persisted live overlay refreshed for the active
+band's display. Desktop shutdown and Android lifecycle hooks may
 follow manual tuning to another band only within the current service, then
 overwrite its top entry without rotating. The full service-owned catalog
 remains separate work. Continuous shadow/dwell tracking is not part of the

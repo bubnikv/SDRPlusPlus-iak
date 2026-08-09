@@ -23,8 +23,8 @@ static bool isRadioVFO(const std::string& vfoName) {
 }
 
 // One stable band_id's three rotating optional slots. Invalid persisted entries
-// are discarded and the survivors are packed into the model's populated prefix;
-// there is no public-release migration path.
+// become empty without changing the positions of the other registers; there is
+// no public-release migration path.
 static BandRegisterSet readRegisters(
     const ConfigManager::ReadSection& mem,
     const bandplan::BandPlan_t* plan,
@@ -51,7 +51,7 @@ static BandRegisterSet readRegisters(
         if (modeIt != o.end() && modeIt->is_string()) {
             m = radioModeFromName(modeIt->get_ref<const std::string&>().c_str());
         }
-        regs.append({ f, m });
+        regs.setSlot(i, { f, m });
     }
     return regs;
 }
@@ -140,29 +140,82 @@ static bool storeVisibleBand(
         updateTopRegister(mem, plan, *activeMapping, frequency, mode);
 }
 
+BandRegisterPopupPreparation prepareBandRegisterPopup(
+    const BandRegisterSet& storedRegisters,
+    std::optional<BandRegister> current,
+    std::optional<BandRegister> fallback,
+    bool targetIsActive)
+{
+    BandRegisterSet stored = storedRegisters;
+    bool topSeeded = false;
+    if (!stored.top()) {
+        const std::optional<BandRegister>& initial = current ? current : fallback;
+        if (initial) { topSeeded = stored.seedTop(*initial); }
+    }
+
+    BandRegisterPopupSnapshot snapshot;
+    snapshot.storedRegisters = std::move(stored);
+    refreshBandRegisterPopup(snapshot, current, targetIsActive);
+    return { std::move(snapshot), topSeeded };
+}
+
+void refreshBandRegisterPopup(
+    BandRegisterPopupSnapshot& snapshot,
+    std::optional<BandRegister> current,
+    bool targetIsActive)
+{
+    snapshot.registers = snapshot.storedRegisters;
+    if (targetIsActive && current) {
+        // The current operating state belongs in row 0 of the active band's
+        // view, but opening and cancelling the popup must not commit it.
+        snapshot.registers.storeTop(*current);
+    }
+    snapshot.canMaterializeEmpty = current.has_value();
+}
+
 BandRegisterPopupSnapshot BandStack::openRegisters(
     const freq_input::BandMapping& mapping,
-    double defaultFrequency)
+    double defaultFrequency,
+    const freq_input::BandMapping* activeMapping)
 {
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
     if (!plan) { return {}; }
 
     const double currentFrequency = (double)gui::freqSelect.frequency;
     const std::optional<BandRegister> current =
-        makeRegister(plan, mapping, currentFrequency, currentMode());
-    std::optional<BandRegister> initial = current;
-    if (!initial) {
-        initial = makeRegister(plan, mapping, defaultFrequency, -1);
-    }
-
+        captureRegister(plan, mapping, currentFrequency, currentMode());
+    const std::optional<BandRegister> fallback =
+        defaultRegister(plan, mapping, defaultFrequency);
     auto configAccess = core::configManager.edit();
     ConfigManager::EditSection mem =
         freq_memory::stackingRegisters(configAccess);
-    BandRegisterSet registers = readRegisters(mem, plan, mapping);
-    if (initial && registers.seedTop(*initial)) {
-        writeRegisters(mem, mapping, registers);
+    BandRegisterPopupPreparation prepared = prepareBandRegisterPopup(
+        readRegisters(mem, plan, mapping),
+        current,
+        fallback,
+        activeMapping == &mapping);
+    if (prepared.topSeeded) {
+        writeRegisters(mem, mapping, prepared.snapshot.storedRegisters);
     }
-    return { registers, current.has_value() };
+    return std::move(prepared.snapshot);
+}
+
+void BandStack::refreshRegisterPopup(
+    const freq_input::BandMapping& mapping,
+    const freq_input::BandMapping* activeMapping,
+    BandRegisterPopupSnapshot& snapshot)
+{
+    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
+    const double currentFrequency = (double)gui::freqSelect.frequency;
+    const std::optional<BandRegister> current = captureRegister(
+        plan,
+        mapping,
+        currentFrequency,
+        currentMode());
+    refreshBandRegisterPopup(
+        snapshot,
+        current,
+        activeMapping == &mapping);
 }
 
 const freq_input::BandMapping* BandStack::resolveBandForServices(
@@ -229,7 +282,7 @@ int BandStack::resolvedMode(
     return mode;
 }
 
-std::optional<BandRegister> BandStack::makeRegister(
+std::optional<BandRegister> BandStack::captureRegister(
     const bandplan::BandPlan_t* plan,
     const freq_input::BandMapping& mapping,
     double frequency,
@@ -239,10 +292,20 @@ std::optional<BandRegister> BandStack::makeRegister(
     const bandplan::Band_t* segment =
         plan->findMappedSegmentAtFrequency(mapping, frequency);
     if (!segment) { return std::nullopt; }
-    return BandRegister{
-        frequency,
-        resolvedMode(*segment, frequency, mode)
-    };
+    if (!radioModeValid(mode)) { mode = -1; }
+    return BandRegister{ frequency, mode };
+}
+
+std::optional<BandRegister> BandStack::defaultRegister(
+    const bandplan::BandPlan_t* plan,
+    const freq_input::BandMapping& mapping,
+    double frequency)
+{
+    if (frequency <= 0.0 || !plan) { return std::nullopt; }
+    const bandplan::Band_t* segment =
+        plan->findMappedSegmentAtFrequency(mapping, frequency);
+    if (!segment) { return std::nullopt; }
+    return BandRegister{ frequency, resolvedMode(*segment, frequency, -1) };
 }
 
 void BandStack::selectLegacySegment(
@@ -313,13 +376,18 @@ void BandStack::selectBand(
 
         BandRegisterSet registers = readRegisters(mem, plan, mapping);
         if (repeatTap) {
-            registers.cyclePopulated();
+            // Keep save + rotation in one tested transition. storeVisibleBand()
+            // already persisted this same normalized state before the reload.
+            registers.repeatWithCurrent({
+                currentFrequency,
+                radioModeValid(curMode) ? curMode : -1
+            });
             writeRegisters(mem, mapping, registers);
         }
 
         target = registers.top();
         if (!target && !repeatTap) {
-            target = makeRegister(plan, mapping, defaultFrequency, -1);
+            target = defaultRegister(plan, mapping, defaultFrequency);
             if (target) {
                 registers.seedTop(*target);
                 writeRegisters(mem, mapping, registers);
@@ -355,7 +423,7 @@ BandRecallResult BandStack::recallRegister(
         if (!registers[(std::size_t)index]) {
             // EditSection paths are lazy. Returning here performs no config
             // mutation because no writer has been called yet.
-            materialization = makeRegister(
+            materialization = captureRegister(
                 plan,
                 mapping,
                 currentFrequency,

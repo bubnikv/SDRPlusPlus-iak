@@ -111,8 +111,9 @@ on Android; pass content URIs as fds (same pattern as the USB fd path).
   stacking entry (frequency + mode) or its band-plan default, and a 0.5 s
   hold on a band key opens its three-entry register list. The stack itself
   rotates, so entry 0 is always current: leaving updates the top in place,
-  tapping the active band rotates left, and choosing a row rotates it to the
-  top. Page/category persisted. Remaining as a final optional polish step:
+  tapping the active band rotates all three positions right (filling an empty
+  new top from the just-saved state), and choosing a row rotates it to the top.
+  Page/category persisted. Remaining as a final optional polish step:
   keep the selector open after a selection. A generic long-press →
   context-menu mechanism also remains; the
   drag-scroll recognizer's 200 ms hold state
