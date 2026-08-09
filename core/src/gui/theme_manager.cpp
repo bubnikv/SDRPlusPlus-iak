@@ -2,10 +2,12 @@
 #include <gui/theme_manager.h>
 #include <imgui_internal.h>
 #include <utils/flog.h>
+#include <utils/hex_color.h>
 #include <filesystem>
 #include <fstream>
+#include <utility>
 
-bool ThemeManager::loadThemesFromDir(std::string path) {
+bool ThemeManager::loadThemesFromDir(const std::string& path) {
     // // TEST JUST TO DUMP THE ORIGINAL THEME
     // auto& style = ImGui::GetStyle();
     // ImVec4* colors = style.Colors;
@@ -28,16 +30,16 @@ bool ThemeManager::loadThemesFromDir(std::string path) {
     }
     themes.clear();
     for (const auto& file : std::filesystem::directory_iterator(path)) {
-        std::string _path = file.path().generic_string();
+        const std::string themePath = file.path().generic_string();
         if (file.path().extension().generic_string() != ".json") {
             continue;
         }
-        loadTheme(_path);
+        loadTheme(themePath);
     }
     return true;
 }
 
-bool ThemeManager::loadTheme(std::string path) {
+bool ThemeManager::loadTheme(const std::string& path) {
     if (!std::filesystem::is_regular_file(path)) {
         flog::error("Theme file doesn't exist: {0}", path);
         return false;
@@ -47,11 +49,19 @@ bool ThemeManager::loadTheme(std::string path) {
     Theme thm;
     thm.author = "--";
 
-    // Load JSON
-    std::ifstream file(path.c_str());
     json data;
-    file >> data;
-    file.close();
+    try {
+        std::ifstream file(path.c_str());
+        file >> data;
+    }
+    catch (const std::exception& e) {
+        flog::error("Could not parse theme {0}: {1}", path, e.what());
+        return false;
+    }
+    if (!data.is_object()) {
+        flog::error("Theme {0} isn't a JSON object", path);
+        return false;
+    }
 
     // Load theme name
     if (!data.contains("name")) {
@@ -78,14 +88,18 @@ bool ThemeManager::loadTheme(std::string path) {
         thm.author = data["author"];
     }
 
-    // Iterate through all parameters and check their contents
-    std::map<std::string, std::string> params = data;
-    for (auto const& [param, val] : params) {
+    for (const auto& item : data.items()) {
+        if (!item.value().is_string()) {
+            flog::error("Theme {0} contains invalid {1} field. Expected string", path, item.key());
+            return false;
+        }
+        const std::string& param = item.key();
+        const std::string& val = item.value().get_ref<const std::string&>();
         if (param == "name" || param == "author") { continue; }
 
         // Exception for non-imgu colors
         if (param == "WaterfallBackground" || param == "ClearColor" || param == "FFTHoldColor") {
-            if (val[0] != '#' || !std::all_of(val.begin() + 1, val.end(), ::isxdigit) || val.length() != 9) {
+            if (!color_utils::parseHex<4>(val)) {
                 flog::error("Theme {0} contains invalid {1} field. Expected hex RGBA color", path, param);
                 return false;
             }
@@ -96,7 +110,7 @@ bool ThemeManager::loadTheme(std::string path) {
 
         // If param is a color, check that it's a valid RGBA hex value
         if (IMGUI_COL_IDS.find(param) != IMGUI_COL_IDS.end()) {
-            if (val[0] != '#' || !std::all_of(val.begin() + 1, val.end(), ::isxdigit) || val.length() != 9) {
+            if (!color_utils::parseHex<4>(val)) {
                 flog::error("Theme {0} contains invalid {1} field. Expected hex RGBA color", path, param);
                 return false;
             }
@@ -109,14 +123,15 @@ bool ThemeManager::loadTheme(std::string path) {
         }
     }
 
-    thm.data = data;
-    themes[name] = thm;
+    thm.data = std::move(data);
+    themes.emplace(std::move(name), std::move(thm));
 
     return true;
 }
 
-bool ThemeManager::applyTheme(std::string name) {
-    if (themes.find(name) == themes.end()) {
+bool ThemeManager::applyTheme(const std::string& name) {
+    const auto selected = themes.find(name);
+    if (selected == themes.end()) {
         flog::error("Unknown theme: {0}", name);
         return false;
     }
@@ -138,56 +153,58 @@ bool ThemeManager::applyTheme(std::string name) {
     style.ScrollbarRounding = 9.0f;
 
     ImVec4* colors = style.Colors;
-    Theme thm = themes[name];
+    const Theme& thm = selected->second;
 
     uint8_t ret[4];
-    std::map<std::string, std::string> params = thm.data;
-    for (auto const& [param, val] : params) {
+    for (const auto& item : thm.data.items()) {
+        const std::string& param = item.key();
+        const std::string& val = item.value().get_ref<const std::string&>();
         if (param == "name" || param == "author") { continue; }
+        if (!decodeRGBA(val, ret)) {
+            flog::error("Theme {0} contains invalid {1} color", name, param);
+            return false;
+        }
 
         if (param == "WaterfallBackground") {
-            decodeRGBA(val, ret);
             waterfallBg = ImVec4((float)ret[0] / 255.0f, (float)ret[1] / 255.0f, (float)ret[2] / 255.0f, (float)ret[3] / 255.0f);
             continue;
         }
 
         if (param == "ClearColor") {
-            decodeRGBA(val, ret);
             clearColor = ImVec4((float)ret[0] / 255.0f, (float)ret[1] / 255.0f, (float)ret[2] / 255.0f, (float)ret[3] / 255.0f);
             continue;
         }
 
         if (param == "FFTHoldColor") {
-            decodeRGBA(val, ret);
             fftHoldColor = ImVec4((float)ret[0] / 255.0f, (float)ret[1] / 255.0f, (float)ret[2] / 255.0f, (float)ret[3] / 255.0f);
             continue;
         }
 
-        // If param is a color, check that it's a valid RGBA hex value
-        if (IMGUI_COL_IDS.find(param) != IMGUI_COL_IDS.end()) {
-            decodeRGBA(val, ret);
-            colors[IMGUI_COL_IDS[param]] = ImVec4((float)ret[0] / 255.0f, (float)ret[1] / 255.0f, (float)ret[2] / 255.0f, (float)ret[3] / 255.0f);
+        if (const auto color = IMGUI_COL_IDS.find(param); color != IMGUI_COL_IDS.end()) {
+            colors[color->second] = ImVec4((float)ret[0] / 255.0f, (float)ret[1] / 255.0f, (float)ret[2] / 255.0f, (float)ret[3] / 255.0f);
             continue;
         }
-    }
 
-    return true;
-}
-
-bool ThemeManager::decodeRGBA(std::string str, uint8_t out[4]) {
-    if (str[0] != '#' || !std::all_of(str.begin() + 1, str.end(), ::isxdigit) || str.length() != 9) {
+        flog::error("Theme {0} contains unknown {1} field", name, param);
         return false;
     }
-    out[0] = std::stoi(str.substr(1, 2), NULL, 16);
-    out[1] = std::stoi(str.substr(3, 2), NULL, 16);
-    out[2] = std::stoi(str.substr(5, 2), NULL, 16);
-    out[3] = std::stoi(str.substr(7, 2), NULL, 16);
+
     return true;
 }
 
-std::vector<std::string> ThemeManager::getThemeNames() {
+bool ThemeManager::decodeRGBA(std::string_view str, uint8_t out[4]) {
+    const auto color = color_utils::parseHex<4>(str);
+    if (!color) { return false; }
+    for (std::size_t i = 0; i < color->size(); i++) {
+        out[i] = (*color)[i];
+    }
+    return true;
+}
+
+std::vector<std::string> ThemeManager::getThemeNames() const {
     std::vector<std::string> names;
-    for (auto [name, theme] : themes) { names.push_back(name); }
+    names.reserve(themes.size());
+    for (const auto& theme : themes) { names.push_back(theme.first); }
     return names;
 }
 

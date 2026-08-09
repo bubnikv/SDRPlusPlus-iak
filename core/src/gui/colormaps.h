@@ -8,11 +8,14 @@ namespace colormaps {
     struct Map {
         std::string name;
         std::string author;
-        float* map;
-        int entryCount;
+        std::vector<float> colors;
+
+        int entryCount() const noexcept {
+            return static_cast<int>(colors.size() / 3);
+        }
     };
 
-    void loadMap(std::string path);
+    void loadMap(const std::string& path);
 
     SDRPP_EXPORT std::map<std::string, Map> maps;
 }

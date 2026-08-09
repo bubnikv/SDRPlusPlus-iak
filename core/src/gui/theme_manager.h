@@ -2,6 +2,8 @@
 #include <map>
 #include <mutex>
 #include <imgui.h>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <json.hpp>
 
@@ -14,18 +16,18 @@ struct Theme {
 
 class ThemeManager {
 public:
-    bool loadThemesFromDir(std::string path);
-    bool loadTheme(std::string path);
-    bool applyTheme(std::string name);
+    bool loadThemesFromDir(const std::string& path);
+    bool loadTheme(const std::string& path);
+    bool applyTheme(const std::string& name);
 
-    std::vector<std::string> getThemeNames();
+    std::vector<std::string> getThemeNames() const;
 
     ImVec4 waterfallBg = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
     ImVec4 fftHoldColor = ImVec4(0.0f, 1.0f, 0.75f, 1.0f);
     ImVec4 clearColor = ImVec4(0.0666f, 0.0666f, 0.0666f, 1.0f);
 
 private:
-    static bool decodeRGBA(std::string str, uint8_t out[4]);
+    static bool decodeRGBA(std::string_view str, uint8_t out[4]);
 
     static std::map<std::string, int> IMGUI_COL_IDS;
 

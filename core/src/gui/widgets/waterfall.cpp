@@ -1179,7 +1179,13 @@ namespace ImGui {
         updateWaterfallFb();
     }
 
-    void WaterFall::updatePalletteFromArray(float* colors, int colorCount) {
+    void WaterFall::updatePalletteFromArray(const float* colors, int colorCount) {
+        // A color map that failed to load is empty; keep the current palette
+        // instead of indexing a null array (and clamping to an empty range).
+        if (!colors || colorCount <= 0) {
+            flog::error("Ignoring an empty waterfall color map");
+            return;
+        }
         std::lock_guard<std::recursive_mutex> lck(buf_mtx);
         for (int i = 0; i < WATERFALL_RESOLUTION; i++) {
             int lowerId = floorf(((float)i / (float)WATERFALL_RESOLUTION) * colorCount);

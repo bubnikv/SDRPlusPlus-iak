@@ -73,15 +73,19 @@ namespace bandplan {
     void from_json(const json& j, BandPlan_t& b);
 
     struct BandPlanColor_t {
-        uint32_t colorValue;
-        uint32_t transColorValue;
+        // Defaults match the waterfall's fallback for an untyped band, so a
+        // default-constructed entry is never an indeterminate color.
+        uint32_t colorValue = IM_COL32(255, 255, 255, 255);
+        uint32_t transColorValue = IM_COL32(255, 255, 255, 100);
     };
 
     void from_json(const json& j, BandPlanColor_t& ct);
 
-    void loadBandPlan(std::string path);
-    void loadFromDir(std::string path);
-    void loadColorTable(json table);
+    void loadBandPlan(const std::string& path);
+    void loadFromDir(const std::string& path);
+    // Replaces the color table. Malformed entries are reported and skipped;
+    // the call does not propagate parse errors out of the user's config.
+    void loadColorTable(const json& table);
 
     extern std::map<std::string, BandPlan_t> bandplans;
     extern std::vector<std::string> bandplanNames;

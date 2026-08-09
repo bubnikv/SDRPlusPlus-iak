@@ -6,8 +6,7 @@
 #include <core.h>
 #include <map>
 #include <vector>
-#include <algorithm>
-#include <cctype>
+#include <utils/hex_color.h>
 
 namespace vfo_color_menu {
     std::map<std::string, ImVec4> vfoColors;
@@ -70,9 +69,9 @@ namespace vfo_color_menu {
             }
 
             // If not a valid hex color, repair with default
-            std::string col = val;
-            if (col.size() != 7 || col[0] != '#' ||
-                    !std::all_of(col.begin() + 1, col.end(), [](unsigned char c) { return std::isxdigit(c) != 0; })) {
+            const std::string col = val;
+            const auto color = color_utils::parseHex<3>(col);
+            if (!color) {
                 repairs.emplace_back(name, val);
                 vfoColors[name] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                 if (sigpath::vfoManager.vfoExists(name)) {
@@ -82,13 +81,13 @@ namespace vfo_color_menu {
             }
 
             // Since the color is valid, decode it and set the vfo's color
-            float r, g, b;
-            r = std::stoi(col.substr(1, 2), NULL, 16);
-            g = std::stoi(col.substr(3, 2), NULL, 16);
-            b = std::stoi(col.substr(5, 2), NULL, 16);
+            const auto [red, green, blue] = *color;
+            const float r = static_cast<float>(red);
+            const float g = static_cast<float>(green);
+            const float b = static_cast<float>(blue);
             vfoColors[name] = ImVec4(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
             if (sigpath::vfoManager.vfoExists(name)) {
-                sigpath::vfoManager.setColor(name, IM_COL32((int)roundf(r), (int)roundf(g), (int)roundf(b), 50));
+                sigpath::vfoManager.setColor(name, IM_COL32(red, green, blue, 50));
             }
         }
         repairColors(repairs);

@@ -189,7 +189,15 @@ void MainWindow::init() {
         flog::warn("Color map directory {0} does not exist, not loading modules from directory", modulesDir);
     }
 
-    gui::waterfall.updatePalletteFromArray(colormaps::maps["Turbo"].map, colormaps::maps["Turbo"].entryCount);
+    // Look the default up instead of indexing: maps[] would insert an empty
+    // "Turbo" that then shows up as a selectable, unusable entry in the menu.
+    if (const auto turbo = colormaps::maps.find("Turbo"); turbo != colormaps::maps.end()) {
+        gui::waterfall.updatePalletteFromArray(
+            turbo->second.colors.data(), turbo->second.entryCount());
+    }
+    else {
+        flog::error("Default color map 'Turbo' is missing");
+    }
 
     sourcemenu::init();
     sinkmenu::init();

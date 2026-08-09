@@ -92,7 +92,7 @@ namespace ImGui {
         void pushFFT();
 
         void updatePallette(float colors[][3], int colorCount);
-        void updatePalletteFromArray(float* colors, int colorCount);
+        void updatePalletteFromArray(const float* colors, int colorCount);
 
         void setCenterFrequency(double freq);
         double getCenterFrequency();

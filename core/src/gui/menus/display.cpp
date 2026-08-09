@@ -99,9 +99,12 @@ namespace displaymenu {
         }
 
         showWaterfall ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall();
-        if (colormaps::maps.find(colormapName) != colormaps::maps.end()) {
-            colormaps::Map map = colormaps::maps[colormapName];
-            gui::waterfall.updatePalletteFromArray(map.map, map.entryCount);
+        if (const auto selected = colormaps::maps.find(colormapName);
+            selected != colormaps::maps.end())
+        {
+            const colormaps::Map& map = selected->second;
+            gui::waterfall.updatePalletteFromArray(
+                map.colors.data(), map.entryCount());
         }
 
         for (auto const& [name, map] : colormaps::maps) {
@@ -240,8 +243,9 @@ namespace displaymenu {
         if (colorMapNames.size() > 0) {
             ImGui::LeftLabelFill("Color Map");
             if (ImGui::Combo("##_sdrpp_color_map_sel", &colorMapId, colorMapNamesTxt.c_str())) {
-                colormaps::Map map = colormaps::maps[colorMapNames[colorMapId]];
-                gui::waterfall.updatePalletteFromArray(map.map, map.entryCount);
+                const colormaps::Map& map = colormaps::maps.at(colorMapNames[colorMapId]);
+                gui::waterfall.updatePalletteFromArray(
+                    map.colors.data(), map.entryCount());
                 core::configManager.edit().set("colorMap", colorMapNames[colorMapId]);
                 colorMapAuthor = map.author;
             }

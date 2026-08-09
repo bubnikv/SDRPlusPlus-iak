@@ -1,48 +1,59 @@
 #include <gui/colormaps.h>
 #include <filesystem>
 #include <utils/flog.h>
+#include <utils/hex_color.h>
 #include <fstream>
 #include <json.hpp>
+#include <utility>
 
 using nlohmann::json;
 
 namespace colormaps {
     std::map<std::string, Map> maps;
 
-    void loadMap(std::string path) {
+    void loadMap(const std::string& path) {
         if (!std::filesystem::is_regular_file(path)) {
             flog::error("Could not load {0}, file doesn't exist", path);
             return;
         }
 
-        std::ifstream file(path.c_str());
-        json data;
-        file >> data;
-        file.close();
-
         Map map;
-        std::vector<std::string> mapTxt;
+        std::vector<std::string> encodedColors;
 
         try {
-            map.name = data["name"];
-            map.author = data["author"];
-            mapTxt = data["map"].get<std::vector<std::string>>();
+            std::ifstream file(path.c_str());
+            json data;
+            file >> data;
+
+            map.name = data.at("name").get<std::string>();
+            map.author = data.at("author").get<std::string>();
+            encodedColors = data.at("map").get<std::vector<std::string>>();
         }
-        catch (const std::exception&) {
-            flog::error("Could not load {0}", path);
+        catch (const std::exception& e) {
+            flog::error("Could not load {0}: {1}", path, e.what());
             return;
         }
 
-        map.entryCount = mapTxt.size();
-        map.map = new float[mapTxt.size() * 3];
-        int i = 0;
-        for (auto const& col : mapTxt) {
-            map.map[i * 3] = std::stoi(col.substr(1, 2), NULL, 16);
-            map.map[(i * 3) + 1] = std::stoi(col.substr(3, 2), NULL, 16);
-            map.map[(i * 3) + 2] = std::stoi(col.substr(5, 2), NULL, 16);
-            i++;
+        if (encodedColors.empty()) {
+            flog::error("Could not load {0}: the color map has no entries", path);
+            return;
         }
 
-        maps[map.name] = map;
+        map.colors.reserve(encodedColors.size() * 3);
+        for (const std::string& encoded : encodedColors) {
+            const auto color = color_utils::parseHex<3>(encoded);
+            if (!color) {
+                flog::error(
+                    "Could not load {0}: malformed color '{1}', expected \"#RRGGBB\"",
+                    path, encoded);
+                return;
+            }
+            for (uint8_t channel : *color) {
+                map.colors.push_back(static_cast<float>(channel));
+            }
+        }
+
+        const std::string name = map.name;
+        maps.insert_or_assign(name, std::move(map));
     }
 }

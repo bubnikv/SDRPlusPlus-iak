@@ -3,6 +3,8 @@
 #include <gui/gui.h>
 #include <core.h>
 #include <gui/style.h>
+#include <algorithm>
+#include <iterator>
 
 namespace bandplanmenu {
     int bandplanId;
@@ -10,6 +12,16 @@ namespace bandplanmenu {
     int bandPlanPos = 0;
 
     const char* bandPlanPosTxt = "Bottom\0Top\0";
+
+    namespace {
+        bandplan::BandPlan_t* getPlan(int index) {
+            if (index < 0 || index >= static_cast<int>(bandplan::bandplanNames.size())) {
+                return nullptr;
+            }
+            const auto plan = bandplan::bandplans.find(bandplan::bandplanNames[index]);
+            return plan == bandplan::bandplans.end() ? nullptr : &plan->second;
+        }
+    }
 
     // The band plan is a core menu, not a module instance, but this adapter
     // lets the menu widget draw the standard enable checkbox on its header.
@@ -34,8 +46,7 @@ namespace bandplanmenu {
     }
 
     void init() {
-        // todo: check if the bandplan wasn't removed
-        if (bandplan::bandplanNames.size() == 0) {
+        if (bandplan::bandplanNames.empty()) {
             gui::waterfall.hideBandplan();
             return;
         }
@@ -48,13 +59,23 @@ namespace bandplanmenu {
             configAccess.tryGet("bandPlanPos", bandPlanPos);
         }
 
-        if (bandplan::bandplans.find(name) != bandplan::bandplans.end()) {
-            bandplanId = std::distance(bandplan::bandplanNames.begin(), std::find(bandplan::bandplanNames.begin(),
-                                                                                  bandplan::bandplanNames.end(), name));
-            gui::waterfall.bandplan = &bandplan::bandplans[name];
+        const auto selectedName = std::find(
+            bandplan::bandplanNames.begin(), bandplan::bandplanNames.end(), name);
+        const auto selectedPlan = bandplan::bandplans.find(name);
+        if (selectedName != bandplan::bandplanNames.end() &&
+            selectedPlan != bandplan::bandplans.end())
+        {
+            bandplanId = static_cast<int>(std::distance(
+                bandplan::bandplanNames.begin(), selectedName));
+            gui::waterfall.bandplan = &selectedPlan->second;
         }
         else {
-            gui::waterfall.bandplan = &bandplan::bandplans[bandplan::bandplanNames[0]];
+            bandplanId = 0;
+            gui::waterfall.bandplan = getPlan(bandplanId);
+            if (!gui::waterfall.bandplan) {
+                gui::waterfall.hideBandplan();
+                return;
+            }
         }
 
         bandPlanEnabled ? gui::waterfall.showBandplan() : gui::waterfall.hideBandplan();
@@ -62,11 +83,20 @@ namespace bandplanmenu {
     }
 
     void draw(void* ctx) {
+        if (bandplan::bandplanNames.empty()) {
+            ImGui::TextDisabled("No band plans available");
+            return;
+        }
+        bandplanId = std::clamp(
+            bandplanId, 0, static_cast<int>(bandplan::bandplanNames.size()) - 1);
+
         float menuColumnWidth = ImGui::GetContentRegionAvail().x;
         ImGui::PushItemWidth(menuColumnWidth);
         if (ImGui::Combo("##_bandplan_name_", &bandplanId, bandplan::bandplanNameTxt.c_str())) {
-            gui::waterfall.bandplan = &bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
-            core::configManager.edit().set("bandPlan", bandplan::bandplanNames[bandplanId]);
+            if (bandplan::BandPlan_t* plan = getPlan(bandplanId)) {
+                gui::waterfall.bandplan = plan;
+                core::configManager.edit().set("bandPlan", bandplan::bandplanNames[bandplanId]);
+            }
         }
         ImGui::PopItemWidth();
 
@@ -77,12 +107,15 @@ namespace bandplanmenu {
             core::configManager.edit().set("bandPlanPos", bandPlanPos);
         }
 
-        const bandplan::BandPlan_t& plan =
-            bandplan::bandplans[bandplan::bandplanNames[bandplanId]];
-        ImGui::Text("Country: %s (%s)", plan.countryName.c_str(), plan.countryCode.c_str());
-        ImGui::Text("Author: %s", plan.authorName.c_str());
-        if (!plan.authorURL.empty() && plan.authorURL != "none") {
-            ImGui::TextWrapped("Author URL: %s", plan.authorURL.c_str());
+        const bandplan::BandPlan_t* plan = getPlan(bandplanId);
+        if (!plan) {
+            ImGui::TextDisabled("Selected band plan is unavailable");
+            return;
+        }
+        ImGui::Text("Country: %s (%s)", plan->countryName.c_str(), plan->countryCode.c_str());
+        ImGui::Text("Author: %s", plan->authorName.c_str());
+        if (!plan->authorURL.empty() && plan->authorURL != "none") {
+            ImGui::TextWrapped("Author URL: %s", plan->authorURL.c_str());
         }
     }
 };

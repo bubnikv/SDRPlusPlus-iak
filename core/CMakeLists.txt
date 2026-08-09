@@ -60,6 +60,16 @@ if (OPT_BUILD_TESTS AND NOT ANDROID)
         src/gui/widgets/bandplan.cpp)
     target_link_libraries(bandplan_load_tests PRIVATE sdrpp_core)
     add_test(NAME bandplan_load_tests COMMAND bandplan_load_tests)
+
+    # colormaps and the theme manager reach their state through exported
+    # symbols, so these link against the library instead of recompiling it.
+    add_executable(colormap_load_tests tests/colormap_load_tests.cpp)
+    target_link_libraries(colormap_load_tests PRIVATE sdrpp_core)
+    add_test(NAME colormap_load_tests COMMAND colormap_load_tests)
+
+    add_executable(theme_load_tests tests/theme_load_tests.cpp)
+    target_link_libraries(theme_load_tests PRIVATE sdrpp_core)
+    add_test(NAME theme_load_tests COMMAND theme_load_tests)
 endif ()
 
 target_compile_definitions(sdrpp_core PRIVATE
