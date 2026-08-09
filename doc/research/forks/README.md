@@ -11,6 +11,7 @@ links. Forks that got a full review have their own file here:
 - [Community Edition (LunaeMons)](community-edition.md)
 - [LDighera / WB6BBB](ldighera.md) — AI-assisted Pi5 fork: S-meter, manual notch, SSB AGC, CW/SSTV/FreeDV/HD Radio
 - [SDR++ jp (jprincl)](jp.md) — FT8/FT4/WSPR, SpyServer VFO+FFT, AGC work, Android fixes; experimental WEFAX branch
+- [aurimasniekis](aurimasniekis.md) — ESP32 antenna switcher module (skip); worth taking: atv_decoder teardown order, two z-order gaps, and a pointer to a real RtAudio macOS encoding bug
 
 ## Survey
 
@@ -100,6 +101,10 @@ https://groups.io/g/linuxham/topic/sdr_1_3_source_beta_preview/118709023
 
 SDDC, ???
 https://github.com/syehorov/SDRPlusPlus
+
+ESP32 antenna switcher module (ESPHome API), audio device-name UTF-8 sanitization,
+floating-window z-order fixes, 0 stars — reviewed, see aurimasniekis.md
+https://github.com/aurimasniekis/SDRPlusPlus
 
 LimeSDR fixes, 2 stars
 https://github.com/alphafox02/SDRPlusPlus
