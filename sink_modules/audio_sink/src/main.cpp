@@ -10,6 +10,7 @@
 #include <RtAudio.h>
 #include <config.h>
 #include <core.h>
+#include <algorithm>
 #include <chrono>
 #include <memory>
 
@@ -282,6 +283,17 @@ private:
         stereoPacker.out.clearReadStop();
     }
 
+    // Fill the device buffer from a packer read, padding with silence. The packer
+    // is sized to nBufferFrames so a full read is the normal case, but a partial
+    // one must not leave the tail holding whatever the previous callback wrote.
+    static void emitFrames(void* outputBuffer, unsigned int nBufferFrames, const dsp::stereo_t* readBuf, int count) {
+        unsigned int toCopy = (count > 0) ? (std::min)((unsigned int)count, nBufferFrames) : 0;
+        if (toCopy) { memcpy(outputBuffer, readBuf, toCopy * sizeof(dsp::stereo_t)); }
+        if (toCopy < nBufferFrames) {
+            memset((dsp::stereo_t*)outputBuffer + toCopy, 0, (nBufferFrames - toCopy) * sizeof(dsp::stereo_t));
+        }
+    }
+
     static int callback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFrames, double streamTime, RtAudioStreamStatus status, void* userData) {
         AudioSink* _this = (AudioSink*)userData;
 #ifdef __linux__
@@ -294,16 +306,19 @@ private:
                 memset(outputBuffer, 0, nBufferFrames * sizeof(dsp::stereo_t));
                 return 0;
             }
-            memcpy(outputBuffer, _this->stereoPacker.out.readBuf, nBufferFrames * sizeof(dsp::stereo_t));
+            emitFrames(outputBuffer, nBufferFrames, _this->stereoPacker.out.readBuf, count);
             _this->stereoPacker.out.flush();
             return 0;
         }
 #endif
 
         int count = _this->stereoPacker.out.read();
-        if (count < 0) { return 0; }
+        if (count < 0) {
+            memset(outputBuffer, 0, nBufferFrames * sizeof(dsp::stereo_t));
+            return 0;
+        }
 
-        memcpy(outputBuffer, _this->stereoPacker.out.readBuf, nBufferFrames * sizeof(dsp::stereo_t));
+        emitFrames(outputBuffer, nBufferFrames, _this->stereoPacker.out.readBuf, count);
         _this->stereoPacker.out.flush();
         return 0;
     }
