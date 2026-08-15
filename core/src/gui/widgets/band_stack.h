@@ -40,10 +40,11 @@ public:
 
     // Loader/building primitive which preserves the physical slot number.
     bool setSlot(std::size_t index, const BandRegister& reg) {
-        if (index >= SIZE) { return false; }
+        assert(index < SIZE);
         slots[index] = reg;
         return true;
     }
+    // Set the top register if it was not set yet. Returns false if the top was already populated.
     bool seedTop(const BandRegister& reg) {
         if (slots[0]) { return false; }
         slots[0] = reg;
@@ -63,7 +64,7 @@ public:
         std::size_t index,
         std::optional<BandRegister> materialization = std::nullopt)
     {
-        if (index >= SIZE) { return std::nullopt; }
+        assert(index < SIZE);
         if (!slots[index]) {
             if (!materialization) { return std::nullopt; }
             slots[index] = *materialization;
@@ -84,33 +85,25 @@ enum class BandRecallResult {
     Recalled
 };
 
-// A register popup's stored baseline and current display. The baseline is
-// captured when the popup opens and is never changed by display refreshes. The
-// live overlay and empty-row capability are refreshed while the popup is open;
-// recall validates the live state once more before committing anything.
+// Frozen register-popup contents. Opening the active band's popup first commits
+// the current operating state to slot 0, then takes this snapshot. Subsequent
+// radio changes do not rewrite the list underneath the user.
 struct BandRegisterPopupSnapshot {
-    BandRegisterSet storedRegisters;
     BandRegisterSet registers;
     bool canMaterializeEmpty = false;
 };
 
-// Pure popup transitions used by BandStack and its contract tests. A live top
-// is only a display overlay for the visibly active band. The stored baseline
-// changes only when its top was empty and could be seeded during preparation.
+// Pure open transition used by BandStack and its contract tests. storedChanged
+// means the prepared registers must be persisted before the popup is shown.
 struct BandRegisterPopupPreparation {
     BandRegisterPopupSnapshot snapshot;
-    bool topSeeded = false;
+    bool storedChanged = false;
 };
 
 BandRegisterPopupPreparation prepareBandRegisterPopup(
     const BandRegisterSet& storedRegisters,
     std::optional<BandRegister> current,
     std::optional<BandRegister> fallback,
-    bool targetIsActive);
-
-void refreshBandRegisterPopup(
-    BandRegisterPopupSnapshot& snapshot,
-    std::optional<BandRegister> current,
     bool targetIsActive);
 
 // The band stacking data layer: what is remembered per band, and what happens
@@ -126,25 +119,19 @@ void refreshBandRegisterPopup(
 //     the current frequency is sampled, never pushed in.
 //
 // The config is the store. Each stable band_id owns three rotating optional
-// entries; entry 0 is always current, so no separate register pointer exists.
-// The instance keeps the band picker and lifecycle hooks behind one API. See
-// doc/design/band-stack.md.
+// entries; entry 0 is the latest state captured at an explicit checkpoint, so
+// no separate register pointer exists. The instance keeps the band picker and
+// lifecycle hooks behind one API. See doc/design/band-stack.md.
 class BandStack {
 public:
-    // A register-popup open. For the visibly active band, overlay the current
-    // VFO on the returned snapshot without overwriting a populated stored top.
-    // Seed an empty top from an in-band VFO, otherwise from the supplied band
-    // default. Never tunes, rotates, or changes the active band.
+    // A register-popup open is a persistent checkpoint. For the visibly active
+    // band, store the current VFO in slot 0 even when that slot was populated.
+    // Otherwise seed only an empty top from the supplied band default. The
+    // returned snapshot remains frozen while the popup is open.
     BandRegisterPopupSnapshot openRegisters(
         const freq_input::BandMapping& mapping,
         double defaultFrequency,
         const freq_input::BandMapping* activeMapping);
-
-    // Refresh only the popup's live view. Never persists, tunes, or rotates.
-    void refreshRegisterPopup(
-        const freq_input::BandMapping& mapping,
-        const freq_input::BandMapping* activeMapping,
-        BandRegisterPopupSnapshot& snapshot);
 
     // Pure visible-page resolution. The preferred service wins when it contains
     // the frequency; otherwise the first match in another visible service wins.
@@ -168,13 +155,15 @@ public:
         const bandplan::Band_t& segment,
         const freq_input::BandMapping* activeMapping);
 
-    // A register-list pick: store the visible source, materialize a selected
-    // empty slot only from an in-band VFO, rotate prefix [0, index] right once
-    // to promote the target to slot 0, and recall it.
+    // A register-list pick. The visible source is sampled again at selection
+    // time, so rows 1 and 2 preserve radio changes made after popup open before
+    // rotating the target to slot 0. Row 0 recalls the frozen value shown by
+    // the popup.
     BandRecallResult recallRegister(
         const freq_input::BandMapping& mapping,
         int index,
-        const freq_input::BandMapping* activeMapping);
+        const freq_input::BandMapping* activeMapping,
+        const BandRegisterPopupSnapshot& openedSnapshot);
 
     // Persist the current band memory when closing or suspending the
     // application. Matching is restricted to the current service.

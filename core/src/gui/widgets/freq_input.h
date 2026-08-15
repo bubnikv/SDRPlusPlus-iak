@@ -1,6 +1,4 @@
 #pragma once
-#include <gui/widgets/band_mapping.h>
-#include <gui/widgets/band_stack.h>
 #include <config.h>
 #include <imgui.h>
 #include <stdint.h>
@@ -21,10 +19,6 @@ namespace bandplan {
 // gui::bandStack, which the band page is a view over, and the frequency the
 // keypad page returns in its Outcome.
 namespace freq_input {
-
-    namespace canonical_bands {
-        class Cache;
-    }
 
     // The tuning situation a page works against: where the radio is now, and
     // what the source will accept. This is the (limitFreq, minFreq, maxFreq)
@@ -168,48 +162,8 @@ namespace freq_input {
 
     private:
         void resetTransientState();
-
-        // Expensive canonical projection of the immutable selected plan,
-        // rebuilt only when the plan revision or source tuning limits change.
-        std::unique_ptr<canonical_bands::Cache> canonicalCache;
-
-        // Pure active-band resolution is memoized by exactly the inputs it
-        // consumes; static mapping pointers have application lifetime.
-        bool activeValid = false;
-        const bandplan::BandPlan_t* activePlan = nullptr;
-        uint64_t activePlanRevision = 0;
-        uint64_t activeFrequency = 0;
-        BandServiceSet activeServices;
-        BandService activePreferredService = BandService::Other;
-        const BandMapping* activeMapping = nullptr;
-
-        // Stable presentation-group identity. Labels and service membership
-        // belong to the current width-dependent picker layout.
-        std::string groupId;
-        // Service to try first when several services on the current page have
-        // overlapping bands at the tuned frequency.
-        BandService currentService = BandService::Other;
-        bool scrollActiveIntoView = false;
-
-        // Band-key press tracking: a quick tap recalls/cycles the top register,
-        // a motionless hold opens its stacking-register list (IC-705: "touch
-        // the band key for 1 second").
-        int pressBand = -1;  // index into the shown[] grid, -1 = none
-        bool longPressDone = false;
-        // Popup data is a snapshot taken by BandStack when the long-press
-        // opens it. Canonical mapping pointers are static application data.
-        const BandMapping* regPopupMapping = nullptr;
-        std::string regPopupTitle;
-        BandRegisterPopupSnapshot regPopupSnapshot;
-        // Where that list opens, refreshed from the key every frame the key is
-        // drawn: ImGui will not fit a popup whose position the caller has set,
-        // so the placement is ours, and it needs both the key's rectangle and
-        // the list's own size. Kept across frames rather than recomputed at the
-        // point of use because the key is not always drawn -- it can scroll out
-        // of the grid, and the list outlives its category by a frame.
-        ImVec2 regPopupKeyMin = ImVec2(0.0f, 0.0f);
-        ImVec2 regPopupKeyMax = ImVec2(0.0f, 0.0f);
-        ImVec2 regPopupSize = ImVec2(0.0f, 0.0f);
+        struct Impl;
+        std::unique_ptr<Impl> impl;
     };
 
     // SPECTRUM page: a service-independent, non-overlapping ITU/IEEE range

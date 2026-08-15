@@ -40,8 +40,7 @@ namespace {
                "first slot failed");
         expect(registers.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW)),
                "third slot failed");
-        expect(!registers.setSlot(3, reg(4.0, RADIO_IFACE_MODE_USB)),
-               "write exceeded fixed capacity");
+        expect(registers.size() == 3, "register capacity changed");
         expectRegister(registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
         expectEmpty(registers, 1);
         expectRegister(registers, 2, 3.0, RADIO_IFACE_MODE_CW);
@@ -88,6 +87,8 @@ namespace {
     }
 
     void testRegisterSelectionContract() {
+        // Slot 0 was captured when the popup opened. Selection samples a newer
+        // state and stores it before rotating rows 1 or 2 into the top.
         const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
 
         BandRegisterSet second = fullStack();
@@ -138,25 +139,16 @@ namespace {
             current,
             fallback,
             true);
-        expect(!active.topSeeded, "active popup overwrote a populated top");
-        expectRegister(
-            active.snapshot.storedRegisters,
-            0,
-            1.0,
-            RADIO_IFACE_MODE_NFM);
+        expect(active.storedChanged,
+               "active popup did not persist its current state");
         expectRegister(active.snapshot.registers, 0, 10.0, RADIO_IFACE_MODE_USB);
         expect(active.snapshot.canMaterializeEmpty,
                "in-band active popup disabled empty rows");
 
         const BandRegisterPopupPreparation inactiveOverlap =
             prepareBandRegisterPopup(stored, current, fallback, false);
-        expect(!inactiveOverlap.topSeeded,
+        expect(!inactiveOverlap.storedChanged,
                "inactive overlapping popup overwrote a populated top");
-        expectRegister(
-            inactiveOverlap.snapshot.storedRegisters,
-            0,
-            1.0,
-            RADIO_IFACE_MODE_NFM);
         expectRegister(
             inactiveOverlap.snapshot.registers,
             0,
@@ -167,80 +159,36 @@ namespace {
 
         BandRegisterSet emptyTop;
         emptyTop.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
-        const BandRegisterPopupPreparation seededCurrent =
-            prepareBandRegisterPopup(emptyTop, current, fallback, false);
-        expect(seededCurrent.topSeeded, "empty top did not capture in-band VFO");
+        const BandRegisterPopupPreparation capturedCurrent =
+            prepareBandRegisterPopup(emptyTop, current, fallback, true);
+        expect(capturedCurrent.storedChanged,
+               "empty active top did not capture in-band VFO");
         expectRegister(
-            seededCurrent.snapshot.storedRegisters,
+            capturedCurrent.snapshot.registers,
             0,
             10.0,
             RADIO_IFACE_MODE_USB);
 
-        const BandRegisterPopupPreparation seededFallback =
-            prepareBandRegisterPopup(emptyTop, std::nullopt, fallback, false);
-        expect(seededFallback.topSeeded, "empty top did not use fallback");
+        const BandRegisterPopupPreparation inactiveFallback =
+            prepareBandRegisterPopup(emptyTop, current, fallback, false);
+        expect(inactiveFallback.storedChanged,
+               "empty inactive top did not use fallback");
         expectRegister(
-            seededFallback.snapshot.storedRegisters,
+            inactiveFallback.snapshot.registers,
             0,
             20.0,
             RADIO_IFACE_MODE_AM);
-        expect(!seededFallback.snapshot.canMaterializeEmpty,
-               "out-of-band popup enabled empty rows");
+        expect(inactiveFallback.snapshot.canMaterializeEmpty,
+               "overlapping inactive popup disabled empty rows");
 
         const BandRegisterPopupPreparation unseeded = prepareBandRegisterPopup(
             emptyTop,
             std::nullopt,
             std::nullopt,
             false);
-        expect(!unseeded.topSeeded, "popup seeded without a valid source");
-        expectEmpty(unseeded.snapshot.storedRegisters, 0);
-
-        BandRegisterPopupSnapshot refreshed = active.snapshot;
-        refreshBandRegisterPopup(
-            refreshed,
-            reg(11.0, RADIO_IFACE_MODE_LSB),
-            true);
-        expectRegister(refreshed.registers, 0, 11.0, RADIO_IFACE_MODE_LSB);
-        expectRegister(
-            refreshed.storedRegisters,
-            0,
-            1.0,
-            RADIO_IFACE_MODE_NFM);
-
-        refreshBandRegisterPopup(
-            refreshed,
-            reg(12.0, RADIO_IFACE_MODE_CW),
-            false);
-        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
-        expect(refreshed.canMaterializeEmpty,
-               "in-band inactive refresh disabled empty rows");
-
-        refreshBandRegisterPopup(refreshed, std::nullopt, false);
-        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
-        expectRegister(refreshed.registers, 1, 2.0, RADIO_IFACE_MODE_AM);
-        expectRegister(refreshed.registers, 2, 3.0, RADIO_IFACE_MODE_CW);
-        expect(!refreshed.canMaterializeEmpty,
-               "out-of-band refresh enabled empty rows");
-        expectRegister(
-            refreshed.storedRegisters,
-            0,
-            1.0,
-            RADIO_IFACE_MODE_NFM);
-        expectRegister(
-            refreshed.storedRegisters,
-            1,
-            2.0,
-            RADIO_IFACE_MODE_AM);
-        expectRegister(
-            refreshed.storedRegisters,
-            2,
-            3.0,
-            RADIO_IFACE_MODE_CW);
-
-        refreshBandRegisterPopup(refreshed, std::nullopt, true);
-        expectRegister(refreshed.registers, 0, 1.0, RADIO_IFACE_MODE_NFM);
-        expect(!refreshed.canMaterializeEmpty,
-               "active out-of-band refresh enabled empty rows");
+        expect(!unseeded.storedChanged,
+               "popup seeded without a valid source");
+        expectEmpty(unseeded.snapshot.registers, 0);
     }
 
 }

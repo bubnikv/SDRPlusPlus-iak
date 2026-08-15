@@ -147,30 +147,19 @@ BandRegisterPopupPreparation prepareBandRegisterPopup(
     bool targetIsActive)
 {
     BandRegisterSet stored = storedRegisters;
-    bool topSeeded = false;
-    if (!stored.top()) {
-        const std::optional<BandRegister>& initial = current ? current : fallback;
-        if (initial) { topSeeded = stored.seedTop(*initial); }
+    bool storedChanged = false;
+    if (targetIsActive && current) {
+        stored.storeTop(*current);
+        storedChanged = true;
+    }
+    else if (!stored.top() && fallback) {
+        storedChanged = stored.seedTop(*fallback);
     }
 
     BandRegisterPopupSnapshot snapshot;
-    snapshot.storedRegisters = std::move(stored);
-    refreshBandRegisterPopup(snapshot, current, targetIsActive);
-    return { std::move(snapshot), topSeeded };
-}
-
-void refreshBandRegisterPopup(
-    BandRegisterPopupSnapshot& snapshot,
-    std::optional<BandRegister> current,
-    bool targetIsActive)
-{
-    snapshot.registers = snapshot.storedRegisters;
-    if (targetIsActive && current) {
-        // The current operating state belongs in row 0 of the active band's
-        // view, but opening and cancelling the popup must not commit it.
-        snapshot.registers.storeTop(*current);
-    }
+    snapshot.registers = std::move(stored);
     snapshot.canMaterializeEmpty = current.has_value();
+    return { std::move(snapshot), storedChanged };
 }
 
 BandRegisterPopupSnapshot BandStack::openRegisters(
@@ -194,28 +183,10 @@ BandRegisterPopupSnapshot BandStack::openRegisters(
         current,
         fallback,
         activeMapping == &mapping);
-    if (prepared.topSeeded) {
-        writeRegisters(mem, mapping, prepared.snapshot.storedRegisters);
+    if (prepared.storedChanged) {
+        writeRegisters(mem, mapping, prepared.snapshot.registers);
     }
     return std::move(prepared.snapshot);
-}
-
-void BandStack::refreshRegisterPopup(
-    const freq_input::BandMapping& mapping,
-    const freq_input::BandMapping* activeMapping,
-    BandRegisterPopupSnapshot& snapshot)
-{
-    const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
-    const double currentFrequency = (double)gui::freqSelect.frequency;
-    const std::optional<BandRegister> current = captureRegister(
-        plan,
-        mapping,
-        currentFrequency,
-        currentMode());
-    refreshBandRegisterPopup(
-        snapshot,
-        current,
-        activeMapping == &mapping);
 }
 
 const freq_input::BandMapping* BandStack::resolveBandForServices(
@@ -401,7 +372,8 @@ void BandStack::selectBand(
 BandRecallResult BandStack::recallRegister(
     const freq_input::BandMapping& mapping,
     int index,
-    const freq_input::BandMapping* activeMapping)
+    const freq_input::BandMapping* activeMapping,
+    const BandRegisterPopupSnapshot& openedSnapshot)
 {
     const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
     if (!plan || index < 0 || index >= (int)BandRegisterSet::SIZE) {
@@ -410,6 +382,13 @@ BandRecallResult BandStack::recallRegister(
     // Could be -1 if current VFO is a decoder or there is no VFO active.
     const int curMode = currentMode();
     const double currentFrequency = (double)gui::freqSelect.frequency;
+    std::optional<BandRegister> frozenTop;
+    if (index == 0 && openedSnapshot.registers[0]) {
+        const BandRegister& shown = *openedSnapshot.registers[0];
+        if (plan->findMappedSegmentAtFrequency(mapping, shown.freq)) {
+            frozenTop = shown;
+        }
+    }
     std::optional<BandRegister> materialization;
     BandRegister target;
 
@@ -420,7 +399,7 @@ BandRecallResult BandStack::recallRegister(
         ConfigManager::EditSection mem = band.section(freq_memory::STACKING_REGISTERS);
 
         BandRegisterSet registers = readRegisters(mem, plan, mapping);
-        if (!registers[(std::size_t)index]) {
+        if (!frozenTop && !registers[(std::size_t)index]) {
             // EditSection paths are lazy. Returning here performs no config
             // mutation because no writer has been called yet.
             materialization = captureRegister(
@@ -440,8 +419,19 @@ BandRecallResult BandStack::recallRegister(
 
         // Source and target may be the same band, so reload after write-back.
         registers = readRegisters(mem, plan, mapping);
-        const std::optional<BandRegister> selected =
-            registers.select((std::size_t)index, materialization);
+        std::optional<BandRegister> selected;
+        if (frozenTop) {
+            // Slot 0 is a frozen, already-persisted popup checkpoint. A newer
+            // state sampled above may have temporarily updated the same band's
+            // top; restore the value the user actually selected before recall.
+            registers.storeTop(*frozenTop);
+            selected = frozenTop;
+        }
+        else {
+            selected = registers.select(
+                (std::size_t)index,
+                materialization);
+        }
         assert(selected);
         if (!selected) { return BandRecallResult::NoTarget; }
         target = *selected;

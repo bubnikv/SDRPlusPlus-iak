@@ -55,6 +55,10 @@ if (OPT_BUILD_TESTS AND NOT ANDROID)
     target_link_libraries(band_register_set_tests PRIVATE sdrpp_core)
     add_test(NAME band_register_set_tests COMMAND band_register_set_tests)
 
+    add_executable(band_picker_model_tests tests/band_picker_model_tests.cpp)
+    target_link_libraries(band_picker_model_tests PRIVATE sdrpp_core)
+    add_test(NAME band_picker_model_tests COMMAND band_picker_model_tests)
+
     add_executable(bandplan_load_tests
         tests/bandplan_load_tests.cpp
         src/gui/widgets/bandplan.cpp)

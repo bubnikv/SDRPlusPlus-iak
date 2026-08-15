@@ -731,17 +731,17 @@ own default mode.
 |---|---|
 | Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
 | Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate all three positions right once, initialize an empty new top from the just-saved state, then recall it |
-| Long-press band key | Seed an empty top register from the current in-band VFO state, otherwise the band default; for the visibly active band, keep a live display overlay refreshed while the popup is open without persisting it. Never overwrite a populated register, tune, or rotate |
-| Register *k* picked from the list | If empty, materialize it from the VFO only when the VFO belongs to that band; otherwise do nothing and keep the popup open. Then overwrite the visible source, rotate prefix `[0, k]` right once to promote *k* to index 0, and recall it |
+| Long-press band key | For the visibly active band, overwrite and persist the top register from the current in-band VFO state. Otherwise seed only an empty top from the band default. Snapshot the resulting list and keep it frozen while the popup is open; never tune or rotate |
+| Register *k* picked from the list | Row 0 recalls the frozen value shown. For rows 1 and 2, if empty, materialize from the VFO only when it belongs to that band; otherwise keep the popup open. Overwrite the visible source with its state at selection time, rotate prefix `[0, k]` right once to promote *k*, and recall it |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
 | Frequency-input Band page opened or group changed | Resolve visibly inside that group and activate/scroll. Write no register; selector ownership and a fallback service may be persisted |
 | Application shutdown | Resolve inside the last group **and current service only**, then overwrite the top without rotating |
 | Android `APP_CMD_PAUSE` | `commit()` — see 3.7 |
 
-**No dialog-open or dwell write-back.** Opening a register list is an explicit
-gesture and may seed its empty top entry as described above. Other registers
-change only on an explicit band/register transition or at an application
-persistence boundary. Android
+**No dwell write-back.** Opening the active band's register list is an explicit
+persistence checkpoint: it captures the current state into the top before
+taking the frozen popup snapshot. Other registers change only on an explicit
+band/register transition or at an application persistence boundary. Android
 pause/stop remains such a boundary because the process may be killed without a
 later destruction callback. Its save resolver is restricted to the last group
 and current service, so it can follow manual tuning from 20 m to 40 m but cannot
@@ -1306,8 +1306,9 @@ rather than needing an interim fix:
 - **The register list keeps calling into the data layer per frame** while the
   popup is open. Snapshotting on the long-press would be tidier, but the actual
   defect at `:944` is the non-const `operator[]` insert. *This did not survive
-  the later cleanup: the popup now receives a register/capability snapshot from
-  `openRegisters()` and performs no per-frame config access.*
+  the later cleanup: opening the active band's popup now persists its current
+  top once and returns a frozen register/capability snapshot; the popup performs
+  no per-frame band-stack access.*
 
 ### 8.9 Intended behaviour deltas
 

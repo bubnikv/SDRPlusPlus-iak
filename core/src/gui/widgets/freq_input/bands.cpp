@@ -1,5 +1,6 @@
 #include <gui/widgets/freq_input.h>
 #include <gui/widgets/freq_input/band_picker_groups.h>
+#include <gui/widgets/freq_input/band_picker_model.h>
 #include <gui/widgets/bandplan.h>
 #include <gui/widgets/popup_dialog.h>
 #include <gui/widgets/segmented_control.h>
@@ -17,8 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <unordered_map>
-#include <utility>
+#include <optional>
 #include <vector>
 #ifdef __ANDROID__
 #include <android_backend.h>
@@ -298,213 +298,6 @@ namespace freq_input {
 
     }
 
-    namespace canonical_bands {
-
-        struct Entry {
-            bandplan::Band_t band;
-            std::vector<const bandplan::Band_t*> segments;
-            bool available = false;
-            double defaultFrequency = 0.0;
-        };
-
-        static bool overlapsTuningRange(
-            const bandplan::Band_t& band,
-            const Context& ctx)
-        {
-            if (!band.hasValidFrequencySpan()) { return false; }
-            if (!ctx.limited) { return true; }
-            return band.end >= (double)ctx.rangeLo() &&
-                band.start <= (double)ctx.rangeHi();
-        }
-
-        static bool frequencyIsTunable(
-            double frequency,
-            const Context& ctx)
-        {
-            return !ctx.limited ||
-                (frequency >= (double)ctx.rangeLo() &&
-                 frequency <= (double)ctx.rangeHi());
-        }
-
-        // A canonical Band can be represented by many adjacent or disjoint
-        // legacy rows. Pick a deterministic first-visit frequency inside their
-        // union. Identity probes are deliberately not tuning defaults.
-        static void chooseDefaults(
-            Entry& entry,
-            const bandplan::BandPlan_t& plan,
-            const Context& ctx)
-        {
-            entry.defaultFrequency = 0.0;
-
-            const bandplan::Band_t* targetSegment = nullptr;
-            double targetFrequency = 0.0;
-
-            for (const bandplan::Band_t* segment : entry.segments) {
-                if (!segment || segment->defFreq <= 0.0) { continue; }
-                if (!segment->containsFrequency(segment->defFreq) ||
-                    !frequencyIsTunable(segment->defFreq, ctx))
-                {
-                    continue;
-                }
-                targetSegment = segment;
-                targetFrequency = segment->defFreq;
-                break;
-            }
-
-            if (!targetSegment) {
-                const double center =
-                    (entry.band.start + entry.band.end) / 2.0;
-                if (entry.band.resolved.mapping &&
-                    frequencyIsTunable(center, ctx))
-                {
-                    targetSegment = plan.findMappedSegmentAtFrequency(
-                        *entry.band.resolved.mapping,
-                        center);
-                }
-                if (targetSegment) { targetFrequency = center; }
-            }
-
-            if (!targetSegment) {
-                double bestWidth = -1.0;
-                for (const bandplan::Band_t* segment : entry.segments) {
-                    if (!segment || !segment->hasValidFrequencySpan()) {
-                        continue;
-                    }
-                    double lo = segment->start;
-                    double hi = segment->end;
-                    if (ctx.limited) {
-                        lo = std::max(lo, (double)ctx.rangeLo());
-                        hi = std::min(hi, (double)ctx.rangeHi());
-                    }
-                    if (lo > hi || (hi - lo) <= bestWidth) { continue; }
-                    bestWidth = hi - lo;
-                    targetSegment = segment;
-                    targetFrequency = (lo + hi) / 2.0;
-                }
-            }
-
-            if (!targetSegment || targetFrequency <= 0.0) { return; }
-            double rounded =
-                std::round(targetFrequency / 1000.0) * 1000.0;
-            if (targetSegment->containsFrequency(rounded) &&
-                frequencyIsTunable(rounded, ctx))
-            {
-                targetFrequency = rounded;
-            }
-            entry.defaultFrequency = targetFrequency;
-        }
-
-        class Cache {
-        public:
-            const std::vector<Entry>& get(
-                const bandplan::BandPlan_t& plan,
-                const Context& ctx)
-            {
-                const uint64_t rangeLo = ctx.rangeLo();
-                const uint64_t rangeHi = ctx.rangeHi();
-                if (!valid || cachedPlan != &plan ||
-                    cachedRevision != plan.revision ||
-                    cachedLimited != ctx.limited ||
-                    cachedRangeLo != rangeLo ||
-                    cachedRangeHi != rangeHi)
-                {
-                    rebuild(plan, ctx);
-                    cachedPlan = &plan;
-                    cachedRevision = plan.revision;
-                    cachedLimited = ctx.limited;
-                    cachedRangeLo = rangeLo;
-                    cachedRangeHi = rangeHi;
-                    valid = true;
-                }
-                return entries;
-            }
-
-        private:
-            void rebuild(const bandplan::BandPlan_t& plan, const Context& ctx) {
-                valid = false;
-                entries.clear();
-                entries.reserve(plan.bands.size());
-
-                std::unordered_map<const BandMapping*, std::size_t> byMapping;
-                byMapping.reserve(plan.bands.size());
-
-                for (const bandplan::Band_t& source : plan.bands) {
-                    if (!source.resolved.isBandOrSegment()) {
-                        continue;
-                    }
-
-                    // Keep the current behavior for rows which have no stable
-                    // identity. A later step will make their non-stacking state
-                    // explicit.
-                    const BandMapping* mapping = source.resolved.mapping;
-                    if (!mapping) {
-                        if (!overlapsTuningRange(source, ctx)) { continue; }
-                        Entry entry;
-                        entry.band = source;
-                        entry.segments.push_back(&source);
-                        entry.available = true;
-                        entries.push_back(std::move(entry));
-                        continue;
-                    }
-
-                    auto found = byMapping.find(mapping);
-                    if (found == byMapping.end()) {
-                        Entry entry;
-                        entry.band = source;
-                        entry.band.resolved.legacy.entityKind =
-                            LegacyEntityKind::Band;
-                        entry.band.name = std::string(mapping->name);
-                        // This is a synthesized presentation band. Operational
-                        // defaults belong to its real source segments and the
-                        // separately resolved canonical default below.
-                        entry.band.defFreq = 0.0;
-                        entry.band.defMode.clear();
-                        entry.band.chan = 0.0;
-                        entries.push_back(std::move(entry));
-                        const std::size_t index = entries.size() - 1;
-                        found = byMapping.emplace(mapping, index).first;
-                    }
-
-                    Entry& entry = entries[found->second];
-                    if (entry.segments.empty()) {
-                        entry.band.start = source.start;
-                        entry.band.end = source.end;
-                    }
-                    else {
-                        entry.band.start =
-                            std::min(entry.band.start, source.start);
-                        entry.band.end =
-                            std::max(entry.band.end, source.end);
-                    }
-                    entry.segments.push_back(&source);
-                    entry.available = entry.available ||
-                        overlapsTuningRange(source, ctx);
-                }
-
-                for (Entry& entry : entries) {
-                    if (entry.available && entry.band.resolved.mapping) {
-                        chooseDefaults(entry, plan, ctx);
-                    }
-                }
-                entries.erase(
-                    std::remove_if(
-                        entries.begin(),
-                        entries.end(),
-                        [](const Entry& entry) { return !entry.available; }),
-                    entries.end());
-            }
-
-            bool valid = false;
-            const bandplan::BandPlan_t* cachedPlan = nullptr;
-            uint64_t cachedRevision = 0;
-            bool cachedLimited = false;
-            uint64_t cachedRangeLo = 0;
-            uint64_t cachedRangeHi = 0;
-            std::vector<Entry> entries;
-        };
-
-    }
-
     // Frequency in MHz, trailing zeros trimmed: 14025000 -> "14.025".
     static std::string labelMHz(double frequencyHz) {
         char b[32];
@@ -573,27 +366,423 @@ namespace freq_input {
             size);
     }
 
+    namespace {
+
+        struct ActiveBandKey {
+            const bandplan::BandPlan_t* plan = nullptr;
+            uint64_t planRevision = 0;
+            uint64_t frequency = 0;
+            BandServiceSet services;
+            BandService preferredService = BandService::Other;
+
+            bool operator==(const ActiveBandKey& other) const {
+                return plan == other.plan &&
+                       planRevision == other.planRevision &&
+                       frequency == other.frequency &&
+                       services == other.services &&
+                       preferredService == other.preferredService;
+            }
+        };
+
+        class ActiveBandMemo {
+        public:
+            const BandMapping* resolve(const ActiveBandKey& requested) {
+                if (!valid || !(key == requested)) {
+                    mapping = gui::bandStack.resolveBandForServices(
+                        requested.services,
+                        requested.preferredService,
+                        (double)requested.frequency);
+                    key = requested;
+                    valid = true;
+                }
+                return mapping;
+            }
+
+            void invalidate() { valid = false; }
+
+        private:
+            bool valid = false;
+            ActiveBandKey key;
+            const BandMapping* mapping = nullptr;
+        };
+
+        class BandKeyGesture {
+        public:
+            void reset() {
+                pressedMapping = nullptr;
+                holdCompleted = false;
+            }
+
+            void activated(const BandMapping* mapping) {
+                if (!mapping) { return; }
+                pressedMapping = mapping;
+                holdCompleted = false;
+            }
+
+            bool held(
+                const BandMapping* mapping,
+                bool itemActive,
+                const ImGuiIO& io,
+                ImVec2 mousePosition) {
+                if (!mapping || mapping != pressedMapping ||
+                    !itemActive || holdCompleted) {
+                    return false;
+                }
+                const float slop = 10.0f * style::uiScale;
+                const float dx = mousePosition.x -
+                                 io.MouseClickedPos[ImGuiMouseButton_Left].x;
+                const float dy = mousePosition.y -
+                                 io.MouseClickedPos[ImGuiMouseButton_Left].y;
+                if ((dx * dx) + (dy * dy) > (slop * slop) ||
+                    io.MouseDownDuration[ImGuiMouseButton_Left] < 0.5f) {
+                    return false;
+                }
+                holdCompleted = true;
+                return true;
+            }
+
+            bool acceptsClick(bool clicked) const {
+                return clicked && !holdCompleted;
+            }
+
+        private:
+            const BandMapping* pressedMapping = nullptr;
+            bool holdCompleted = false;
+        };
+
+        struct RegisterPopupSession {
+            const BandMapping* mapping = nullptr;
+            std::string title;
+            BandRegisterPopupSnapshot snapshot;
+            ImVec2 keyMin = ImVec2(0.0f, 0.0f);
+            ImVec2 keyMax = ImVec2(0.0f, 0.0f);
+            ImVec2 size = ImVec2(0.0f, 0.0f);
+
+            void reset() {
+                mapping = nullptr;
+                title.clear();
+                snapshot = {};
+            }
+
+            void setAnchor(ImVec2 min, ImVec2 max, ImVec2 popupSize) {
+                keyMin = min;
+                keyMax = max;
+                size = popupSize;
+            }
+        };
+
+    }
+
+    struct Bands::Impl {
+        band_picker::Catalog catalog;
+        ActiveBandMemo activeBand;
+
+        std::string groupId;
+        BandService currentService = BandService::Other;
+        bool scrollActiveIntoView = false;
+
+        BandKeyGesture keyGesture;
+        RegisterPopupSession registerPopup;
+    };
+
+    namespace {
+
+        std::optional<std::string> drawCategorySelector(
+            const band_picker::Page& page,
+            const Metrics& metrics) {
+            std::vector<const char*> labels;
+            labels.reserve(page.groupLayout.groups.size());
+            for (const band_groups::Group& group : page.groupLayout.groups) {
+                labels.push_back(group.label.data());
+            }
+
+            int selected = page.groupIndex;
+            if (!doSegmentedControl(
+                    "##sdrpp_band_category",
+                    selected,
+                    labels.data(),
+                    (int)labels.size(),
+                    ImVec2(metrics.totalWidth, metrics.rowHeight))) {
+                return std::nullopt;
+            }
+            return std::string(page.groupLayout.groups[selected].id);
+        }
+
+        struct BandGridLayout {
+            int columns = 1;
+            float keyWidth = 0.0f;
+        };
+
+        BandGridLayout bandGridLayout(
+            const Metrics& metrics,
+            ImVec2 spacing) {
+            BandGridLayout layout;
+            layout.columns = metrics.bandCols;
+            layout.keyWidth =
+                (metrics.gridWidth -
+                 (float)(layout.columns - 1) * spacing.x) /
+                (float)layout.columns;
+            return layout;
+        }
+
+        enum class BandGridAction {
+            None,
+            Select,
+            OpenRegisters
+        };
+
+        struct BandGridEvent {
+            BandGridAction action = BandGridAction::None;
+            const band_picker::BandChoice* choice = nullptr;
+            ImVec2 keyMin = ImVec2(0.0f, 0.0f);
+            ImVec2 keyMax = ImVec2(0.0f, 0.0f);
+        };
+
+        BandGridEvent drawBandGrid(
+            const band_picker::Page& page,
+            const Metrics& metrics,
+            BandGridLayout layout,
+            const BandMapping* activeMapping,
+            bool registerPopupOpen,
+            BandKeyGesture& gesture,
+            RegisterPopupSession& popup,
+            bool& scrollActiveIntoView) {
+            BandGridEvent event;
+            if (page.choices.empty()) {
+                ImGui::TextDisabled("No bands in the tuning range");
+                return event;
+            }
+
+            const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
+            const float keyHeight = metrics.bandKeyHeight;
+            const int rowsNeeded =
+                ((int)page.choices.size() + layout.columns - 1) /
+                layout.columns;
+            const int rowsFit = Metrics::rowsThatFit(
+                metrics.pageHeight - metrics.rowHeight - 2.0f * spacing.y,
+                keyHeight);
+            const float gridHeight = Metrics::gridHeight(
+                rowsNeeded,
+                rowsFit,
+                keyHeight);
+            ImGuiIO& io = ImGui::GetIO();
+            const ImVec2 mousePosition = ImGui::GetMousePos();
+
+            ImGui::BeginChild(
+                "##sdrpp_band_grid",
+                ImVec2(metrics.totalWidth, gridHeight),
+                false);
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            const ImU32 mainColor = ImGui::GetColorU32(ImGuiCol_Text);
+            const ImU32 subColor = ImGui::GetColorU32(ImGuiCol_Text, 0.75f);
+            const style::SelectedToggleColors selectedColors =
+                style::selectedToggleColors();
+            ImVec4 selectedSubColor = selectedColors.content;
+            selectedSubColor.w *= 0.75f;
+
+            char id[32];
+            for (int i = 0; i < (int)page.choices.size(); ++i) {
+                const band_picker::BandChoice& choice = *page.choices[i];
+                const BandMapping* mapping = choice.mapping;
+                ImGui::SetCursorPos(ImVec2(
+                    (i % layout.columns) * (layout.keyWidth + spacing.x),
+                    (i / layout.columns) * (keyHeight + spacing.y)));
+                snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
+                const bool active = mapping == activeMapping;
+                if (active) { style::pushSelectedToggle(selectedColors); }
+                bool clicked = ImGui::Button(
+                    id,
+                    ImVec2(layout.keyWidth, keyHeight));
+                if (registerPopupOpen) { clicked = false; }
+
+                if (registerPopupOpen && mapping == popup.mapping) {
+                    popup.setAnchor(
+                        ImGui::GetItemRectMin(),
+                        ImGui::GetItemRectMax(),
+                        registerPopupSize(
+                            popup.snapshot.registers.size(),
+                            registerRowSize(layout.keyWidth, metrics),
+                            popup.title));
+                }
+                if (active) {
+                    style::drawSelectedToggleStroke(selectedColors);
+                    style::popSelectedToggle();
+                }
+                if (active && scrollActiveIntoView) {
+                    ImGui::SetScrollHereY(0.5f);
+                    scrollActiveIntoView = false;
+                }
+
+                if (!registerPopupOpen && mapping &&
+                    ImGui::IsItemActivated()) {
+                    gesture.activated(mapping);
+                }
+                if (!registerPopupOpen && gesture.held(
+                                              mapping,
+                                              ImGui::IsItemActive(),
+                                              io,
+                                              mousePosition)) {
+                    event.action = BandGridAction::OpenRegisters;
+                    event.choice = &choice;
+                    event.keyMin = ImGui::GetItemRectMin();
+                    event.keyMax = ImGui::GetItemRectMax();
+                }
+                if (gesture.acceptsClick(clicked)) {
+                    event.action = BandGridAction::Select;
+                    event.choice = &choice;
+                }
+
+                const ImVec2 keyMin = ImGui::GetItemRectMin();
+                const ImVec2 keyMax = ImGui::GetItemRectMax();
+                const float maxWidth = layout.keyWidth - style::dp(8.0f);
+                const std::string_view main = mapping
+                                                  ? mapping->selectorLabel
+                                                  : std::string_view(choice.name.data(), choice.name.size());
+                const std::string_view detail = mapping
+                                                    ? mapping->selectorDetail
+                                                    : std::string_view{};
+                const std::string_view service = page.mixedServices
+                                                     ? serviceDisplayName(choice.service)
+                                                     : std::string_view{};
+                const ImU32 keyMain = active
+                                          ? ImGui::GetColorU32(selectedColors.content)
+                                          : mainColor;
+                const ImU32 keySub = active
+                                         ? ImGui::GetColorU32(selectedSubColor)
+                                         : subColor;
+                drawList->PushClipRect(keyMin, keyMax, true);
+                const bool truncated = drawBandKeyLabel(
+                    drawList,
+                    keyMin,
+                    keyMax,
+                    maxWidth,
+                    main,
+                    detail,
+                    service,
+                    mapping == nullptr,
+                    keyMain,
+                    keySub);
+                drawList->PopClipRect();
+#ifndef __ANDROID__
+                if (truncated && ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", choice.name.c_str());
+                }
+#endif
+            }
+            ImGui::EndChild();
+            return event;
+        }
+
+        struct RegisterPopupResult {
+            bool consumedCancel = false;
+        };
+
+        template <typename RecallAction>
+        RegisterPopupResult drawRegisterPopup(
+            RegisterPopupSession& popup,
+            const Metrics& metrics,
+            float keyWidth,
+            bool openRequested,
+            bool wasOpen,
+            RecallAction&& recall) {
+            RegisterPopupResult result;
+            if (openRequested) {
+                ImGui::OpenPopup("##sdrpp_band_registers");
+            }
+            if (openRequested || wasOpen) {
+                ImGui::SetNextWindowPos(
+                    registerPopupPos(popup.keyMin, popup.keyMax, popup.size),
+                    ImGuiCond_Always);
+            }
+            if (!ImGui::BeginPopup(
+                    "##sdrpp_band_registers",
+                    ImGuiWindowFlags_NoMove)) {
+                return result;
+            }
+
+            const bool cancel = PopupDialog::cancelKeyPressed();
+            if (cancel ||
+                (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                 !ImGui::IsWindowHovered())) {
+                result.consumedCancel = cancel;
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (popup.mapping) {
+                ImGui::TextDisabled("%s", popup.title.c_str());
+                const BandRegisterSet& registers = popup.snapshot.registers;
+                const ImVec2 rowSize = registerRowSize(keyWidth, metrics);
+                ImDrawList* drawList = ImGui::GetWindowDrawList();
+                const style::SelectedToggleColors colors =
+                    style::selectedToggleColors();
+                char id[24];
+                char number[8];
+                for (int index = 0; index < (int)registers.size(); ++index) {
+                    const bool current = index == 0 &&
+                                         registers[(std::size_t)index].has_value();
+                    const bool enabled =
+                        registers[(std::size_t)index].has_value() ||
+                        popup.snapshot.canMaterializeEmpty;
+                    snprintf(id, sizeof(id), "##sdrpp_reg_%d", index);
+                    ImGui::BeginDisabled(!enabled);
+                    if (current) { style::pushSelectedToggle(colors); }
+                    const bool picked = ImGui::Button(id, rowSize);
+                    if (current) {
+                        style::drawSelectedToggleStroke(colors);
+                        style::popSelectedToggle();
+                    }
+
+                    const ImVec2 rowMin = ImGui::GetItemRectMin();
+                    const ImVec2 rowMax = ImGui::GetItemRectMax();
+                    const float centerY = (rowMin.y + rowMax.y) / 2.0f;
+                    ImVec4 dimVector = current
+                                           ? colors.content
+                                           : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                    const ImU32 color = ImGui::GetColorU32(dimVector);
+                    dimVector.w *= 0.70f;
+                    const ImU32 dim = ImGui::GetColorU32(dimVector);
+                    snprintf(number, sizeof(number), "%d", index + 1);
+                    drawList->PushClipRect(rowMin, rowMax, true);
+                    drawCenteredLabel(drawList, style::baseFont, style::dp(12.0f), ImVec2(rowMin.x + rowSize.x * 0.08f, centerY), rowSize.x * 0.12f, dim, number);
+                    if (registers[index]) {
+                        drawCenteredLabel(drawList, style::labelFont, style::dp(18.0f), ImVec2(rowMin.x + rowSize.x * 0.42f, centerY), rowSize.x * 0.44f, color, labelMHz(registers[index]->freq).c_str());
+                        drawCenteredLabel(drawList, style::baseFont, style::dp(11.0f), ImVec2(rowMin.x + rowSize.x * 0.71f, centerY), rowSize.x * 0.14f, dim, "MHz");
+                        drawCenteredLabel(drawList, style::baseFont, style::dp(13.0f), ImVec2(rowMin.x + rowSize.x * 0.89f, centerY), rowSize.x * 0.18f, color, radioModeName(registers[index]->mode));
+                    }
+                    else {
+                        drawCenteredLabel(drawList, style::baseFont, style::dp(14.0f), ImVec2(rowMin.x + rowSize.x * 0.50f, centerY), rowSize.x * 0.55f, dim, "Empty");
+                    }
+                    drawList->PopClipRect();
+                    ImGui::EndDisabled();
+
+                    if (picked && recall(index)) {
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+            }
+            ImGui::EndPopup();
+            return result;
+        }
+
+    }
+
     Bands::Bands()
-        : canonicalCache(std::make_unique<canonical_bands::Cache>())
-    {}
+        : impl(std::make_unique<Impl>()) {}
 
     Bands::~Bands() = default;
 
     void Bands::resetTransientState() {
-        pressBand = -1;
-        longPressDone = false;
-        regPopupMapping = nullptr;
-        regPopupTitle.clear();
-        regPopupSnapshot = {};
-        scrollActiveIntoView = true;
-        activeValid = false;
+        impl->keyGesture.reset();
+        impl->registerPopup.reset();
+        impl->scrollActiveIntoView = true;
+        impl->activeBand.invalidate();
     }
 
     void Bands::onOpen(const ConfigManager::ReadAccess& configAccess) {
         resetTransientState();
         auto band = freq_memory::band(configAccess);
-        groupId = band.value(freq_memory::GROUP, "ham");
-        currentService = bandServiceFromKey(
+        impl->groupId = band.value(freq_memory::GROUP, "ham");
+        impl->currentService = bandServiceFromKey(
             band.value(
                 freq_memory::PREFERRED_SERVICE,
                 "other"));
@@ -606,383 +795,139 @@ namespace freq_input {
 
     Outcome Bands::draw(const Context& ctx, const Metrics& m) {
         Outcome out;
-        ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+        const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
+        // The popup owns the next tap even though the grid is drawn first.
+        const bool registerPopupOpen =
+            ImGui::IsPopupOpen("##sdrpp_band_registers");
 
-        // The register list sits on top of the grid, and while it is up it owns
-        // the next tap wherever that lands: a tap outside dismisses it and goes
-        // no further, so that dismissing cannot also tune to whichever band key
-        // happened to be under the finger. Read here, before the grid draws,
-        // because the grid is what has to be held back -- it is drawn first and
-        // would otherwise have consumed the tap by the time the list sees it.
-        const bool regPopupOpen = ImGui::IsPopupOpen("##sdrpp_band_registers");
-
-        // The plan the waterfall ruler shows, resolved once by bandplanmenu and
-        // independent of the bandPlanEnabled display toggle. Resolving it again here
-        // would give the grid a different plan whenever the configured one is not
-        // installed, since the two fallbacks differ.
+        // Use exactly the plan selected for the waterfall ruler. The display
+        // toggle controls visibility, not the picker's data source.
         const bandplan::BandPlan_t* plan = gui::waterfall.bandplan;
         if (!plan) {
             ImGui::TextDisabled("No band plan loaded");
             return out;
         }
 
-        // One picker key per stable band ID. The source plan rows remain intact
-        // and continue to provide the range union used by BandStack.
-        const std::vector<canonical_bands::Entry>& avail =
-            canonicalCache->get(*plan, ctx);
-
-        BandServiceSet availableServices;
-        for (const canonical_bands::Entry& entry : avail) {
-            availableServices = availableServices.with(
-                entry.band.resolved.service());
-        }
+        const std::vector<band_picker::BandChoice>& available =
+            impl->catalog.get(
+                *plan,
+                { ctx.limited, ctx.rangeLo(), ctx.rangeHi() });
         const int maximumGroups = std::max(
             4,
             (int)std::floor(m.totalWidth / style::dp(56.0f)));
-        const band_groups::Layout groupLayout = band_groups::makeLayout(
-            availableServices,
-            maximumGroups);
+        band_picker::Page page = band_picker::makePage(
+            available,
+            maximumGroups,
+            impl->groupId,
+            impl->currentService);
 
-        std::vector<const char*> groupLabels;
-        groupLabels.reserve(groupLayout.groups.size());
-        for (const band_groups::Group& group : groupLayout.groups) {
-            groupLabels.push_back(group.label.data());
-        }
-
-        int groupIndex = groupLayout.indexOf(groupId);
-        if (groupIndex < 0) {
-            groupIndex = groupLayout.indexFor(currentService);
-        }
-        if (groupIndex < 0) {
-            groupIndex = (int)groupLayout.groups.size() - 1;
-        }
-        if (doSegmentedControl(
-                "##sdrpp_band_category",
-                groupIndex,
-                groupLabels.data(),
-                (int)groupLabels.size(),
-                ImVec2(m.totalWidth, m.rowHeight)))
-        {
-            groupId = std::string(groupLayout.groups[groupIndex].id);
-            scrollActiveIntoView = true;
+        if (const std::optional<std::string> selectedGroup =
+                drawCategorySelector(page, m)) {
+            impl->groupId = *selectedGroup;
+            impl->scrollActiveIntoView = true;
             auto configAccess = core::configManager.edit();
-            freq_memory::band(configAccess).set(freq_memory::GROUP, groupId);
+            freq_memory::band(configAccess).set(freq_memory::GROUP, impl->groupId);
+            page = band_picker::makePage(
+                available,
+                maximumGroups,
+                impl->groupId,
+                impl->currentService);
         }
-        const band_groups::Group& activeGroup =
-            groupLayout.groups[groupIndex];
+        const band_groups::Group& activeGroup = page.activeGroup();
         ImGui::Spacing();
 
-        std::vector<const canonical_bands::Entry*> shown;
-        BandService firstShownService = BandService::Count;
-        bool mixedServices = false;
-        for (const auto& e : avail) {
-            if (activeGroup.services.contains(e.band.resolved.service())) {
-                shown.push_back(&e);
-                const BandService service = e.band.resolved.service();
-                if (firstShownService == BandService::Count) {
-                    firstShownService = service;
-                }
-                else if (service != firstShownService) {
-                    mixedServices = true;
-                }
-            }
-        }
-        if (!activeValid || activePlan != plan ||
-            activePlanRevision != plan->revision ||
-            activeFrequency != ctx.frequency ||
-            activeServices != activeGroup.services ||
-            activePreferredService != currentService)
-        {
-            activeMapping = gui::bandStack.resolveBandForServices(
-                activeGroup.services,
-                currentService,
-                (double)ctx.frequency);
-            activePlan = plan;
-            activePlanRevision = plan->revision;
-            activeFrequency = ctx.frequency;
-            activeServices = activeGroup.services;
-            activePreferredService = currentService;
-            activeValid = true;
-        }
+        const BandMapping* activeMapping = impl->activeBand.resolve({
+            plan,
+            plan->revision,
+            ctx.frequency,
+            activeGroup.services,
+            impl->currentService
+        });
         if (activeMapping) {
             // A fallback match in another visible service becomes the current
             // service for subsequent overlap resolution.
-            if (currentService != activeMapping->service) {
-                currentService = activeMapping->service;
-                activePreferredService = currentService;
+            if (impl->currentService != activeMapping->service) {
+                impl->currentService = activeMapping->service;
                 auto configAccess = core::configManager.edit();
                 freq_memory::band(configAccess).set(
                     freq_memory::PREFERRED_SERVICE,
-                    bandServiceKey(currentService));
+                    bandServiceKey(impl->currentService));
             }
         }
 
-        // OpenPopup must run at this (modal) scope, not inside the grid child, or
-        // its popup ID won't match the BeginPopup below. The long-press detector
-        // fires inside the child, so it only sets this flag.
-        bool openRegPopup = false;
-        // One band key. Declared out here because the register popup sizes its
-        // rows off it too. The column count comes from the viewport, so a wide
-        // page trades rows for columns instead of scrolling.
-        const int cols = m.bandCols;
-        const float keyW = (m.gridWidth - (float)(cols - 1) * sp.x) / (float)cols;
-        if (shown.empty()) {
-            ImGui::TextDisabled("No bands in the tuning range");
-        }
-        else {
-            // Grid of band keys in a child sized to what is left of the page
-            // under the category row; when it cannot hold every row it stops
-            // half a row short, the clipped row being the hint that it scrolls.
-            const float keyH = m.bandKeyHeight;
-            const int rowsNeeded = ((int)shown.size() + cols - 1) / cols;
-            const int rowsFit =
-                Metrics::rowsThatFit(m.pageHeight - m.rowHeight - 2.0f * sp.y, keyH);
-            const float gridH = Metrics::gridHeight(rowsNeeded, rowsFit, keyH);
-            ImGuiIO& io = ImGui::GetIO();
-            ImVec2 mousePos = ImGui::GetMousePos();
-            ImGui::BeginChild("##sdrpp_band_grid", ImVec2(m.totalWidth, gridH), false);
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImU32 mainCol = ImGui::GetColorU32(ImGuiCol_Text);
-            ImU32 subCol = ImGui::GetColorU32(ImGuiCol_Text, 0.75f);
-            const style::SelectedToggleColors selCols = style::selectedToggleColors();
-            ImVec4 selSub = selCols.content;
-            selSub.w *= 0.75f;
-            char id[32];
-            for (int i = 0; i < (int)shown.size(); i++) {
-                const canonical_bands::Entry& entry = *shown[i];
-                const bandplan::Band_t& b = entry.band;
-                ImGui::SetCursorPos(ImVec2((i % cols) * (keyW + sp.x), (i / cols) * (keyH + sp.y)));
-                snprintf(id, sizeof(id), "##sdrpp_band_%d", i);
-                const bool active = b.resolved.mapping == activeMapping;
-                // The band holding the current frequency takes the shared
-                // latched look, not ImGuiCol_ButtonActive: that colour is what a
-                // button flashes while pressed, and several themes barely
-                // separate it from ImGuiCol_Button.
-                if (active) { style::pushSelectedToggle(selCols); }
-                bool clicked = ImGui::Button(id, ImVec2(keyW, keyH));
-                // While the list is up it has this tap. The dismissing press is
-                // held off for its whole life, not just this frame: activation
-                // below is gated too, so longPressDone -- set when the list
-                // opened, cleared only by an ungated activation -- still blocks
-                // the release, which lands a frame or more after the list has
-                // gone and would otherwise tune.
-                if (regPopupOpen) { clicked = false; }
-                // Keep the open list's anchor and size on its key rather than
-                // on what they were when it was pressed. The grid re-lays out
-                // under it -- a rotation re-centres the dialog and changes the
-                // column count, and the grid scrolls -- and both the placement
-                // and the safe-area fit are recomputed from these every frame,
-                // so a rotation is right on the frame it happens.
-                if (regPopupOpen &&
-                    b.resolved.mapping == regPopupMapping)
-                {
-                    regPopupKeyMin = ImGui::GetItemRectMin();
-                    regPopupKeyMax = ImGui::GetItemRectMax();
-                    regPopupSize = registerPopupSize(
-                        regPopupSnapshot.registers.size(),
-                        registerRowSize(keyW, m),
-                        regPopupTitle);
-                }
-                if (active) {
-                    style::drawSelectedToggleStroke(selCols);
-                    style::popSelectedToggle();
-                }
-                if (active && scrollActiveIntoView) {
-                    ImGui::SetScrollHereY(0.5f);
-                    scrollActiveIntoView = false;
-                }
-                // A quick tap recalls the top entry (and rotates the stack when
-                // the active band is tapped again); a motionless hold opens the
-                // register list. Stepping waits for release so the two can't
-                // both fire (same idiom as the digit long-press).
-                if (!regPopupOpen && b.resolved.mapping && ImGui::IsItemActivated()) {
-                    pressBand = i;
-                    longPressDone = false;
-                }
-                if (!regPopupOpen && pressBand == i && ImGui::IsItemActive() && !longPressDone) {
-                    float slop = 10.0f * style::uiScale;
-                    float dx = mousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x;
-                    float dy = mousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y;
-                    if ((dx * dx) + (dy * dy) <= (slop * slop) && io.MouseDownDuration[ImGuiMouseButton_Left] >= 0.5f) {
-                        longPressDone = true;
-                        regPopupMapping = b.resolved.mapping;
-                        regPopupTitle = b.name;
-                        regPopupSnapshot = gui::bandStack.openRegisters(
-                            *regPopupMapping,
-                            entry.defaultFrequency,
-                            activeMapping);
-                        openRegPopup = true;
-                        // Anchor the register list to the key it belongs to.
-                        // registerPopupPos() turns the rectangle and the size
-                        // into a position each frame; both are refreshed from
-                        // the live key and layout for as long as the list is
-                        // open, so this only has to seed them.
-                        regPopupKeyMin = ImGui::GetItemRectMin();
-                        regPopupKeyMax = ImGui::GetItemRectMax();
-                        regPopupSize = registerPopupSize(
-                            regPopupSnapshot.registers.size(),
-                            registerRowSize(keyW, m),
-                            regPopupTitle);
+        const BandGridLayout gridLayout = bandGridLayout(m, spacing);
+        const BandGridEvent gridEvent = drawBandGrid(
+            page,
+            m,
+            gridLayout,
+            activeMapping,
+            registerPopupOpen,
+            impl->keyGesture,
+            impl->registerPopup,
+            impl->scrollActiveIntoView);
+
+        bool openRegisterPopup = false;
+        if (gridEvent.choice &&
+            gridEvent.action == BandGridAction::OpenRegisters) {
+            const band_picker::BandChoice& choice = *gridEvent.choice;
+            impl->registerPopup.mapping = choice.mapping;
+            impl->registerPopup.title = choice.name;
+            impl->registerPopup.snapshot = gui::bandStack.openRegisters(
+                *choice.mapping,
+                choice.defaultFrequency,
+                activeMapping);
+            impl->registerPopup.setAnchor(
+                gridEvent.keyMin,
+                gridEvent.keyMax,
+                registerPopupSize(
+                    impl->registerPopup.snapshot.registers.size(),
+                    registerRowSize(gridLayout.keyWidth, m),
+                    impl->registerPopup.title));
+            openRegisterPopup = true;
 #ifdef __ANDROID__
-                        backend::hapticTick();
+            backend::hapticTick();
 #endif
-                    }
-                }
-                if (clicked && !longPressDone) {
-                    if (b.resolved.mapping) {
-                        gui::bandStack.selectBand(
-                            *b.resolved.mapping,
-                            entry.defaultFrequency,
-                            activeMapping);
-                    }
-                    else {
-                        gui::bandStack.selectLegacySegment(
-                            b,
-                            activeMapping);
-                    }
-                    out.close = true;
+        }
+        else if (gridEvent.choice &&
+                 gridEvent.action == BandGridAction::Select) {
+            const band_picker::BandChoice& choice = *gridEvent.choice;
+            if (choice.mapping) {
+                gui::bandStack.selectBand(
+                    *choice.mapping,
+                    choice.defaultFrequency,
+                    activeMapping);
+            }
+            else if (choice.legacySegment) {
+                gui::bandStack.selectLegacySegment(
+                    *choice.legacySegment,
+                    activeMapping);
+            }
+            out.close = true;
 #ifdef __ANDROID__
-                    backend::hapticTick();
+            backend::hapticTick();
 #endif
-                }
-                ImVec2 bmin = ImGui::GetItemRectMin();
-                ImVec2 bmax = ImGui::GetItemRectMax();
-                float maxW = keyW - style::dp(8.0f);
-                const BandMapping* mapping = b.resolved.mapping;
-                const std::string_view main = mapping
-                    ? mapping->selectorLabel
-                    : std::string_view(b.name.data(), b.name.size());
-                const std::string_view sub = mapping
-                    ? mapping->selectorDetail
-                    : std::string_view{};
-                const std::string_view service = mixedServices
-                    ? serviceDisplayName(b.resolved.service())
-                    : std::string_view{};
-                const ImU32 keyMain = active ? ImGui::GetColorU32(selCols.content) : mainCol;
-                const ImU32 keySub = active ? ImGui::GetColorU32(selSub) : subCol;
-                dl->PushClipRect(bmin, bmax, true);
-                const bool truncated = drawBandKeyLabel(
-                    dl,
-                    bmin,
-                    bmax,
-                    maxW,
-                    main,
-                    sub,
-                    service,
-                    mapping == nullptr,
-                    keyMain,
-                    keySub);
-                dl->PopClipRect();
-#ifndef __ANDROID__
-                if (truncated && ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("%s", b.name.c_str());
-                }
-#endif
-            }
-            ImGui::EndChild();
         }
 
-        // Register list for a long-pressed band key (IC-705: touch the band key for
-        // 1 second to display the Band Stacking Register contents).
-        if (openRegPopup) {
-            ImGui::OpenPopup("##sdrpp_band_registers");
-        }
-        if (openRegPopup || regPopupOpen) {
-            ImGui::SetNextWindowPos(
-                registerPopupPos(regPopupKeyMin, regPopupKeyMax, regPopupSize),
-                ImGuiCond_Always);
-        }
-        if (ImGui::BeginPopup("##sdrpp_band_registers", ImGuiWindowFlags_NoMove)) {
-            // Dismissal. ImGui closes a popup on an outside click only when
-            // that click lands on a window it can see, and a modal suppresses
-            // hovering of everything behind it while skipping the click-on-void
-            // branch entirely -- so a tap on the main window used to leave this
-            // list up, and only a tap on the dialog's own empty space closed
-            // it. Escape is ours for the same reason (keyboard nav is off, so
-            // ImGui does not act on it); taken here it backs out one level
-            // instead of reaching Dialog and closing everything. Android's Back
-            // already behaved: it goes through MainWindow::handleBackPress().
-            const bool cancel = PopupDialog::cancelKeyPressed();
-            if (cancel ||
-                (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsWindowHovered()))
-            {
-                out.consumedCancel = cancel;
-                ImGui::CloseCurrentPopup();
-            }
-
-            if (regPopupMapping) {
-                // External tuning can change the current register while the
-                // popup is open. Refresh its display-only overlay so a row
-                // always recalls the value the user sees.
-                gui::bandStack.refreshRegisterPopup(
-                    *regPopupMapping,
+        const RegisterPopupResult popupResult = drawRegisterPopup(
+            impl->registerPopup,
+            m,
+            gridLayout.keyWidth,
+            openRegisterPopup,
+            registerPopupOpen,
+            [&](int index) {
+                const BandRecallResult result = gui::bandStack.recallRegister(
+                    *impl->registerPopup.mapping,
+                    index,
                     activeMapping,
-                    regPopupSnapshot);
-                ImGui::TextDisabled("%s", regPopupTitle.c_str());
-                const BandRegisterSet& regs = regPopupSnapshot.registers;
-                const ImVec2 rowSz = registerRowSize(keyW, m);
-                ImDrawList* dl = ImGui::GetWindowDrawList();
-                const style::SelectedToggleColors regCols = style::selectedToggleColors();
-                char id[24];
-                char num[8];
-                for (int k = 0; k < (int)regs.size(); k++) {
-                    // The stack rotates, so its top row is always current.
-                    const bool current =
-                        k == 0 && regs[(std::size_t)k].has_value();
-                    const bool enabled =
-                        regs[(std::size_t)k].has_value() ||
-                        regPopupSnapshot.canMaterializeEmpty;
-                    snprintf(id, sizeof(id), "##sdrpp_reg_%d", k);
-                    ImGui::BeginDisabled(!enabled);
-                    if (current) { style::pushSelectedToggle(regCols); }
-                    const bool pick = ImGui::Button(id, rowSz);
-                    if (current) {
-                        style::drawSelectedToggleStroke(regCols);
-                        style::popSelectedToggle();
-                    }
-
-                    const ImVec2 rmin = ImGui::GetItemRectMin();
-                    const ImVec2 rmax = ImGui::GetItemRectMax();
-                    const float cy = (rmin.y + rmax.y) / 2.0f;
-                    ImVec4 dimVec = current ? regCols.content : ImGui::GetStyleColorVec4(ImGuiCol_Text);
-                    const ImU32 col = ImGui::GetColorU32(dimVec);
-                    dimVec.w *= 0.70f;
-                    const ImU32 dim = ImGui::GetColorU32(dimVec);
-                    snprintf(num, sizeof(num), "%d", k + 1);
-                    // Fixed column anchors: the slot, the frequency, its unit and
-                    // the mode line up down the list instead of each row running
-                    // together as one left-aligned string of its own length.
-                    dl->PushClipRect(rmin, rmax, true);
-                    drawCenteredLabel(dl, style::baseFont, style::dp(12.0f), ImVec2(rmin.x + rowSz.x * 0.08f, cy), rowSz.x * 0.12f, dim, num);
-                    if (regs[k]) {
-                        drawCenteredLabel(dl, style::labelFont, style::dp(18.0f), ImVec2(rmin.x + rowSz.x * 0.42f, cy), rowSz.x * 0.44f, col, labelMHz(regs[k]->freq).c_str());
-                        drawCenteredLabel(dl, style::baseFont, style::dp(11.0f), ImVec2(rmin.x + rowSz.x * 0.71f, cy), rowSz.x * 0.14f, dim, "MHz");
-                        drawCenteredLabel(dl, style::baseFont, style::dp(13.0f), ImVec2(rmin.x + rowSz.x * 0.89f, cy), rowSz.x * 0.18f, col, radioModeName(regs[k]->mode));
-                    }
-                    else {
-                        drawCenteredLabel(dl, style::baseFont, style::dp(14.0f), ImVec2(rmin.x + rowSz.x * 0.50f, cy), rowSz.x * 0.55f, dim, "Empty");
-                    }
-                    dl->PopClipRect();
-                    ImGui::EndDisabled();
-
-                    if (pick) {
-                        const BandRecallResult result =
-                            gui::bandStack.recallRegister(
-                                *regPopupMapping,
-                                k,
-                                activeMapping);
-                        if (result == BandRecallResult::Recalled) {
-                            out.close = true;
-                            ImGui::CloseCurrentPopup();
+                    impl->registerPopup.snapshot);
+                if (result != BandRecallResult::Recalled) { return false; }
+                out.close = true;
 #ifdef __ANDROID__
-                            backend::hapticTick();
+                backend::hapticTick();
 #endif
-                        }
-                    }
-                }
-            }
-            ImGui::EndPopup();
-        }
+                return true;
+            });
+        out.consumedCancel = popupResult.consumedCancel;
 
         return out;
     }
