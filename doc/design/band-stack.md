@@ -6,15 +6,19 @@ from primary sources what a band-stack register actually contains (Icom CI-V
 This note reviews what this fork ships today (`12ec9799`, `d9c915fb`) and
 proposes the state machine and data model to replace it.
 
-**Status (updated 2026-08-09).** Part 8 — the extraction step — has been
+**Status (updated 2026-08-16).** Part 8 — the extraction step — has been
 implemented. Current `master` also has an interim subset of P1: plan rows now
 receive stable `band_id` values and collapse to canonical selector keys, while
 each `bandMemory[band_id]` is exactly three rotating optional entries. Entry 0
-is always current: ordinary write-back updates it in place, repeat tap rotates
-all three fixed positions right and initializes an empty new top from the saved
-current state, and a register-list pick materializes an empty row before
-rotating it to the top. Empty positions retain their slot identity. No current
-pointer is stored. Opening
+is always current: ordinary write-back updates it in place. While any entry is
+empty, repeat tap rotates the prefix through the first empty entry right, then
+stores the current VFO at entry 0. Thus `[A, empty, empty] + X` becomes
+`[X, A, empty]`, and the next repeat with `Y` becomes `[Y, X, A]`. Once full,
+repeat tap overwrites entry 0 and rotates all three entries right. A
+register-list pick materializes an empty row without first overwriting the old
+top, then promotes the selected row by rotating its prefix. A populated pick
+stores the current VFO before promotion. Empty positions retain their slot
+identity outside the rotated prefix. No current pointer is stored. Opening
 resolves only inside the restored visible group without writing; lifecycle save
 is additionally locked to the current service. There
 is deliberately no migration for pre-release development data. The
@@ -546,10 +550,14 @@ module ABI — and removes any way for the shadow to go stale against the radio.
 ### 2.4 Invariants
 
 - `regs.size() == 3`; each index is a fixed physical position and may be empty.
-  `regs[0]` is current whenever populated. A repeat tap rotates all three
-  positions right; if the new top is empty, it is initialized from the state
-  saved immediately before rotation. A selected empty row is first materialized
-  and then promoted by rotating only the prefix through that row.
+  `regs[0]` is current whenever populated. If any entry is empty, a repeat
+  rotates the prefix ending at the first empty entry right, then stores the
+  current state at `regs[0]`: `[A, B, empty] + X -> [X, A, B]`,
+  `[A, empty, C] + X -> [X, A, C]`, and
+  `[empty, B, C] + X -> [X, B, C]`. Once full, a repeat overwrites `regs[0]`
+  and rotates all three positions right: `[A, B, C] + X -> [C, X, B]`.
+  A selected empty popup row is materialized without overwriting the old top,
+  then promoted by rotating only the prefix through that row.
 - Every populated `regs[i].freq` lies inside the bucket's ranges. Revalidated on load —
   and because bucket ranges are code-defined and stable, revalidation now almost
   never discards anything, unlike today's revalidation against editable plan
@@ -730,9 +738,9 @@ own default mode.
 | Trigger | Action |
 |---|---|
 | Band key tapped, bucket **≠** shadow bucket | Validate and overwrite the visible source's top entry, then recall the target's top entry |
-| Band key tapped, bucket **==** shadow bucket (repeat tap) | Validate and overwrite the top, rotate all three positions right once, initialize an empty new top from the just-saved state, then recall it |
+| Band key tapped, bucket **==** shadow bucket (repeat tap) | If an empty entry exists, rotate the prefix through the first empty entry right and then store the current state at the top. If full, overwrite the top and rotate all three entries right. Recall the resulting top |
 | Long-press band key | For the visibly active band, overwrite and persist the top register from the current in-band VFO state. Otherwise seed only an empty top from the band default. Snapshot the resulting list and keep it frozen while the popup is open; never tune or rotate |
-| Register *k* picked from the list | Row 0 recalls the frozen value shown. For rows 1 and 2, if empty, materialize from the VFO only when it belongs to that band; otherwise keep the popup open. Overwrite the visible source with its state at selection time, rotate prefix `[0, k]` right once to promote *k*, and recall it |
+| Register *k* picked from the list | Row 0 recalls the frozen value shown. For populated rows 1 and 2, overwrite the visible source with its state at selection time, rotate prefix `[0, k]` right once, and recall the promoted value. If row *k* is empty, materialize it from an in-band VFO without first overwriting the target's old top, rotate the prefix, and recall it; otherwise keep the popup open |
 | Lock / label / delete a slot | Mutate the slot. The lock flag itself is always settable, even on a locked entry, so it stays unlockable |
 | Frequency-input Band page opened or group changed | Resolve visibly inside that group and activate/scroll. Write no register; selector ownership and a fallback service may be persisted |
 | Application shutdown | Resolve inside the last group **and current service only**, then overwrite the top without rotating |

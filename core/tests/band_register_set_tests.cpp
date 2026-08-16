@@ -49,6 +49,12 @@ namespace {
     void testRepeatRotationContract() {
         const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
 
+        BandRegisterSet empty;
+        empty.repeatWithCurrent(current);
+        expectRegister(empty, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(empty, 1);
+        expectEmpty(empty, 2);
+
         BandRegisterSet full = fullStack();
         full.repeatWithCurrent(current);
         expectRegister(full, 0, 3.0, RADIO_IFACE_MODE_CW);
@@ -60,35 +66,62 @@ namespace {
         emptyThird.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
         emptyThird.repeatWithCurrent(current);
         expectRegister(emptyThird, 0, 10.0, RADIO_IFACE_MODE_USB);
-        expectRegister(emptyThird, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(emptyThird, 1, 1.0, RADIO_IFACE_MODE_NFM);
         expectRegister(emptyThird, 2, 2.0, RADIO_IFACE_MODE_AM);
 
         BandRegisterSet emptyMiddle;
         emptyMiddle.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
         emptyMiddle.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
         emptyMiddle.repeatWithCurrent(current);
-        expectRegister(emptyMiddle, 0, 3.0, RADIO_IFACE_MODE_CW);
-        expectRegister(emptyMiddle, 1, 10.0, RADIO_IFACE_MODE_USB);
-        expectEmpty(emptyMiddle, 2);
+        expectRegister(emptyMiddle, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(emptyMiddle, 1, 1.0, RADIO_IFACE_MODE_NFM);
+        expectRegister(emptyMiddle, 2, 3.0, RADIO_IFACE_MODE_CW);
 
         BandRegisterSet onlyTop;
         onlyTop.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
         onlyTop.repeatWithCurrent(current);
         expectRegister(onlyTop, 0, 10.0, RADIO_IFACE_MODE_USB);
-        expectRegister(onlyTop, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(onlyTop, 1, 1.0, RADIO_IFACE_MODE_NFM);
         expectEmpty(onlyTop, 2);
+
+        // Partial stacks fill without cycling; the following repeat starts the
+        // full-stack roll and recalls the original seeded value.
+        onlyTop.repeatWithCurrent(reg(20.0, RADIO_IFACE_MODE_LSB));
+        expectRegister(onlyTop, 0, 20.0, RADIO_IFACE_MODE_LSB);
+        expectRegister(onlyTop, 1, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(onlyTop, 2, 1.0, RADIO_IFACE_MODE_NFM);
+        onlyTop.repeatWithCurrent(reg(30.0, RADIO_IFACE_MODE_AM));
+        expectRegister(onlyTop, 0, 1.0, RADIO_IFACE_MODE_NFM);
+        expectRegister(onlyTop, 1, 30.0, RADIO_IFACE_MODE_AM);
+        expectRegister(onlyTop, 2, 10.0, RADIO_IFACE_MODE_USB);
+
+        BandRegisterSet onlyMiddle;
+        onlyMiddle.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
+        onlyMiddle.repeatWithCurrent(current);
+        expectRegister(onlyMiddle, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(onlyMiddle, 1, 2.0, RADIO_IFACE_MODE_AM);
+        expectEmpty(onlyMiddle, 2);
 
         BandRegisterSet noTop;
         noTop.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
         noTop.repeatWithCurrent(current);
-        expectRegister(noTop, 0, 3.0, RADIO_IFACE_MODE_CW);
-        expectRegister(noTop, 1, 10.0, RADIO_IFACE_MODE_USB);
-        expectEmpty(noTop, 2);
+        expectRegister(noTop, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectEmpty(noTop, 1);
+        expectRegister(noTop, 2, 3.0, RADIO_IFACE_MODE_CW);
+
+        BandRegisterSet missingTop;
+        missingTop.setSlot(1, reg(2.0, RADIO_IFACE_MODE_AM));
+        missingTop.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        missingTop.repeatWithCurrent(current);
+        expectRegister(missingTop, 0, 10.0, RADIO_IFACE_MODE_USB);
+        expectRegister(missingTop, 1, 2.0, RADIO_IFACE_MODE_AM);
+        expectRegister(missingTop, 2, 3.0, RADIO_IFACE_MODE_CW);
     }
 
     void testRegisterSelectionContract() {
-        // Slot 0 was captured when the popup opened. Selection samples a newer
-        // state and stores it before rotating rows 1 or 2 into the top.
+        // Slot 0 was captured when the popup opened. A populated selection
+        // stores a newer state before promotion; an empty selection materializes
+        // the newer state directly and preserves the captured top behind it.
         const BandRegister current = reg(10.0, RADIO_IFACE_MODE_USB);
 
         BandRegisterSet second = fullStack();
@@ -119,6 +152,23 @@ namespace {
         expectRegister(sparse, 0, 20.0, RADIO_IFACE_MODE_LSB);
         expectRegister(sparse, 1, 10.0, RADIO_IFACE_MODE_USB);
         expectRegister(sparse, 2, 2.0, RADIO_IFACE_MODE_AM);
+
+        BandRegisterSet emptyMiddle;
+        emptyMiddle.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        emptyMiddle.setSlot(2, reg(3.0, RADIO_IFACE_MODE_CW));
+        expect(emptyMiddle.select(1, materialized).has_value(),
+               "empty middle selection was not materialized");
+        expectRegister(emptyMiddle, 0, 20.0, RADIO_IFACE_MODE_LSB);
+        expectRegister(emptyMiddle, 1, 1.0, RADIO_IFACE_MODE_NFM);
+        expectRegister(emptyMiddle, 2, 3.0, RADIO_IFACE_MODE_CW);
+
+        BandRegisterSet onlyTop;
+        onlyTop.setSlot(0, reg(1.0, RADIO_IFACE_MODE_NFM));
+        expect(onlyTop.select(2, materialized).has_value(),
+               "sparse empty third selection was not materialized");
+        expectRegister(onlyTop, 0, 20.0, RADIO_IFACE_MODE_LSB);
+        expectRegister(onlyTop, 1, 1.0, RADIO_IFACE_MODE_NFM);
+        expectEmpty(onlyTop, 2);
 
         BandRegisterSet middleHole;
         middleHole.storeTop(current);

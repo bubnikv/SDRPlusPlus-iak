@@ -334,26 +334,37 @@ void BandStack::selectBand(
         ConfigManager::EditSection root = freq_memory::root(configAccess);
         ConfigManager::EditSection band = root.section(freq_memory::SELECTOR_BAND);
         ConfigManager::EditSection mem = band.section(freq_memory::STACKING_REGISTERS);
+        const bool couldRepeat = activeMapping == &mapping;
+        BandRegisterSet registers;
+        if (couldRepeat) {
+            // Keep the potential repeat target's pre-write state because
+            // storeVisibleBand() overwrites this same band's top.
+            registers = readRegisters(mem, plan, mapping);
+        }
         const bool storedSource = storeVisibleBand(
             mem,
             plan,
             activeMapping,
             currentFrequency,
             curMode);
-        const bool repeatTap = storedSource && activeMapping == &mapping;
+        const bool repeatTap = storedSource && couldRepeat;
 
         band.set(freq_memory::PREFERRED_SERVICE, freq_input::bandServiceKey(mapping.service));
         root.set(freq_memory::SELECTOR, freq_memory::SELECTOR_BAND);
 
-        BandRegisterSet registers = readRegisters(mem, plan, mapping);
         if (repeatTap) {
-            // Keep save + rotation in one tested transition. storeVisibleBand()
-            // already persisted this same normalized state before the reload.
+            // Keep partial-stack push and full-stack roll in one tested
+            // transition using the pre-write stack captured above.
             registers.repeatWithCurrent({
                 currentFrequency,
                 radioModeValid(curMode) ? curMode : -1
             });
             writeRegisters(mem, mapping, registers);
+        }
+        else {
+            // Preserve the existing switch-band ordering: save the visible
+            // source first, then load the target stack.
+            registers = readRegisters(mem, plan, mapping);
         }
 
         target = registers.top();
@@ -410,15 +421,20 @@ BandRecallResult BandStack::recallRegister(
             if (!materialization) { return BandRecallResult::NoTarget; }
         }
 
-        storeVisibleBand(
-            mem,
-            plan,
-            activeMapping,
-            currentFrequency,
-            curMode);
+        const bool materializingActiveTarget =
+            materialization && activeMapping == &mapping;
+        if (!materializingActiveTarget) {
+            storeVisibleBand(
+                mem,
+                plan,
+                activeMapping,
+                currentFrequency,
+                curMode);
 
-        // Source and target may be the same band, so reload after write-back.
-        registers = readRegisters(mem, plan, mapping);
+            // Source and target may be the same band, so reload after
+            // write-back before promoting a populated target row.
+            registers = readRegisters(mem, plan, mapping);
+        }
         std::optional<BandRegister> selected;
         if (frozenTop) {
             // Slot 0 is a frozen, already-persisted popup checkpoint. A newer
@@ -428,6 +444,9 @@ BandRecallResult BandStack::recallRegister(
             selected = frozenTop;
         }
         else {
+            // For an empty row in the active target, materialize and promote
+            // the current VFO directly. The pre-write stack retained above
+            // preserves its old top instead of manufacturing a duplicate VFO.
             selected = registers.select(
                 (std::size_t)index,
                 materialization);

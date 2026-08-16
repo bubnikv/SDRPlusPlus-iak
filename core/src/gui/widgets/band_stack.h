@@ -24,8 +24,8 @@ struct BandRegister {
     int mode = -1;
 };
 
-// One band's fixed three-register set, with slot 0 current. Empty positions are
-// preserved because repeat selection rotates all three physical registers.
+// One band's fixed three-register set, with slot 0 current. Partial pushes move
+// only the prefix through the first empty position; full stacks rotate all three.
 class BandRegisterSet {
 public:
     static constexpr std::size_t SIZE = 3;
@@ -51,12 +51,22 @@ public:
         return true;
     }
     void storeTop(const BandRegister& reg) { slots[0] = reg; }
-    // Save the state being left, then rotate third -> top -> second -> third.
-    // If the newly selected top was empty, initialize it from that saved state.
+    // Before the stack is full, push the occupied prefix through its first
+    // empty position and then store the current state at the top. Once full,
+    // overwrite the top with the current state and rotate all three positions
+    // right, recalling the old third position.
     void repeatWithCurrent(const BandRegister& current) {
+        const auto empty = std::find_if(
+            slots.begin(),
+            slots.end(),
+            [](const Slot& slot) { return !slot; });
+        if (empty != slots.end()) {
+            std::rotate(slots.begin(), empty, empty + 1);
+            slots[0] = current;
+            return;
+        }
         slots[0] = current;
         std::rotate(slots.begin(), slots.end() - 1, slots.end());
-        if (!slots[0]) { slots[0] = current; }
     }
     // Select a populated slot, or first materialize the selected empty slot.
     // Returns the selected register now at slot 0, or nullopt on no target.
@@ -119,8 +129,8 @@ BandRegisterPopupPreparation prepareBandRegisterPopup(
 //     the current frequency is sampled, never pushed in.
 //
 // The config is the store. Each stable band_id owns three rotating optional
-// entries; entry 0 is the latest state captured at an explicit checkpoint, so
-// no separate register pointer exists. The instance keeps the band picker and
+// entries; entry 0 is the currently selected checkpoint, so no separate
+// register pointer exists. The instance keeps the band picker and
 // lifecycle hooks behind one API. See doc/design/band-stack.md.
 class BandStack {
 public:
@@ -142,8 +152,9 @@ public:
 
     // A band-key tap. `activeMapping` is the visible source selected by
     // resolveBandForServices(), not a globally inferred write-back target.
-    // Repeating that band stores entry 0, rotates all three entries right,
-    // initializes an empty new 0 from the saved current state, and recalls it.
+    // Repeating that band pushes into the first empty entry without overwriting
+    // the previous top. Once full, it stores the current state and rotates all
+    // three entries right before recalling the resulting entry 0.
     void selectBand(
         const freq_input::BandMapping& mapping,
         double defaultFrequency,
@@ -156,9 +167,9 @@ public:
         const freq_input::BandMapping* activeMapping);
 
     // A register-list pick. The visible source is sampled again at selection
-    // time, so rows 1 and 2 preserve radio changes made after popup open before
-    // rotating the target to slot 0. Row 0 recalls the frozen value shown by
-    // the popup.
+    // time. A populated row 1 or 2 stores that state before promotion. An empty
+    // row materializes the state directly and promotes it without overwriting
+    // the old top. Row 0 recalls the frozen value shown by the popup.
     BandRecallResult recallRegister(
         const freq_input::BandMapping& mapping,
         int index,
