@@ -1,0 +1,8 @@
+{
+  "substance": "./emwave.substance",
+  "style": [
+    "./emwave-icon.style"
+  ],
+  "domain": "./emwave.domain",
+  "variation": "SDRIAKEMWaveIcon"
+}
