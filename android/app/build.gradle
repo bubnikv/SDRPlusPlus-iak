@@ -142,9 +142,9 @@ task copyResources(type: Copy) {
     from '../../root/'
     into 'assets/'
     include('**/*')
-    exclude('res/icons/sdriak.ico')
-    exclude('res/icons/sdriak.macos.png')
-    exclude('res/icons/sdriak-*.png')
+    exclude('res/icons/windows/**')
+    exclude('res/icons/macos/**')
+    exclude('res/icons/linux/**')
 }
 
 repositories {

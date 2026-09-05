@@ -28,8 +28,12 @@ Color = tuple[int, int, int, int]
 
 CANVAS_SIZE = 1024
 DESKTOP_BACKGROUND_SIZE = 880
-MACOS_BACKGROUND_SIZE = 920
+MACOS_BACKGROUND_SIZE = 824
 BACKGROUND_RADIUS_RATIO = 190.0 / 920.0
+MACOS_CORNER_EXPONENT = 5.0
+MACOS_SHADOW_OFFSET_Y = 10.0
+MACOS_SHADOW_BLUR_RADIUS = 18.0
+MACOS_SHADOW_ALPHA = 72
 WAVE_HALF_SPAN = 340.0 * 2.0 / 3.0
 WAVE_START = -WAVE_HALF_SPAN
 WAVE_END = WAVE_HALF_SPAN
@@ -59,12 +63,24 @@ FIELD_VECTOR_FRACTIONS = (1 / 8, 2 / 8, 3 / 8, 5 / 8, 6 / 8, 7 / 8)
 SIMPLIFIED_FIELD_VECTOR_FRACTIONS = (1 / 6, 2 / 6, 4 / 6, 5 / 6)
 ANDROID_ADAPTIVE_GRAPH_SCALE = 0.94
 ANDROID_LEGACY_GRAPH_SCALE = 1.18
-MACOS_GRAPH_SCALE = 1.18
+MACOS_GRAPH_SCALE = 1.12
 LARGE_DESKTOP_GRAPH_SCALE = 1.20
 MEDIUM_DESKTOP_GRAPH_SCALE = 1.24
 MICRO_DESKTOP_GRAPH_SCALE = 1.28
 ICO_SIZES = (256, 128, 64, 48, 32, 24, 16)
 LINUX_ICON_SIZES = (256, 192, 128, 96, 64, 48, 32, 24, 22, 16)
+MACOS_ICONSET_SLOTS = (
+    ("icon_16x16.png", 16),
+    ("icon_16x16@2x.png", 32),
+    ("icon_32x32.png", 32),
+    ("icon_32x32@2x.png", 64),
+    ("icon_128x128.png", 128),
+    ("icon_128x128@2x.png", 256),
+    ("icon_256x256.png", 256),
+    ("icon_256x256@2x.png", 512),
+    ("icon_512x512.png", 512),
+    ("icon_512x512@2x.png", 1024),
+)
 ANDROID_LEGACY_SIZES = {
     "mdpi": 48,
     "hdpi": 72,
@@ -445,6 +461,28 @@ def composite_draw(
     return Image.alpha_composite(image, layer)
 
 
+def continuous_rectangle_points(
+    size: int, inset: float, *, exponent: float = MACOS_CORNER_EXPONENT
+) -> list[Point]:
+    """Approximate Apple's continuous-corner plate with a superellipse."""
+    center = size / 2.0
+    half_extent = center - inset
+    power = 2.0 / exponent
+    points: list[Point] = []
+    for index in range(256):
+        angle = -math.pi / 2.0 + 2.0 * math.pi * index / 256.0
+        cosine = math.cos(angle)
+        sine = math.sin(angle)
+        points.append(
+            (
+                center
+                + half_extent * math.copysign(abs(cosine) ** power, cosine),
+                center + half_extent * math.copysign(abs(sine) ** power, sine),
+            )
+        )
+    return points
+
+
 def draw_polyline(
     draw: "PillowImageDraw.ImageDraw",
     points: Sequence[tuple[float, float]],
@@ -465,9 +503,10 @@ def build_raster_master(
     target_size: int = CANVAS_SIZE,
     background_size: int = DESKTOP_BACKGROUND_SIZE,
     graph_scale: float = LARGE_DESKTOP_GRAPH_SCALE,
+    macos_legacy: bool = False,
 ) -> "PillowImage.Image":
     try:
-        from PIL import Image, ImageChops, ImageDraw
+        from PIL import Image, ImageChops, ImageDraw, ImageFilter
     except ImportError as error:
         raise RuntimeError(
             "Pillow is required for --install; install requirements-logo.txt"
@@ -496,6 +535,25 @@ def build_raster_master(
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     inset = (CANVAS_SIZE - background_size) / 2.0 * scale
     background_radius = background_size * BACKGROUND_RADIUS_RATIO * scale
+    plate_points = (
+        continuous_rectangle_points(size, inset)
+        if macos_legacy
+        else None
+    )
+
+    if plate_points is not None:
+        shadow_mask = Image.new("L", image.size, 0)
+        shadow_offset = MACOS_SHADOW_OFFSET_Y * scale
+        ImageDraw.Draw(shadow_mask).polygon(
+            [(x, y + shadow_offset) for x, y in plate_points],
+            fill=MACOS_SHADOW_ALPHA,
+        )
+        shadow_mask = shadow_mask.filter(
+            ImageFilter.GaussianBlur(MACOS_SHADOW_BLUR_RADIUS * scale)
+        )
+        shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        shadow.putalpha(shadow_mask)
+        image = Image.alpha_composite(image, shadow)
 
     vertical = Image.linear_gradient("L").resize((size, size))
     horizontal = vertical.transpose(Image.Transpose.ROTATE_90)
@@ -509,25 +567,40 @@ def build_raster_master(
         blend,
     )
     background_mask = Image.new("L", image.size, 0)
-    ImageDraw.Draw(background_mask).rounded_rectangle(
-        (inset, inset, size - inset, size - inset),
-        radius=background_radius,
-        fill=255,
-    )
-    image = Image.composite(gradient, image, background_mask)
-    image = composite_draw(
-        image,
-        lambda layer: layer.rounded_rectangle(
+    if plate_points is None:
+        ImageDraw.Draw(background_mask).rounded_rectangle(
             (inset, inset, size - inset, size - inset),
             radius=background_radius,
-            outline=BORDER,
-            width=line_width(
-                5.0,
-                BORDER_MIN_PIXELS,
-                scale_with_graph=False,
-            ),
-        ),
+            fill=255,
+        )
+    else:
+        ImageDraw.Draw(background_mask).polygon(plate_points, fill=255)
+    image = Image.composite(gradient, image, background_mask)
+    border_width = line_width(
+        5.0,
+        BORDER_MIN_PIXELS,
+        scale_with_graph=False,
     )
+    if plate_points is None:
+        image = composite_draw(
+            image,
+            lambda layer: layer.rounded_rectangle(
+                (inset, inset, size - inset, size - inset),
+                radius=background_radius,
+                outline=BORDER,
+                width=border_width,
+            ),
+        )
+    else:
+        image = composite_draw(
+            image,
+            lambda layer: layer.line(
+                [*plate_points, plate_points[0]],
+                fill=BORDER,
+                width=border_width,
+                joint="curve",
+            ),
+        )
 
     e_curve = e_wave_points()
     h_curve = h_wave_points()
@@ -649,6 +722,21 @@ def png_bytes(master: "PillowImage.Image", size: int) -> bytes:
 def ico_bytes() -> bytes:
     from PIL import Image
 
+    def and_mask(image: "PillowImage.Image") -> bytes:
+        """Return a bottom-up, DWORD-aligned 1-bpp mask for a DIB icon."""
+        width, height = image.size
+        row_stride = ((width + 31) // 32) * 4
+        mask = bytearray(row_stride * height)
+        alpha = image.getchannel("A")
+        alpha_pixels = alpha.load()
+
+        for output_y, source_y in enumerate(range(height - 1, -1, -1)):
+            row_offset = output_y * row_stride
+            for x in range(width):
+                if alpha_pixels[x, source_y] == 0:
+                    mask[row_offset + x // 8] |= 0x80 >> (x % 8)
+        return bytes(mask)
+
     def entries(data: bytes) -> dict[int, tuple[bytes, bytes]]:
         reserved, image_type, count = struct.unpack_from("<HHH", data)
         if (reserved, image_type) != (0, 1):
@@ -680,7 +768,17 @@ def ico_bytes() -> bytes:
             sizes=[(size, size)],
             bitmap_format=bitmap_format,
         )
-        return entries(output.getvalue())[size]
+        entry_prefix, image_data = entries(output.getvalue())[size]
+        if bitmap_format == "bmp":
+            # Pillow doubles the DIB height to account for an AND mask but
+            # omits the mask for 32-bpp images. Supply the declared 1-bpp mask
+            # so strict ICO readers do not run past the end of the entry.
+            image_data += and_mask(image)
+
+        # Pillow writes zero for ICONDIRENTRY.wPlanes. These images have one
+        # color plane, matching BITMAPINFOHEADER.biPlanes in the DIB entries.
+        entry_prefix = entry_prefix[:4] + struct.pack("<H", 1) + entry_prefix[6:]
+        return entry_prefix, image_data
 
     # Microsoft recommends PNG compression only for the 256 px image. Smaller
     # entries remain conventional 32-bit DIBs for older Windows icon consumers.
@@ -712,16 +810,19 @@ def android_xml(root: ET.Element) -> bytes:
 
 def android_background_xml() -> bytes:
     root = ET.Element("shape", {android_attr("shape"): "rectangle"})
-    ET.SubElement(
-        root,
-        "gradient",
-        {
-            android_attr("angle"): "315",
-            android_attr("startColor"): css_color(BG_START),
-            android_attr("endColor"): css_color(BG_END),
-            android_attr("type"): "linear",
-        },
-    )
+    if BG_START == BG_END:
+        ET.SubElement(root, "solid", {android_attr("color"): css_color(BG_START)})
+    else:
+        ET.SubElement(
+            root,
+            "gradient",
+            {
+                android_attr("angle"): "315",
+                android_attr("startColor"): css_color(BG_START),
+                android_attr("endColor"): css_color(BG_END),
+                android_attr("type"): "linear",
+            },
+        )
     return android_xml(root)
 
 
@@ -902,19 +1003,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.install:
         repo_root = Path(__file__).resolve().parents[2]
         icon_dir = repo_root / "root" / "res" / "icons"
+        macos_iconset_dir = icon_dir / "macos" / "sdriak.iconset"
         android_res = repo_root / "android" / "app" / "src" / "main" / "res"
         master = build_raster_master(target_size=512)
-        macos_master = build_raster_master(
-            target_size=1024,
-            background_size=MACOS_BACKGROUND_SIZE,
-            graph_scale=MACOS_GRAPH_SCALE,
-        )
         icon_png = png_bytes(master, 512)
         outputs.extend(
             [
                 (icon_dir / "sdriak.png", icon_png),
-                (icon_dir / "sdriak.macos.png", png_bytes(macos_master, 1024)),
-                (icon_dir / "sdriak.ico", ico_bytes()),
+                (icon_dir / "windows" / "sdriak.ico", ico_bytes()),
                 (
                     android_res / "drawable" / "ic_launcher_background.xml",
                     android_background_xml(),
@@ -939,6 +1035,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         outputs.extend(
             (
+                macos_iconset_dir / filename,
+                png_bytes(
+                    build_raster_master(
+                        target_size=size,
+                        background_size=MACOS_BACKGROUND_SIZE,
+                        graph_scale=MACOS_GRAPH_SCALE,
+                        macos_legacy=True,
+                    ),
+                    size,
+                ),
+            )
+            for filename, size in MACOS_ICONSET_SLOTS
+        )
+        outputs.extend(
+            (
                 android_res / f"mipmap-{density}" / "ic_launcher.png",
                 png_bytes(
                     build_raster_master(
@@ -952,7 +1063,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         outputs.extend(
             (
-                icon_dir / f"sdriak-{size}.png",
+                icon_dir / "linux" / f"sdriak-{size}.png",
                 png_bytes(
                     build_raster_master(
                         target_size=size,

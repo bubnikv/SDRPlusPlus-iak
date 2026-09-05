@@ -8,7 +8,7 @@
 #include <utils/opengl_include_code.h>
 #include <version.h>
 #include <core.h>
-#ifndef __APPLE__
+#if defined(__linux__)
 #include <stb_image.h>
 #endif
 
@@ -107,14 +107,18 @@ namespace backend {
     #else
         const char* glsl_version = "#version 120";
         monitor = NULL;
+    #if defined(__linux__) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3))
+        glfwWindowHintString(GLFW_X11_CLASS_NAME, "sdriak");
+        glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "sdriak");
+    #endif
+    #if defined(__linux__) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 4))
+        glfwWindowHintString(GLFW_WAYLAND_APP_ID, "sdriak");
+    #endif
         for (int i = 0; i < OPENGL_VERSION_COUNT; i++) {
             glsl_version = OPENGL_VERSIONS_GLSL[i];
             glfwWindowHint(GLFW_CLIENT_API, OPENGL_VERSIONS_IS_ES[i] ? GLFW_OPENGL_ES_API : GLFW_OPENGL_API);
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, OPENGL_VERSIONS_MAJOR[i]);
             glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, OPENGL_VERSIONS_MINOR[i]);
-    #if GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 4)
-            glfwWindowHintString(GLFW_WAYLAND_APP_ID, "sdriak");
-    #endif
             
             // Create window with graphics context
             monitor = glfwGetPrimaryMonitor();
@@ -137,18 +141,18 @@ namespace backend {
             common::initScaleState(scaleState, resDir, xscale, userScaleFactor);
         }
 
-#ifndef __APPLE__
+#if defined(__linux__)
         // Load the authored variants so micro icons keep their simplified
         // geometry instead of inheriting all detail from the 512 px artwork.
-        // macOS uses the application bundle's ICNS icon and does not support
-        // per-window icons through GLFW.
+        // Windows uses the embedded GLFW_ICON resource, while macOS uses the
+        // application bundle's ICNS icon.
         const int iconSizes[] = { 16, 22, 24, 32, 48, 64, 96, 128, 192, 256, 512 };
         GLFWimage icons[sizeof(iconSizes) / sizeof(iconSizes[0])] = {};
         int iconCount = 0;
         for (int iconSize : iconSizes) {
             std::string iconPath = iconSize == 512
                 ? resDir + "/icons/sdriak.png"
-                : resDir + "/icons/sdriak-" + std::to_string(iconSize) + ".png";
+                : resDir + "/icons/linux/sdriak-" + std::to_string(iconSize) + ".png";
             GLFWimage& icon = icons[iconCount];
             icon.pixels = stbi_load(iconPath.c_str(), &icon.width, &icon.height, 0, 4);
             if (icon.pixels == nullptr) {
@@ -158,7 +162,7 @@ namespace backend {
             iconCount++;
         }
         if (iconCount == 0) {
-            flog::error("No application icon variants could be loaded from '{0}/icons'", resDir);
+            flog::error("No application icon variants could be loaded from '{0}/icons/linux'", resDir);
             return 1;
         }
         glfwSetWindowIcon(window, iconCount, icons);

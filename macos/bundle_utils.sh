@@ -209,23 +209,11 @@ bundle_install_binary() {
 
 bundle_create_icns() {
     if [ $# -ne 2 ]; then
-        echo "bundle_create_icns [image_path] [icns_file]";
+        echo "bundle_create_icns [iconset_path] [icns_file]";
         return
     fi
 
-    mkdir $2.iconset
-    sips -z 16 16     $1 --out $2.iconset/icon_16x16.png
-    sips -z 32 32     $1 --out $2.iconset/icon_16x16@2x.png
-    sips -z 32 32     $1 --out $2.iconset/icon_32x32.png
-    sips -z 64 64     $1 --out $2.iconset/icon_32x32@2x.png
-    sips -z 128 128   $1 --out $2.iconset/icon_128x128.png
-    sips -z 256 256   $1 --out $2.iconset/icon_128x128@2x.png
-    sips -z 256 256   $1 --out $2.iconset/icon_256x256.png
-    sips -z 512 512   $1 --out $2.iconset/icon_256x256@2x.png
-    sips -z 512 512   $1 --out $2.iconset/icon_512x512.png
-    sips -z 1024 1024 $1 --out $2.iconset/icon_512x512@2x.png
-    iconutil -c icns $2.iconset
-    rm -R $2.iconset
+    iconutil -c icns "$1" -o "$2.icns"
 }
 
 bundle_create_plist() {

@@ -320,13 +320,16 @@ if (SDRPP_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SDRPP_RUNTIME_OUTPUT_DIRECTORY}")
 endif ()
 
+set(_sdrpp_executable_sources "src/main.cpp")
+if (WIN32)
+    list(APPEND _sdrpp_executable_sources "win32/resources.rc")
+endif ()
 if (MSVC)
     # utf8.manifest opts the process into the UTF-8 ANSI codepage (Win10 1903+);
     # CMake merges it into the linker-generated manifest via mt.exe.
-    add_executable(sdrpp "src/main.cpp" "win32/resources.rc" "win32/utf8.manifest")
-else ()
-    add_executable(sdrpp "src/main.cpp")
+    list(APPEND _sdrpp_executable_sources "win32/utf8.manifest")
 endif ()
+add_executable(sdrpp ${_sdrpp_executable_sources})
 
 set_target_properties(sdrpp PROPERTIES OUTPUT_NAME "sdriak")
 
@@ -407,8 +410,8 @@ install(TARGETS sdrpp DESTINATION bin)
 install(
     DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/
     DESTINATION share/sdriak
-    PATTERN "sdriak.ico" EXCLUDE
-    PATTERN "sdriak.macos.png" EXCLUDE
+    PATTERN "windows" EXCLUDE
+    PATTERN "macos" EXCLUDE
 )
 configure_file(${CMAKE_SOURCE_DIR}/sdriak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdriak.desktop @ONLY)
 
@@ -417,7 +420,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdriak RENAME copyright)
     foreach (_sdriak_icon_size 16 22 24 32 48 64 96 128 192 256)
         install(
-            FILES ${CMAKE_SOURCE_DIR}/root/res/icons/sdriak-${_sdriak_icon_size}.png
+            FILES ${CMAKE_SOURCE_DIR}/root/res/icons/linux/sdriak-${_sdriak_icon_size}.png
             DESTINATION share/icons/hicolor/${_sdriak_icon_size}x${_sdriak_icon_size}/apps
             RENAME sdriak.png
         )
@@ -454,9 +457,12 @@ if (MSVC)
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/root" "${_sdrpp_windows_bundle_stage_dir}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_sdrpp_windows_bundle_stage_dir}/modules"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:sdrpp>" "${_sdrpp_windows_bundle_stage_dir}"
-        COMMAND ${CMAKE_COMMAND} -E rm -f
-            "${_sdrpp_windows_bundle_stage_dir}/res/icons/sdriak.ico"
-            "${_sdrpp_windows_bundle_stage_dir}/res/icons/sdriak.macos.png"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            "${_sdrpp_windows_bundle_stage_dir}/res/icons/windows"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            "${_sdrpp_windows_bundle_stage_dir}/res/icons/macos"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            "${_sdrpp_windows_bundle_stage_dir}/res/icons/linux"
         COMMENT "Staging Windows bundle under ${SDRPP_WINDOWS_BUNDLE_STAGE_ROOT}"
         VERBATIM)
     add_dependencies(stage_windows_bundle sdrpp)
