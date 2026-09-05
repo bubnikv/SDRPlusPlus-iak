@@ -8,7 +8,7 @@
 
 namespace server {
     // inline (not static): the helpers below odr-use these from a header.
-    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x494B5053; // "SPKI": SDRIAK
+    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x41494453; // "SDIA": SDRIAK
     inline constexpr uint16_t SERVER_PROTOCOL_MAJOR = 1;
     inline constexpr uint16_t SERVER_PROTOCOL_MINOR = 0;
     inline constexpr uint32_t SERVER_PROTOCOL_CAP_HEARTBEAT = 1u << 0;

@@ -22,7 +22,7 @@ A def_mode that merely repeats the application's runtime mode convention
 omitted to keep the data files down to information only the data has.
 
 The SDRIAK core ignores unknown band plan keys, so enriched files stay
-compatible with any SDR++ version. Files are edited surgically — only the
+compatible with any SDRIAK version. Files are edited surgically — only the
 three field lines are ever inserted or removed, all other bytes (indent
 style, tabs, line endings) are preserved — and the script is idempotent.
 

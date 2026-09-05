@@ -9,7 +9,7 @@ endif ()
 find_package(Git REQUIRED)
 
 set(_codec2_patches
-    "${CMAKE_CURRENT_LIST_DIR}/patches/0001-sdrpp-windows-clangcl-build.patch")
+    "${CMAKE_CURRENT_LIST_DIR}/patches/0001-sdriak-windows-clangcl-build.patch")
 
 foreach (_patch IN LISTS _codec2_patches)
     if (NOT EXISTS "${_patch}")
