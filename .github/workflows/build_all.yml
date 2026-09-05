@@ -175,18 +175,35 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - base_image: debian:bullseye
-                      runner: ubuntu-latest
-                      artifact: debian-bullseye-amd64
-                      volk_package: libvolk2-dev
-                      extra_apt: ''
-                      curl_source: bundled
-                    - base_image: debian:bullseye
-                      runner: ubuntu-24.04-arm
-                      artifact: debian-bullseye-aarch64
-                      volk_package: libvolk2-dev
-                      extra_apt: ''
-                      curl_source: bundled
+                    # DISABLED 2026-09-05: Debian 11 bullseye reached LTS
+                    # end-of-life on 2026-08-31. Its .deb files were pruned
+                    # from deb.debian.org/debian-security while the suite
+                    # index still lists them, so `apt-get install` 404s on
+                    # libperl5.32, libc-dev-bin, linux-libc-dev, libglib2.0-dev
+                    # and friends. do_build.sh's apt_install_with_refresh
+                    # retry can't help — that handles a mid-publish race, not
+                    # a permanent decommission.
+                    #
+                    # To re-enable: bullseye-security is not yet on
+                    # archive.debian.org (only bullseye main is), so this needs
+                    # either a wait for the security suite to be archived, or
+                    # sources.list rewritten in do_build.sh to point at
+                    # archive.debian.org with Acquire::Check-Valid-Until=false
+                    # and the security lines dropped. Note bullseye users can
+                    # still run the AppImage: it is built on ubuntu:focal, the
+                    # same glibc 2.31 baseline (see doc/appimage.md).
+                    # - base_image: debian:bullseye
+                    #   runner: ubuntu-latest
+                    #   artifact: debian-bullseye-amd64
+                    #   volk_package: libvolk2-dev
+                    #   extra_apt: ''
+                    #   curl_source: bundled
+                    # - base_image: debian:bullseye
+                    #   runner: ubuntu-24.04-arm
+                    #   artifact: debian-bullseye-aarch64
+                    #   volk_package: libvolk2-dev
+                    #   extra_apt: ''
+                    #   curl_source: bundled
                     - base_image: debian:bookworm
                       runner: ubuntu-latest
                       artifact: debian-bookworm-amd64
