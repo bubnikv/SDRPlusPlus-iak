@@ -161,7 +161,7 @@ private:
                     running = false;
                     return;
                 }
-                tuner::normalTuning(gui::waterfall.selectedVFO, current);
+                tuner::tune(tuner::TUNER_MODE_NORMAL, gui::waterfall.selectedVFO, current);
 
                 // Check if we are waiting for a tune
                 if (tuning) {

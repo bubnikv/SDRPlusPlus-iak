@@ -65,7 +65,7 @@ public:
 
     // ── Configuration ─────────────────────────────────────────────────
 
-    void setSyncVfo(bool enabled) { m_syncVfo = enabled; }
+    void setSyncVfo(bool enabled);
     bool getSyncVfo() const { return m_syncVfo; }
 
     // ── Accessors for UI display ──────────────────────────────────────
@@ -78,8 +78,6 @@ private:
     qmx::QmxDevice* m_device = nullptr;
     bool m_running = false;
     double m_iqCenterFreq = 7000000.0;
-    // Avoid recursive call. It shall not happen, but better stop it if it happens.
-    bool m_insideIqCenterFreqCallback = false;
     bool m_syncVfo = false;
 
     // Pending status delivered by poller thread, consumed by tick() on GUI thread.

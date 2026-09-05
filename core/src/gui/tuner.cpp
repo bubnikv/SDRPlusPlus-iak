@@ -3,8 +3,11 @@
 #include <gui/tuner.h>
 #include <string>
 
-namespace tuner {
+// For synchronization with hardware radio, where the VFO frequency is locked at a fixed offset from IF center frequency.
+bool g_vfoLockedToCenter = false;
+double g_vfoToCenterOffsetHz = 0.0;
 
+namespace tuner {
     void centerTuning(std::string vfoName, double freq) {
         if (vfoName != "") {
             if (gui::waterfall.vfos.find(vfoName) == gui::waterfall.vfos.end()) { return; }
@@ -19,17 +22,9 @@ namespace tuner {
         sigpath::sourceManager.tune(freq);
     }
 
-    void normalTuning(std::string vfoName, double freq) {
-        if (vfoName == "") {
-            centerTuning(vfoName, freq);
-            return;
-        }
-        if (gui::waterfall.vfos.find(vfoName) == gui::waterfall.vfos.end()) { return; }
-
+    void normalTuningFree(std::string vfoName, ImGui::WaterfallVFO* vfo, double freq) {
         double viewBW = gui::waterfall.getViewBandwidth();
         double BW = gui::waterfall.getBandwidth();
-
-        ImGui::WaterfallVFO* vfo = gui::waterfall.vfos[vfoName];
 
         double currentOff = vfo->centerOffset;
         double currentTune = gui::waterfall.getCenterFrequency() + vfo->generalOffset;
@@ -44,14 +39,14 @@ namespace tuner {
         double viewBottom = view - (viewBW / 2.0);
         double viewTop = view + (viewBW / 2.0);
 
-        double bottom = -(BW / 2.0);
-        double top = (BW / 2.0);
-
         // VFO still fints in the view
         if (vfoBottom > viewBottom && vfoTop < viewTop) {
             sigpath::vfoManager.setCenterOffset(vfoName, newVFO);
             return;
         }
+
+        double bottom = -(BW / 2.0);
+        double top = (BW / 2.0);
 
         // VFO too low for current SDR tuning
         if (vfoBottom < bottom) {
@@ -108,6 +103,38 @@ namespace tuner {
         }
     }
 
+    void normalTuningLocked(std::string vfoName, ImGui::WaterfallVFO* vfo, double freq, double offset) {
+        assert(vfo != nullptr);
+
+        double BW = gui::waterfall.getBandwidth();
+        double viewBW = gui::waterfall.getViewBandwidth();
+        sigpath::vfoManager.setOffset(vfoName, offset);
+        //FIXME why? Some sanitization before setCenterFrequency?
+        gui::waterfall.setViewOffset((BW / 2.0) - (viewBW / 2.0));
+        double centerFreq = freq - offset;
+        gui::waterfall.setCenterFrequency(centerFreq);
+        // What logic to use here to be natural for the user?
+        // Variant A: Keep the VFO reference line in the center of the view.
+        // Variant B: Keep the VFO center frequency in the center of the view.
+        // Variant C: Keep the VFO center frequency in the same relative position in the view.
+        gui::waterfall.setViewOffset(vfo->centerOffset);
+        gui::freqSelect.setFrequency(freq);
+        sigpath::sourceManager.tune(centerFreq);
+    }
+
+    void normalTuning(std::string vfoName, double freq) {
+        if (vfoName.empty()) {
+            centerTuning(vfoName, freq);
+        } else if (auto it = gui::waterfall.vfos.find(vfoName); it != gui::waterfall.vfos.end()) {
+            ImGui::WaterfallVFO* vfo = it->second;
+            if (g_vfoLockedToCenter) {
+                normalTuningLocked(vfoName, vfo, freq, g_vfoToCenterOffsetHz);
+            } else {
+                normalTuningFree(vfoName, vfo, freq);
+            }
+        }
+    }
+
     void iqTuning(double freq) {
         gui::waterfall.setCenterFrequency(freq);
         gui::waterfall.centerFreqMoved = true;
@@ -132,5 +159,22 @@ namespace tuner {
             iqTuning(freq);
             break;
         }
+    }
+
+    void lockVFOtoCenter(double offsetHz)
+    {
+        g_vfoLockedToCenter = true;
+        g_vfoToCenterOffsetHz = offsetHz;
+    }
+
+    void unlockVFO()
+    {
+        g_vfoLockedToCenter = false;
+        g_vfoToCenterOffsetHz = 0.0;
+    }
+
+    bool vfoLockedToCenter()
+    {
+        return g_vfoLockedToCenter;
     }
 }

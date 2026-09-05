@@ -78,6 +78,9 @@ void FreqModeSync::start(double initialFreq, bool syncVfo) {
     m_syncVfo = syncVfo;
     m_lastModeSentToQmx = -1;
     m_running = true;
+    if (syncVfo)
+        // Temporary best effort value before the update is received from QMX.
+        tuner::lockVFOtoCenter(FreqModeSync::kQmxIfOffsetHz);
 }
 
 void FreqModeSync::stop() {
@@ -90,6 +93,17 @@ void FreqModeSync::stop() {
     m_status = {};
     m_hasStatus = false;
     m_lastModeSentToQmx = -1;
+    tuner::unlockVFO();
+}
+
+void FreqModeSync::setSyncVfo(bool enabled) { 
+    m_syncVfo = enabled;
+    if (enabled) {
+        if (m_status.hasMode())
+            tuner::lockVFOtoCenter(qmxRigToIqOffset(m_status));
+    } else {
+        tuner::unlockVFO();
+    }
 }
 
 // Called by SDR++ when the IQ center frequency changes (tune callback, GUI thread).
@@ -103,18 +117,6 @@ void FreqModeSync::stop() {
 // produce a feedback bounce.
 void FreqModeSync::onIqCenterChanged(double newFreq) 
 {
-    if (m_insideIqCenterFreqCallback)
-        return;
-
-    class Guard {
-    public:
-        Guard(bool& flag) : m_flag(flag) { flag = true; }
-        ~Guard() { m_flag = false; }
-    private:
-        bool& m_flag;
-    };
-    Guard guard(m_insideIqCenterFreqCallback);
-
     if (m_iqCenterFreq == newFreq)
         return;
 
@@ -159,6 +161,7 @@ void FreqModeSync::onIqCenterChanged(double newFreq)
     }
 #endif // NDEBUG
 
+/*
     // 4. If syncVfo, move the SDR++ VFO to the rig frequency.
     if (m_syncVfo && gui::mainWindow.getTuningMode() == tuner::TUNER_MODE_NORMAL) {
         std::string vfoName = gui::waterfall.selectedVFO;
@@ -169,6 +172,7 @@ void FreqModeSync::onIqCenterChanged(double newFreq)
                 tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, static_cast<double>(newRigFreq));
         }
     }
+*/
 }
 
 void FreqModeSync::onStatusReceived(const qmx::QmxStatus& status) {
@@ -194,20 +198,20 @@ void FreqModeSync::tick()
         syncVfo = m_syncVfo;
     }
 
-    bool hasNewQMXStatus = false;
+    qmx::QmxStatusFlags qmxStatusUpdate { 0 };
 
     {
         std::lock_guard<std::mutex> lock(m_statusMutex);
         if (m_hasPendingStatus) {
             if (m_status.updated_with(m_pendingStatus)) {
-                hasNewQMXStatus = true;
+                qmxStatusUpdate = m_pendingStatus.flags;
                 m_status += m_pendingStatus;
             }
             m_hasPendingStatus = false;
         }
     }
 
-    if (hasNewQMXStatus) {
+    if (qmxStatusUpdate) {
         m_hasStatus = true;
         if (m_status.hasFrequency() && !(m_status.hasTransmit() && m_status.transmit)) {
             const std::int64_t rigFreq = effectiveReceiveRigFrequency(m_status);
@@ -218,15 +222,20 @@ void FreqModeSync::tick()
             // the same rig frequency from the just-updated cache -> no-op, no feedback.
             if (std::llround(m_iqCenterFreq) != std::llround(centerFrequency)) {
 //                flog::debug("FreqModeSync::tick(): QMX frequency {}, old centerFreuqency {} new centerFrequency {}", rigFreq, m_iqCenterFreq, centerFrequency);
-                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", centerFrequency);
+                bool tuned = false;
                 if (syncVfo) {
                     std::string vfoName = gui::waterfall.selectedVFO;
                     if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
                         double vfoAbsFreq = gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName);
-                        if (std::llround(vfoAbsFreq) != rigFreq)
+                        if (std::llround(vfoAbsFreq) != rigFreq) {
+//                            tuner::lockVFOtoCenter(qmxRigToIqOffset(m_status));
                             tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, static_cast<double>(rigFreq));
+                            tuned = true;
+                        }
                     }
                 }
+                if (! tuned)
+                    tuner::tune(tuner::TUNER_MODE_CENTER, "", centerFrequency);
             }
         }
     }
@@ -234,25 +243,28 @@ void FreqModeSync::tick()
     if (syncVfo) {
         // VFO sync: move SDR++ VFO to rig frequency and sync mode.
         std::string vfoName = gui::waterfall.selectedVFO;
-        if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName) && m_status.hasFrequency()) {
-            double vfoAbsFreq = gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName);
-            const std::int64_t rigFreq = effectiveReceiveRigFrequency(m_status);
-            if (std::llround(vfoAbsFreq) != rigFreq) {
-                tuner::tune(tuner::TUNER_MODE_IQ_ONLY, "", rigFrequencyToCenterFrequency(vfoAbsFreq, m_status));
-                // The line above called our onIqCenterChanged, which will set TUNER_MODE_NORMAL.
-//                tuner::tune(tuner::TUNER_MODE_NORMAL, vfoName, vfoAbsFreq);
-                gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName));
+        if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
+            /*
+            if (m_status.hasFrequency()) {
+                double vfoAbsFreq = gui::waterfall.getCenterFrequency() + sigpath::vfoManager.getOffset(vfoName);
+                if (std::llround(vfoAbsFreq) != effectiveReceiveRigFrequency(m_status)) {
+                    // User retuned the VFO.
+                    tuner::lockVFOtoCenter(qmxRigToIqOffset(m_status));
+                    tuner::tune(tuner::TUNER_MODE_NORMAL, "", vfoAbsFreq);
+                }
             }
-        }
-        // Sync mode: QMX -> SDR++ radio.
-        if (m_status.hasMode() && !vfoName.empty() && core::modComManager.getModuleName(vfoName) == "radio") {
-            int targetMode = qmxModeToRadioIface(m_status.mode);
-            if (targetMode >= 0) {
-                int currentRadioMode = -1;
-                core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_GET_MODE, NULL, &currentRadioMode);
-                if (currentRadioMode != targetMode) {
-                    core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_MODE, &targetMode, NULL);
-                    m_lastModeSentToQmx = targetMode;
+            */
+            // Sync mode: QMX -> SDR++ radio.
+            if ((qmxStatusUpdate & static_cast<qmx::QmxStatusFlags>(qmx::QmxStatusFlag::Mode)) != 0 && core::modComManager.getModuleName(vfoName) == "radio") {
+                int targetMode = qmxModeToRadioIface(m_status.mode);
+                if (targetMode >= 0) {
+                    int currentRadioMode = -1;
+                    core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_GET_MODE, NULL, &currentRadioMode);
+                    if (currentRadioMode != targetMode) {
+                        core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_SET_MODE, &targetMode, NULL);
+                        tuner::lockVFOtoCenter(qmxRigToIqOffset(m_status));
+                        m_lastModeSentToQmx = targetMode;
+                    }
                 }
             }
         }

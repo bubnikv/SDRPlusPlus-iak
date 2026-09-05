@@ -354,6 +354,11 @@ void MainWindow::draw() {
         if (vfo->centerOffsetChanged) {
             if (tuningMode == tuner::TUNER_MODE_CENTER) {
                 tuner::tune(tuner::TUNER_MODE_CENTER, gui::waterfall.selectedVFO, gui::waterfall.getCenterFrequency() + vfo->generalOffset);
+            } else if (tuningMode == tuner::TUNER_MODE_NORMAL && tuner::vfoLockedToCenter()) {
+                // If the VFO is locked to IQ center frequency, then dragging a VFO should be suppressed.
+                assert(gui::waterfall.VFOMoveSingleClick);
+                // The tuner will synchronize VFO with the IQ center frequency.
+                tuner::tune(tuner::TUNER_MODE_NORMAL, gui::waterfall.selectedVFO, gui::waterfall.getCenterFrequency() + vfo->generalOffset);
             }
             gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + vfo->generalOffset);
             gui::freqSelect.frequencyChanged = false;
@@ -363,6 +368,7 @@ void MainWindow::draw() {
         }
     }
 
+    // Clears wtfVFO->centerOffsetChanged of all VFOs and updates DSP.
     sigpath::vfoManager.updateFromWaterfall(&gui::waterfall);
 
     // Handle selection of another VFO
@@ -392,12 +398,7 @@ void MainWindow::draw() {
     if (gui::waterfall.centerFreqMoved) {
         gui::waterfall.centerFreqMoved = false;
         sigpath::sourceManager.tune(gui::waterfall.getCenterFrequency());
-        if (vfo != NULL) {
-            gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + vfo->generalOffset);
-        }
-        else {
-            gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency());
-        }
+        gui::freqSelect.setFrequency(gui::waterfall.getCenterFrequency() + (vfo == NULL ? 0 : vfo->generalOffset));
         core::configManager.edit().set("frequency", gui::waterfall.getCenterFrequency());
     }
 
