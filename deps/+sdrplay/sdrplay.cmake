@@ -1,11 +1,11 @@
 #
 # SDRplay API — closed-source binary blob. Distribution differs per OS:
-#   * Windows: the SDR++ project's pre-extracted bundle on sdrpp.org ships
-#     headers + per-arch .lib/.dll.
+#   * Windows: SDRplay's official Inno Setup .exe installer, extracted with
+#     innoextract.
 #   * Linux: SDRplay's official Makeself .run installer from sdrplay.com,
 #     extracted via 7z (avoids running the EULA-prompting shell wrapper).
-#   * macOS: not yet automated — SDRplay distributes a .pkg installer; until
-#     that's wired up, this stays a manual step.
+#   * macOS: SDRplay's official universal .pkg installer, extracted with
+#     pkgutil.
 #
 # All three paths land the artifacts under the shared deps prefix so the
 # Config.cmake emitted at the bottom of this file finds them uniformly.
@@ -71,13 +71,14 @@ if (WIN32)
     # (Linux/.run and macOS/.pkg carry a patch revision; Windows doesn't).
     set(_sdrplay_pkg_version_win 3.15)
     set(_sdrplay_pkg_basename_win SDRplay_RSP_API-Windows-${_sdrplay_pkg_version_win}.exe)
-    set(_sdrplay_pkg_url_win https://www.sdrplay.com/software/${_sdrplay_pkg_basename_win})
+    set(_sdrplay_pkg_url_win https://sdrplay.com/download/hardware-api-windows/?wpdmdl=1905)
 
     set(_sdrplay_scratch ${CMAKE_CURRENT_BINARY_DIR}/sources/sdrplay/extracted)
 
     ExternalProject_Add(dep_sdrplay
         URL                 ${_sdrplay_pkg_url_win}
         URL_HASH            SHA256=8ad5c36f1ca26cf7a61010c3f3c80dae69d4468ef5e59f7a0d42fb135a1c7326
+        DOWNLOAD_NAME       ${_sdrplay_pkg_basename_win}
         DOWNLOAD_DIR        ${${PROJECT_NAME}_DEP_DOWNLOAD_DIR}/sdrplay
         DOWNLOAD_NO_EXTRACT TRUE
         SOURCE_DIR          ${CMAKE_CURRENT_BINARY_DIR}/sources/sdrplay
@@ -105,7 +106,7 @@ elseif (UNIX AND NOT APPLE)
     # peels the shell wrapper, pass 2 unpacks the inner tar).
     set(_sdrplay_run_version 3.15.2)
     set(_sdrplay_run_basename SDRplay_RSP_API-Linux-${_sdrplay_run_version})
-    set(_sdrplay_run_url https://www.sdrplay.com/software/${_sdrplay_run_basename}.run)
+    set(_sdrplay_run_url https://sdrplay.com/download/hardware-api-linux/?wpdmdl=1906)
 
     # Inner archive's per-arch directory names mirror `uname -m` on the targets
     # SDRplay supports. CMAKE_SYSTEM_PROCESSOR can come through as either
@@ -146,6 +147,7 @@ elseif (UNIX AND NOT APPLE)
     ExternalProject_Add(dep_sdrplay
         URL                 ${_sdrplay_run_url}
         URL_HASH            SHA256=3a97ca764263bbe76fb0f2220e6408942357e8864c19e1408a6d6987af382fe3
+        DOWNLOAD_NAME       ${_sdrplay_run_basename}.run
         DOWNLOAD_DIR        ${${PROJECT_NAME}_DEP_DOWNLOAD_DIR}/sdrplay
         DOWNLOAD_NO_EXTRACT TRUE
         SOURCE_DIR          ${CMAKE_CURRENT_BINARY_DIR}/sources/sdrplay
@@ -182,9 +184,9 @@ else ()
     # SDRplay's macOS .pkg lags the Linux .run version slightly; track it
     # independently. SDRplay uses the .so extension on macOS instead of
     # .dylib (idiosyncratic but consistent with their tooling).
-    set(_sdrplay_pkg_version 3.15.0)
+    set(_sdrplay_pkg_version 3.15.1)
     set(_sdrplay_pkg_basename SDRplayAPI-macos-installer-universal-${_sdrplay_pkg_version}.pkg)
-    set(_sdrplay_pkg_url https://www.sdrplay.com/software/${_sdrplay_pkg_basename})
+    set(_sdrplay_pkg_url https://sdrplay.com/download/hardware-api-macos/?wpdmdl=1907)
 
     find_program(_sdrplay_pkgutil pkgutil)
     if (NOT _sdrplay_pkgutil)
@@ -202,7 +204,8 @@ else ()
 
     ExternalProject_Add(dep_sdrplay
         URL                 ${_sdrplay_pkg_url}
-        URL_HASH            SHA256=823aad8da816b93ac06716eeca02ee79f08746301b67425c7fb66ae15a6f9a59
+        URL_HASH            SHA256=5d148ceda1fae775d2d2df5b3fcf46dee27b6222e2535c4c063c2f2ea2f7acc3
+        DOWNLOAD_NAME       ${_sdrplay_pkg_basename}
         DOWNLOAD_NO_EXTRACT TRUE
         DOWNLOAD_DIR        ${${PROJECT_NAME}_DEP_DOWNLOAD_DIR}/sdrplay
         SOURCE_DIR          ${CMAKE_CURRENT_BINARY_DIR}/sources/sdrplay
