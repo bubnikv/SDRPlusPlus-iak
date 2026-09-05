@@ -81,7 +81,7 @@ namespace core {
     std::string getModulesDirectory() {
 #if defined(__linux__) && defined(BUILD_APPIMAGE)
         if (const char* appdir = getenv("APPDIR")) {
-            return std::string(appdir) + "/usr/lib/sdrpp-iak/plugins";
+            return std::string(appdir) + "/usr/lib/sdriak/plugins";
         }
 #endif
         return resolveConfigPath(core::configManager.read().value("modulesDirectory", std::string()));
@@ -90,7 +90,7 @@ namespace core {
     std::string getResourcesDirectory() {
 #if defined(__linux__) && defined(BUILD_APPIMAGE)
         if (const char* appdir = getenv("APPDIR")) {
-            return std::string(appdir) + "/usr/share/sdrpp-iak";
+            return std::string(appdir) + "/usr/share/sdriak";
         }
 #endif
         return resolveConfigPath(core::configManager.read().value("resourcesDirectory", std::string()));
@@ -105,7 +105,7 @@ int sdrpp_main(int argc, char* argv[]) {
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
-    flog::info("SDR++ iak v" VERSION_STR);
+    flog::info("SDRIAK v" VERSION_STR);
 
     // Define command line options and parse arguments
     core::args.defineAll();
@@ -258,8 +258,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["moduleInstances"]["RTL-TCP Source"]["enabled"] = true;
     defConfig["moduleInstances"]["SDRplay Source"]["module"] = "sdrplay_source";
     defConfig["moduleInstances"]["SDRplay Source"]["enabled"] = true;
-    defConfig["moduleInstances"]["SDR++ Server Source"]["module"] = "sdrpp_server_source";
-    defConfig["moduleInstances"]["SDR++ Server Source"]["enabled"] = true;
+    defConfig["moduleInstances"]["SDRIAK Server Source"]["module"] = "sdriak_server_source";
+    defConfig["moduleInstances"]["SDRIAK Server Source"]["enabled"] = true;
     defConfig["moduleInstances"]["Spectran HTTP Source"]["module"] = "spectran_http_source";
     defConfig["moduleInstances"]["Spectran HTTP Source"]["enabled"] = true;
     defConfig["moduleInstances"]["SpyServer Source"]["module"] = "spyserver_source";
@@ -340,8 +340,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["resourcesDirectory"] = root + "/res";
 #else
     // Linux, BSD, etc.
-    defConfig["modulesDirectory"] = INSTALL_PREFIX "/lib/sdrpp-iak/plugins";
-    defConfig["resourcesDirectory"] = INSTALL_PREFIX "/share/sdrpp-iak";
+    defConfig["modulesDirectory"] = INSTALL_PREFIX "/lib/sdriak/plugins";
+    defConfig["resourcesDirectory"] = INSTALL_PREFIX "/share/sdriak";
 #endif
 
     // Load config
@@ -371,7 +371,7 @@ int sdrpp_main(int argc, char* argv[]) {
             "rfspace_source.so",
             "rtl_sdr_source.so",
             "rtl_tcp_source.so",
-            "sdrpp_server_source.so",
+            "sdriak_server_source.so",
             "spyserver_source.so",
             "kiwisdr_source.so",
 

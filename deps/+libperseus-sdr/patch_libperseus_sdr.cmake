@@ -47,7 +47,7 @@ patch_replace_or_fail(_content
 # is an append, not a substitution.
 if (NOT _content MATCHES "SDR\\+\\+ deps build: install rules")
     string(APPEND _content "
-# >>> SDR++ deps build: install rules (none existed upstream)
+# >>> SDRIAK deps build: install rules (none existed upstream)
 include(GNUInstallDirs)
 install(TARGETS perseus-sdr
     RUNTIME DESTINATION \${CMAKE_INSTALL_BINDIR}
@@ -58,7 +58,7 @@ install(FILES
     \${CMAKE_CURRENT_SOURCE_DIR}/src/perseus-sdr.h
     DESTINATION \${CMAKE_INSTALL_INCLUDEDIR}/perseus-sdr
 )
-# <<< SDR++ deps build
+# <<< SDRIAK deps build
 ")
 endif ()
 

@@ -38,7 +38,7 @@ public:
 private:
     static void menuHandler(void* ctx) {
         DemoModule* _this = (DemoModule*)ctx;
-        ImGui::Text("Hello SDR++, my name is %s", _this->name.c_str());
+        ImGui::Text("Hello SDRIAK, my name is %s", _this->name.c_str());
     }
 
     std::string name;

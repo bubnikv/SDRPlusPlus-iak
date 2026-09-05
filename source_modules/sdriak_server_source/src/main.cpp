@@ -1,4 +1,4 @@
-#include "sdrpp_server_client.h"
+#include "sdriak_server_client.h"
 #include <imgui.h>
 #include <utils/flog.h>
 #include <module.h>
@@ -19,8 +19,8 @@
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
 SDRPP_MOD_INFO{
-    /* Name:            */ "sdrpp_server_source",
-    /* Description:     */ "SDR++ Server source module for SDR++",
+    /* Name:            */ "sdriak_server_source",
+    /* Description:     */ "SDRIAK Server source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 2, 0,
     /* Max instances    */ 1
@@ -28,9 +28,9 @@ SDRPP_MOD_INFO{
 
 ConfigManager config;
 
-class SDRPPServerSourceModule : public ModuleManager::Instance {
+class SDRIAKServerSourceModule : public ModuleManager::Instance {
 public:
-    SDRPPServerSourceModule(std::string name) {
+    SDRIAKServerSourceModule(std::string name) {
         this->name = name;
 
         // Yeah no server-ception, sorry...
@@ -74,10 +74,10 @@ public:
         frameDrawHandler.ctx = this;
         frameDrawHandler.handler = frameDraw;
 
-        sigpath::sourceManager.registerSource("SDR++ Server", &handler);
+        sigpath::sourceManager.registerSource("SDRIAK Server", &handler);
     }
 
-    ~SDRPPServerSourceModule() {
+    ~SDRIAKServerSourceModule() {
         // Server mode: the constructor returned before registering.
         if (core::args["server"].b()) { return; }
         // If still selected, unregisterSource fires menuDeselected, which
@@ -85,7 +85,7 @@ public:
         stop(this);
         // Stop the connect worker before members it uses are destroyed.
         connector.shutdown();
-        sigpath::sourceManager.unregisterSource("SDR++ Server");
+        sigpath::sourceManager.unregisterSource("SDRIAK Server");
     }
 
     void postInit() {}
@@ -118,7 +118,7 @@ private:
     }
 
     static void menuSelected(void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         // Select/deselect only ever runs on the GUI thread, outside
         // onFrameDraw.emit() (source combo, startup, module unregister), so
         // mutating the handler list here is safe. SourceManager strictly
@@ -130,21 +130,21 @@ private:
             _this->client->syncRemoteState(true);
         }
         gui::mainWindow.playButtonLocked = !(_this->client && _this->client->isOpen());
-        flog::info("SDRPPServerSourceModule '{0}': Menu Select!", _this->name);
+        flog::info("SDRIAKServerSourceModule '{0}': Menu Select!", _this->name);
     }
 
     static void menuDeselected(void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         _this->connector.cancel();
         gui::mainWindow.onFrameDraw.unbindHandler(&_this->frameDrawHandler);
         gui::mainWindow.playButtonLocked = false;
         // Release the remote limits so they don't leak into the next source.
         sigpath::sourceManager.clearTuningLimits();
-        flog::info("SDRPPServerSourceModule '{0}': Menu Deselect!", _this->name);
+        flog::info("SDRIAKServerSourceModule '{0}': Menu Deselect!", _this->name);
     }
 
     static void frameDraw(MainWindow::FrameDrawArgs, void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         // Only bound while this source is selected, so this can't stomp
         // another source's samplerate or tuning limits.
         if (_this->connected()) {
@@ -153,7 +153,7 @@ private:
     }
 
     static void start(void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         if (_this->running) { return; }
 
         // Try to connect if not already connected (Play button is locked anyway so not sure why I put this here)
@@ -167,30 +167,30 @@ private:
         _this->client->start();
 
         _this->running = true;
-        flog::info("SDRPPServerSourceModule '{0}': Start!", _this->name);
+        flog::info("SDRIAKServerSourceModule '{0}': Start!", _this->name);
     }
 
     static void stop(void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         if (!_this->running) { return; }
 
         if (_this->connected()) { _this->client->stop(); }
 
         _this->running = false;
-        flog::info("SDRPPServerSourceModule '{0}': Stop!", _this->name);
+        flog::info("SDRIAKServerSourceModule '{0}': Stop!", _this->name);
     }
 
     static void tune(double freq, void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
         if (_this->running && _this->connected()) {
             _this->client->setFrequency(freq);
         }
         _this->freq = freq;
-        flog::info("SDRPPServerSourceModule '{0}': Tune: {1}!", _this->name, freq);
+        flog::info("SDRIAKServerSourceModule '{0}': Tune: {1}!", _this->name, freq);
     }
 
     static void menuHandler(void* ctx) {
-        SDRPPServerSourceModule* _this = (SDRPPServerSourceModule*)ctx;
+        SDRIAKServerSourceModule* _this = (SDRIAKServerSourceModule*)ctx;
 
         _this->pollConnection();
 
@@ -551,17 +551,17 @@ MOD_EXPORT void _INIT_() {
     def["hostname"] = "localhost";
     def["port"] = 5259;
     def["servers"] = json::object();
-    config.setPath(core::args["root"].s() + "/sdrpp_server_source_config.json");
+    config.setPath(core::args["root"].s() + "/sdriak_server_source_config.json");
     config.load(def);
     config.enableAutoSave();
 }
 
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {
-    return new SDRPPServerSourceModule(name);
+    return new SDRIAKServerSourceModule(name);
 }
 
 MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
-    delete (SDRPPServerSourceModule*)instance;
+    delete (SDRIAKServerSourceModule*)instance;
 }
 
 MOD_EXPORT void _END_() {

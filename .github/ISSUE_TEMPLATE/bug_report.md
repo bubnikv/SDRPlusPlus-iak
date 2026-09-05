@@ -9,7 +9,7 @@ assignees: ''
 
 # WARNING: Filling out the template below is NOT optional. Issues not filling out this template will be closed without review.
 
-FIRST: Before reporting any bug, make sure that the bug you are reporting has not been reported before. Also, try to use the [nightly version](https://www.sdrpp.org/nightly) if possible in case I've already fixed the bug.
+FIRST: Before reporting any bug, make sure that the bug you are reporting has not been reported before. Also, try the [latest SDRIAK build](https://github.com/bubnikv/sdriak/actions) if possible in case the bug has already been fixed.
 
 **Hardware**
 - CPU: 
@@ -19,7 +19,7 @@ FIRST: Before reporting any bug, make sure that the bug you are reporting has no
 
 **Software**
 - Operating System: Name + Exact version (eg. Windows 10 x64, Ubuntu 22.04, MacOS 10.15)
-- SDR++ iak: Version + Build date (available either in the window title or in the credits menu which you can access by clicking on the SDR++ icon in the top right corner of the software).
+- SDRIAK: Version + Build date (available either in the window title or in the credits menu which you can access by clicking on the SDRIAK icon in the top right corner of the software).
 
 **Bug Description**
 A clear description of the bug.
@@ -29,11 +29,11 @@ A clear description of the bug.
 2. ...
 3. ...
 
-**Only If SDR++ fails to lauch or the SDR fails to start:**
-Run SDR++ from a command line window with special parameters:
-* On Windows, open a terminal and `cd` to SDR++'s directory and run `.\sdrpp-iak.exe -c` (if running SDR++ version 1.0.4 or older, use `-s` instead, though you should probably update SDR++ instead...)
-* On Linux: Open a terminal and run `sdrpp-iak -c`
-* On MacOS: Open a terminal and run `/path/to/the/SDR++.app/Contents/MacOS/sdrpp-iak -c`
+**Only If SDRIAK fails to launch or the SDR fails to start:**
+Run SDRIAK from a command line window with special parameters:
+* On Windows, open a terminal and `cd` to SDRIAK's directory and run `.\sdriak.exe -c` (if running SDRIAK version 1.0.4 or older, use `-s` instead, though you should probably update SDRIAK instead...)
+* On Linux: Open a terminal and run `sdriak -c`
+* On macOS: Open a terminal and run `/path/to/SDRIAK.app/Contents/MacOS/sdriak -c`
 Then, post the **entire** logs from start to after the issue. **DOT NOT truncate to where you *think* the error is...**
 
 **Screenshots**

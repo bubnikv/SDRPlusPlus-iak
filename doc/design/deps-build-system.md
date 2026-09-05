@@ -1,8 +1,8 @@
-# SDR++ Build System for Third-Party Dependencies
+# SDRIAK Build System for Third-Party Dependencies
 
 This document describes how the third-party dependency build should be
 controlled, using PrusaSlicer's `deps/` build as the closest reference point
-and the current SDR++ `deps/` tree as the implementation base.
+and the current SDRIAK `deps/` tree as the implementation base.
 
 The goal here is to document the intended design and the policy currently being
 implemented in the `deps/` tree.
@@ -68,9 +68,9 @@ The important pattern is that the application build owns the high-level linkage
 policy, while the `deps/` build owns source-vs-system selection and recipe-level
 exceptions.
 
-### 2.2 What SDR++ used to do
+### 2.2 What SDRIAK used to do
 
-SDR++ already had a usable `deps/` build, but it was controlled by a small set
+SDRIAK already had a usable `deps/` build, but it was controlled by a small set
 of coarse switches:
 
 - global `BUILD_SHARED_LIBS`
@@ -86,9 +86,9 @@ Relevant files:
 - `cmake/sdrpp_find_dep.cmake`
 
 That was enough for "build most things here" versus "skip some host-provided
-packages", but not enough for the full matrix required by SDR++ packaging.
+packages", but not enough for the full matrix required by SDRIAK packaging.
 
-## 3. Main Gaps in the Current SDR++ Design
+## 3. Main Gaps in the Current SDRIAK Design
 
 ### 3.1 `BUILD_SHARED_LIBS` is too coarse
 
@@ -643,7 +643,7 @@ Until that review happens, keep bundled dependencies shared.
 The key design decision is to stop treating dependency control as one global
 `BUILD_SHARED_LIBS` choice.
 
-SDR++ needs a package-aware policy layer that decides, per dependency:
+SDRIAK needs a package-aware policy layer that decides, per dependency:
 
 - build from source or use system package
 - static, shared, or header-only consumption
@@ -657,7 +657,7 @@ into three separate staging models:
 - bundle packaging staging
 
 PrusaSlicer's build shows the right structural split between application policy,
-dependency orchestration, and recipe exceptions. SDR++ should keep its current
+dependency orchestration, and recipe exceptions. SDRIAK should keep its current
 `deps/` foundation, but extend it with per-package source and linkage policy so
 the same tree can support Windows, macOS, AppImage, and distro Linux cleanly
 without keeping brittle per-script artifact inventories.

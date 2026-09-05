@@ -58,7 +58,7 @@ function Get-WindowsStageDir($buildDir, $buildConfig) {
 
 
 $resolved_arch = Resolve-Arch $BuildDir $Arch
-$package_dir = "sdrpp_windows_$resolved_arch"
+$package_dir = "sdriak_windows_$resolved_arch"
 $zip_path = "$package_dir.zip"
 
 & cmake --build $BuildDir --config $BuildConfig --target stage_windows_bundle

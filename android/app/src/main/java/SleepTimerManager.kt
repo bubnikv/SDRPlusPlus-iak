@@ -1,4 +1,4 @@
-package org.sdrpp.sdrpp
+package org.ok1iak.sdriak
 
 import android.os.Handler
 import android.os.Looper

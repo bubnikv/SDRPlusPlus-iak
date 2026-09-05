@@ -20,7 +20,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "m17_decoder",
-    /* Description:     */ "M17 Digital Voice Decoder for SDR++",
+    /* Description:     */ "M17 Digital Voice Decoder for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

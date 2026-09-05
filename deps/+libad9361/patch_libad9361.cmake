@@ -1,7 +1,7 @@
 #
 # Run with -DSRC=<source-dir> -P this-script.
 #
-# libad9361 v0.2 has only export/import modes in its public header. SDR++ uses
+# libad9361 v0.2 has only export/import modes in its public header. SDRIAK uses
 # the bundled lib as a static module-private dependency on portable builds, so
 # add an explicit LIBAD9361_STATIC mode and define it on the library target.
 # Disable upstream's framework output too: the deps prefix and generated

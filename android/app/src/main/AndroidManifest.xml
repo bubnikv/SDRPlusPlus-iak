@@ -9,13 +9,13 @@
         android:hasCode="true">
 
         <activity
-            android:name="org.sdrpp.sdrpp.MainActivity"
+            android:name="org.ok1iak.sdriak.MainActivity"
             android:icon="@mipmap/ic_launcher"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:launchMode="singleTask"
             android:exported="true">
-            <meta-data android:name="android.app.lib_name" android:value="sdrpp_core" />
+            <meta-data android:name="android.app.lib_name" android:value="sdriak_core" />
             <meta-data
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/device_filter" />

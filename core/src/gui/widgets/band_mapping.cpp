@@ -13,7 +13,7 @@
 //       bands-r3.json and named bookmarks.d files at
 //       0xAF/openwebrxplus@db72214813954695f7b24973878edf538fa2241e.
 //   A = an authoritative allocation or standards source identified inline.
-//   L = the 21 files in root/res/bandplans at this SDR++ revision.
+//   L = the 21 files in root/res/bandplans at this SDRIAK revision.
 //   P = the identity probes associated with the BandMapping in its packed pool.
 //
 // G means OpenWebRX+'s general profile; R1/R2/R3 are its regional profiles.

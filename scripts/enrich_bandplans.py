@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enrich SDR++ band plan JSON files with default tuning info.
+"""Enrich SDRIAK band plan JSON files with default tuning info.
 
 Three optional fields are added to bands (and kept up to date on re-runs):
 
@@ -18,10 +18,10 @@ broadcast/utility entries); mode defaults for the remaining bands are the
 application's job, not this data's.
 
 A def_mode that merely repeats the application's runtime mode convention
-(see heuristic_mode() below — SDR++ must implement the same fallback) is
+(see heuristic_mode() below — SDRIAK must implement the same fallback) is
 omitted to keep the data files down to information only the data has.
 
-The SDR++ core ignores unknown band plan keys, so enriched files stay
+The SDRIAK core ignores unknown band plan keys, so enriched files stay
 compatible with any SDR++ version. Files are edited surgically — only the
 three field lines are ever inserted or removed, all other bytes (indent
 style, tabs, line endings) are preserved — and the script is idempotent.
@@ -39,7 +39,7 @@ import re
 import sys
 from pathlib import Path
 
-# SDR++ band plan 'type' -> KiwiSDR 'svc' service key
+# SDRIAK band plan 'type' -> KiwiSDR 'svc' service key
 TYPE_TO_SVC = {
     'amateur': 'A',
     'amateur1': 'A',
@@ -62,7 +62,7 @@ ITU_REGION = {
     'AU': 3, 'CN': 3, 'KR': 3,
 }
 
-# KiwiSDR 'sel' mode suffix -> SDR++ demodulator mode
+# KiwiSDR 'sel' mode suffix -> SDRIAK demodulator mode
 MODE_MAP = {
     'am': 'AM', 'amn': 'AM', 'amw': 'AM', 'sam': 'AM',
     'lsb': 'LSB', 'lsn': 'LSB',

@@ -3,7 +3,7 @@
 # non-Android path of OPT_BUILD_QMX_SOURCE. Android uses Oboe.
 #
 # Pinned to the same commit the existing Windows CI uses (build_all.yml line
-# 164/297) — known to work with SDR++. Bump only after verifying, and re-check
+# 164/297) — known to work with SDRIAK. Bump only after verifying, and re-check
 # patches/ against the new pin.
 #
 sdrpp_dep_get_linkage_option_bools(rtaudio _rtaudio_build_shared _rtaudio_build_static)

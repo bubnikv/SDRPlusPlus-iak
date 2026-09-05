@@ -1,4 +1,4 @@
-# SDR++ iak (fork), is not the original bloat-free SDR software
+# SDRIAK — SDR software for the QRP Labs QMX transceiver
 
 The fork is to support the QRP Labs QMX transceiver.
 Currently remote reception using an [Android server app](https://github.com/bubnikv/qmxserver-android) on Android 7 and newer is supported.
@@ -21,4 +21,4 @@ Thanks and due respect to:
 
 ## Feedback
 
-Found an issue? File an [issue](https://github.com/bubnikv/SDRPlusPlus-iak/issues).
+Found an issue? File an [issue](https://github.com/bubnikv/sdriak/issues).

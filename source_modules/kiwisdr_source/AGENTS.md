@@ -3,7 +3,7 @@
 ## KiwiSDR Receiver List / Map Service
 
 The KiwiSDR map selector does not download map tiles or map images. The base
-map is drawn locally by `geomap` from the SDR++ resources file
+map is drawn locally by `geomap` from the SDRIAK resources file
 `cty/map.json`. The web service is used only to fetch the public KiwiSDR
 receiver list that is plotted on top of that local map.
 

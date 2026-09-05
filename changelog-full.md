@@ -1,6 +1,6 @@
 # Complete changelog
 
-The detailed per-release history of the SDR++ iak fork, including alpha and beta pre-releases. For a brief summary of the major releases only, see [changelog.md](changelog.md).
+The detailed per-release history of the SDRIAK fork, including alpha and beta pre-releases. For a brief summary of the major releases only, see [changelog.md](changelog.md).
 
 ## v1.4.0-beta
 
@@ -13,7 +13,7 @@ This beta turns the alpha's experimental band picker and waterfall autoscale int
 - **Bands / Frequency — Spectrum page:** jump between named radio-spectrum ranges, clipped to the active source's tuning limits, while remembering the last frequency used in each range. The dialog's page selector and the Bands-page category selector now use a shared touch-friendly segmented control.
 - Native macOS CoreAudio output sink, enabled by default alongside PortAudio. It uses UTF-8 device names, follows the selected device's nominal sample rate, avoids allocation in the render callback and falls back to a null drain when setup fails so the FFT keeps running. Addresses [AlexandreRouma/SDRPlusPlus#1776](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1776).
 - Continuous waterfall auto-range: hold the contrast button to latch tracking, or tap for a one-shot fit. The estimator uses robust quantiles over the visible raw FFT span, excludes edges and DC, pools recent lines for one-shot fits, and applies asymmetric smoothing and a deadband in continuous mode.
-- Shared cancellable asynchronous connector and timed DNS/connect infrastructure, initially used by the SDR++ Server and SpyServer sources; all remaining blocking TCP connection paths now have finite timeouts. The original work was contributed by edudant in [PR #20](https://github.com/bubnikv/SDRPlusPlus-iak/pull/20), resolving [issue #19](https://github.com/bubnikv/SDRPlusPlus-iak/issues/19).
+- Shared cancellable asynchronous connector and timed DNS/connect infrastructure, initially used by the SDRIAK Server and SpyServer sources; all remaining blocking TCP connection paths now have finite timeouts. The original work was contributed by edudant in [PR #20](https://github.com/bubnikv/sdriak/pull/20), resolving [issue #19](https://github.com/bubnikv/sdriak/issues/19).
 
 ### Changed
 
@@ -29,7 +29,7 @@ This beta turns the alpha's experimental band picker and waterfall autoscale int
 ### Fixed
 
 - Android radiosonde decoder abort while handling RS41 frames: the vendored `sondedump` decoder treated an eight-byte, non-terminated serial field as a 31-byte C string copy, which Android's fortified libc rejected as a source-buffer over-read. The dependency patch now copies exactly the packed field width and retains the existing explicit terminator. Thanks to [@jprincl](https://github.com/jprincl).
-- SpyServer and SDR++ Server connections no longer leave the UI hanging during unreachable DNS/hosts; connection attempts can be cancelled, failures are reported in the source panel, failed Winsock non-blocking connects are detected correctly, and dead heartbeat-capable server links are noticed. Addresses [AlexandreRouma/SDRPlusPlus#1462](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1462).
+- SpyServer and SDRIAK Server connections no longer leave the UI hanging during unreachable DNS/hosts; connection attempts can be cancelled, failures are reported in the source panel, failed Winsock non-blocking connects are detected correctly, and dead heartbeat-capable server links are noticed. Addresses [AlexandreRouma/SDRPlusPlus#1462](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1462).
 - Socket descriptors are closed on networking error and remote-disconnect paths, preventing the rigctl server from eventually exhausting descriptors and refusing restarts. Listener shutdown and connection waiting races were fixed as well. Fixes [AlexandreRouma/SDRPlusPlus#1061](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1061).
 - Rigctl/Hamlib interoperability: accept VFOA/VFOB/VFOC/current/None tokens, provide receive-only PTT replies, handle absent VFOs/demodulators safely, clear partial commands between clients and keep advertised modes consistent with accepted modes. Addresses [AlexandreRouma/SDRPlusPlus#1506](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1506) and [#1092](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1092).
 - Server-mode source menus no longer dereference a missing ImGui context when drawing disabled controls (notably SDRplay RSP2 Hi-Z, SpyServer, Spectran HTTP and QMX Server). Fixes [AlexandreRouma/SDRPlusPlus#1630](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1630).
@@ -42,7 +42,7 @@ This beta turns the alpha's experimental band picker and waterfall autoscale int
 
 ## v1.4.0-alpha - 2026-07-19
 
-A large UI-focused release. The headline is a touch-friendly interface overhaul that makes SDR++ iak usable with a finger on Android (and previewable on desktop): an Android-metrics style overlay, a Material 3 dark theme, single-finger drag-scroll with fling, pill-handle window splitters, and an IC-705-style direct frequency-entry keypad with an integrated band picker. A new shared `PopupDialog` widget brings consistent keyboard and back-gesture handling to every modal in the app. Alongside these, a batch of desktop input fixes, radio/DSP touches, and crash fixes ported from and reported against upstream SDR++.
+A large UI-focused release. The headline is a touch-friendly interface overhaul that makes SDRIAK usable with a finger on Android (and previewable on desktop): an Android-metrics style overlay, a Material 3 dark theme, single-finger drag-scroll with fling, pill-handle window splitters, and an IC-705-style direct frequency-entry keypad with an integrated band picker. A new shared `PopupDialog` widget brings consistent keyboard and back-gesture handling to every modal in the app. Alongside these, a batch of desktop input fixes, radio/DSP touches, and crash fixes ported from and reported against upstream SDR++.
 
 The band stacking feature inspired by ICOM radios is work in progress, not working correctly yet.
 
@@ -89,7 +89,7 @@ The waterfall autoscale is work in progress: Both the algorithm and user interfa
 - RDS PS Name, RadioText and PTY Name now decode the RDS/EBU G0 character repertoire to UTF-8 at read time (raw storage unchanged), and the repertoire glyphs Roboto-Medium provides are baked into the ImGui atlas so non-ASCII station text renders correctly. Based on the approach in AlexandreRouma/SDRPlusPlus#1164, reworked to translate at read time rather than switching storage to `std::wstring`. Thanks to @attah.
 - Debug menu (and the ImGui demo window) now compile only into development builds — any build with commits past the last `vX.Y.Z` release tag, or a Debug configuration, or a CI nightly (any GitHub Actions build that isn't a release-tag build). Release-tag artifacts ship without the menu; `IMGUI_DISABLE_DEMO_WINDOWS` reduces `imgui_demo.cpp` to stubs while keeping exported symbols.
 - Module-com contract headers (`radio_interface.h`, `meteor_demodulator_interface.h`, `recorder_interface.h`) moved into `core/src`. These interface-only enum headers were reached via cross-module include paths by seven modules — a layering violation once core itself became a consumer (the band picker) — and all 11 cross-module `target_include_directories` entries are now gone: modules depend only on core at compile time.
-- Android: the app now uses the IAK launcher icon; the inert `proguardFiles` line was removed from the release build (R8/ProGuard never ran, so the app ships unobfuscated, as expected for an open-source project).
+- Android: the app now uses the SDRIAK launcher icon; the inert `proguardFiles` line was removed from the release build (R8/ProGuard never ran, so the app ships unobfuscated, as expected for an open-source project).
 - CW filter defaults adjusted; the two `showHzPresetInput` int/float overloads were merged into a single `if constexpr` template; the Spots "Spot Lifetime" label now states its units (minutes).
 - Internal: `SmGui` `DrawListElem` scalar payloads folded into an anonymous union (one scalar is live per element), shrinking each element with no wire-format or field-access change.
 
@@ -125,7 +125,7 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 
 - SNR readout reworked: SNR is now reported as the held peak in-band level over the out-of-VFO noise floor averaged over the same peak-hold window, so the value stays steady on keyed CW instead of sagging between dits and dashes. The separate "SNR Smoothing" display option was removed — smoothing of the readout is now intrinsic.
 - Level meter layout: on narrow windows the meter now switches to sparse (every-other) tick labels and hides the numeric readout instead of overlapping labels, and it can grow wider on large windows.
-- Application icons updated with the fork-specific (iak) branding, including the macOS and Windows icon variants.
+- Application icons updated with SDRIAK branding, including the macOS and Windows icon variants.
 
 ### Fixed
 
@@ -140,22 +140,22 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 ## v1.2.2-beta2 - 2026-07-11
 
 ### Breaking change
-- Due to the change in network protocol (authentization, source tuning range synchronization) the SDR++-iak network protocol is no more compatible with the upstream SDR++. SDR++-iak therefore rejects connection to non-iak SDR++ forks.
+- Due to the change in network protocol (authentication, source tuning range synchronization), the SDRIAK network protocol is no longer compatible with upstream SDR++. SDRIAK therefore rejects connections from non-SDRIAK SDR++ forks.
 
 ### Added
 
 - Dragon Labs source module, merged from upstream SDR++: CR8-1725 device discovery/selection through `libdlcr`, 12.5 MS/s input, internal/external clock selection, channel selection, and LNA/mixer/VGA gain controls.
 - Radio squelch mode system from upstream SDR++: `Power`, `CTCSS (Mute)` and `CTCSS (Decode Only)` modes, a full CTCSS tone table with `Any`, received-tone diagnostics, and radio-module interface commands for squelch mode/level, CTCSS tone and high-pass control.
 - Recorder filename timestamps can now be generated in either local time or UTC.
-- SDR++ server password authentication: protocol hello/fork compatibility checks, PBKDF2/HMAC challenge-response ported from SDRPlusPlusBrown by @sannysanoff, per-server saved auth keys, explicit server-busy/auth-failed dialogs, and a "Forget saved password" control.
-- Shared RX prebuffer implementation for networked sources. The SDR++ server source now exposes Disabled/50/100/250/500/1000 ms RX prebuffer choices, with Disabled acting as a true live bypass instead of a zero-length buffering path.
+- SDRIAK server password authentication: protocol hello/fork compatibility checks, PBKDF2/HMAC challenge-response ported from SDRPlusPlusBrown by @sannysanoff, per-server saved auth keys, explicit server-busy/auth-failed dialogs, and a "Forget saved password" control.
+- Shared RX prebuffer implementation for networked sources. The SDRIAK server source now exposes Disabled/50/100/250/500/1000 ms RX prebuffer choices, with Disabled acting as a true live bypass instead of a zero-length buffering path.
 - Android release CI now builds a signed universal Play Store `.aab` and splits the universal APK into the published arm and x86 APK artifacts.
 
 ### Changed
 
 - Merged the current upstream SDR++ master into this fork, preserving the fork-specific modules and dependency/build-system work while bringing in upstream radio, recorder, rigctl, Dragon Labs, RDS and CI fixes.
-- Source tuning limits are now managed by `SourceManager`, are aware of the tuning offset used for up/downconverters, and are forwarded through the SDR++ server protocol to remote clients.
-- The main frequency selector is now constrained to the valid source range for Airspy (24 MHz-1.75 GHz), Airspy HF+ (0-260 MHz), RTL-SDR (100 kHz-1.75 GHz), QMX/QMX server (100 kHz-60 MHz), KiwiSDR served ranges, and remote SDR++ server sources.
+- Source tuning limits are now managed by `SourceManager`, are aware of the tuning offset used for up/downconverters, and are forwarded through the SDRIAK server protocol to remote clients.
+- The main frequency selector is now constrained to the valid source range for Airspy (24 MHz-1.75 GHz), Airspy HF+ (0-260 MHz), RTL-SDR (100 kHz-1.75 GHz), QMX/QMX server (100 kHz-60 MHz), KiwiSDR served ranges, and remote SDRIAK server sources.
 - KiwiSDR tuning limits now follow the selected directory entry's served band and refine to the exact server-reported `freq_offset + bandwidth` range while connected.
 - WFM RDS can now disable incremental PS/radio-text updates, showing only complete updated strings when that option is off.
 - `SmGui` gained separator and formatted-text helpers with bounded buffers.
@@ -163,9 +163,9 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 
 ### Fixed
 
-- SDR++ server client/session handling was hardened: per-session buffers prevent displaced clients from corrupting a new connection, handshakes must complete before a client can take over the live slot, heartbeats reclaim orphaned sessions, failed authentication is rejected immediately, and malformed packets, command payloads and decompressed baseband sizes are validated before use.
-- SDR++ server remote state synchronization now applies pushed sample-rate and tuning-limit changes on the GUI thread and re-applies them when reselecting the source.
-- SDR++ server and KiwiSDR live prebuffer switching now cleanly swaps between buffered and live paths without leaving stale buffering state behind.
+- SDRIAK server client/session handling was hardened: per-session buffers prevent displaced clients from corrupting a new connection, handshakes must complete before a client can take over the live slot, heartbeats reclaim orphaned sessions, failed authentication is rejected immediately, and malformed packets, command payloads and decompressed baseband sizes are validated before use.
+- SDRIAK server remote state synchronization now applies pushed sample-rate and tuning-limit changes on the GUI thread and re-applies them when reselecting the source.
+- SDRIAK server and KiwiSDR live prebuffer switching now cleanly swaps between buffered and live paths without leaving stale buffering state behind.
 - Rigctl server `get_mode` responses now include the selected VFO bandwidth when available.
 - WFM RDS continuation/stale-text handling fixes from upstream were merged.
 - HydraSDR source/build compatibility fixes for newer `libhydrasdr` and Windows builds were merged from upstream.
@@ -219,7 +219,7 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 - New CMake-based dependency build system, ported from PrusaSlicer's (written by Tamas Meszaros, @tamasmeszaros): all third-party libraries are now built from source instead of pulling prebuilt binary blobs. This enables native Windows on ARM64 builds and removes the need for the custom Android SDR-kit Docker image.
 - Native Windows on ARM64 builds.
 - Linux AppImage builds, with isolated config root.
-- Radiosonde decoder plugin, merged directly into the `iak` fork from `sdrpp_radiosonde` by @dbdexter-dev (Davide Belloli), built on his `sondedump` decoding library.
+- Radiosonde decoder plugin, merged directly into SDRIAK from `sdrpp_radiosonde` by @dbdexter-dev (Davide Belloli), built on his `sondedump` decoding library.
 - Spots module, merged from [`sdrpp-spots`](https://github.com/gerner/sdrpp-spots) by @gerner.
 - WebSDR view module, based on the KiwiSDR map and waterfall code from SDRPlusPlusBrown by @sannysanoff.
 - libcurl integration for HTTPS and secure WebSockets, statically bundled and exported through `sdrpp_core`.
@@ -245,7 +245,7 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 
 ### Changed
 
-- Further steps to fork from upstream with `iak` branding so that the `iak` fork could live side by side with upstream SDR++ on the same system. Fixed Linux Debian packages broken by previous `iak`ization.
+- Further steps to fork from upstream with SDRIAK branding so that SDRIAK could live side by side with upstream SDR++ on the same system. Fixed Linux Debian packages broken by the previous branding pass.
 - Fix of default audio sink on Linux with ALSA audio API selected: Don't let the ALSA audio queue dry up if radio is stopped. The ALSA sink would not restart if the radio was paused and restarted.
 
 ## v1.2.2-alpha2 - 2026-04-19
@@ -268,7 +268,7 @@ First public release of the fork. Cumulatively summarized in [changelog.md](chan
 ### Changed
 
 - Updated CI artifact naming to include version information, commit distance, and commit hash from `git describe`.
-- Added the `-iak` infix to release artifact names and to Linux Debian package naming to keep this fork isolated from upstream SDR++ packages.
+- Added the `sdriak` name to release artifacts and Linux Debian packages to keep this fork isolated from upstream SDR++ packages.
 - Reworked CI release handling to read version information from `version.h`.
 
 ### Fixed

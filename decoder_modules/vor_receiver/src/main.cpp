@@ -16,7 +16,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "vor_receiver",
-    /* Description:     */ "VOR Receiver for SDR++",
+    /* Description:     */ "VOR Receiver for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

@@ -2,7 +2,7 @@
 # sondedump — dbdexter-dev's radiosonde decoder library.
 #
 # Upstream ships a CMake project that builds a static `radiosonde` library
-# (the decoder core) plus a `sondedump` reference executable. SDR++ only
+# (the decoder core) plus a `sondedump` reference executable. SDRIAK only
 # consumes the static library; the patch in this folder strips the executable
 # build and adds install rules for the library and its public headers so the
 # deps prefix exposes a normal find_package() surface.

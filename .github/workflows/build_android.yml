@@ -80,12 +80,12 @@ jobs:
             {
               echo "version_full=${VERSION_FULL}"
               echo "build_type_caps=${BUILD_TYPE^}"
-              echo "arm_artifact=sdrpp-iak-${VERSION_FULL}-android-arm${ARTIFACT_SUFFIX}"
-              echo "x86_artifact=sdrpp-iak-${VERSION_FULL}-android-x86${ARTIFACT_SUFFIX}"
-              # sdrpp-iak-* name so build_all's create_full_archive publishes the
+              echo "arm_artifact=sdriak-${VERSION_FULL}-android-arm${ARTIFACT_SUFFIX}"
+              echo "x86_artifact=sdriak-${VERSION_FULL}-android-x86${ARTIFACT_SUFFIX}"
+              # sdriak-* name so build_all's create_full_archive publishes the
               # bundle on the GitHub release (nightly + tag) alongside the APKs.
-              echo "aab_artifact=sdrpp-iak-${VERSION_FULL}-android"
-              echo "aab=sdrpp-iak-${VERSION_FULL}-android.aab"
+              echo "aab_artifact=sdriak-${VERSION_FULL}-android"
+              echo "aab=sdriak-${VERSION_FULL}-android.aab"
             } >> "$GITHUB_OUTPUT"
 
         - name: Install build tools
@@ -158,7 +158,7 @@ jobs:
         # other platform's ABI folders, re-page-aligning the archive, and
         # re-signing. Release uses the upload keystore; Debug uses the committed
         # debug keystore. Output names follow the usual convention
-        # (sdrpp-iak-<ver>-android-{arm,x86}[-debug].apk).
+        # (sdriak-<ver>-android-{arm,x86}[-debug].apk).
         - name: Split universal APK into per-platform APKs
           if: matrix.build_type == 'debug' || steps.check_signing.outputs.has_keystore == 'true'
           working-directory: ${{ github.workspace }}/android/app/build/outputs/apk/universal/${{ matrix.build_type }}
@@ -172,7 +172,7 @@ jobs:
           run: |
             set -euo pipefail
             BUILD_TOOLS="$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/ | sort -V | tail -1)"
-            UNIVERSAL="sdrpp-iak-universal-${BUILD_TYPE}.apk"
+            UNIVERSAL="sdriak-universal-${BUILD_TYPE}.apk"
 
             if [ "$BUILD_TYPE" = "debug" ]; then
               SUFFIX="-debug"
@@ -187,7 +187,7 @@ jobs:
             # $1 = platform label, remaining args = ABI globs to delete.
             split_one() {
               local platform="$1"; shift
-              local out="sdrpp-iak-${VERSION_FULL}-android-${platform}${SUFFIX}.apk"
+              local out="sdriak-${VERSION_FULL}-android-${platform}${SUFFIX}.apk"
               cp "$UNIVERSAL" stripped.apk
               # `zip -d` leaves the surviving (STORED, uncompressed) .so entries as
               # they are but shifts their offsets, so re-align afterwards.
@@ -220,7 +220,7 @@ jobs:
               path: ${{ github.workspace }}/android/app/build/outputs/apk/universal/${{ matrix.build_type }}/${{ steps.names.outputs.x86_artifact }}.apk
 
         # Signed Play Store bundle: renamed to its final published name and
-        # uploaded under an sdrpp-iak-* artifact name, so create_full_archive
+        # uploaded under an sdriak-* artifact name, so create_full_archive
         # publishes it on the GitHub release (nightly + tag) next to the APKs.
         - name: Rename AAB
           if: matrix.build_type == 'release' && steps.check_signing.outputs.has_keystore == 'true'

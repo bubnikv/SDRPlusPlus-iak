@@ -20,7 +20,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "spectran_source",
-    /* Description:     */ "Spectran source module for SDR++",
+    /* Description:     */ "Spectran source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

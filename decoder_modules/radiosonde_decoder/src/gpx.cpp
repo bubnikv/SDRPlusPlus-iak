@@ -19,7 +19,7 @@ GPXWriter::init(const char *fname)
 	m_trackActive = false;
 	fprintf(m_fd,
 			"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n"
-			"<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" version=\"1.1\" creator=\"SDR++\">\n"
+			"<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" version=\"1.1\" creator=\"SDRIAK\">\n"
 	);
 	m_offset = ftell(m_fd);
 	terminateFile();

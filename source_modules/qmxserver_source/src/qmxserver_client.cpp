@@ -47,7 +47,7 @@ namespace qmxserver {
 
         output->clearWriteStop();
 
-        //sendHandshake("SDR++");
+        //sendHandshake("SDRIAK");
 
         //client->readAsync(sizeof(QmxServerMessageHeader), (uint8_t*)&receivedHeader, dataHandler, this);
         m_thread = std::thread(&QmxServerClientClass::run, this);

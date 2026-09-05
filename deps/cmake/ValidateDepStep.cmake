@@ -395,7 +395,7 @@ if (_trace_dep_artifacts)
         set(_imported_implib "${_lib}")
     endif ()
 
-    message(STATUS "ValidateDep[${NAME}] artifacts consumed by SDR++:")
+    message(STATUS "ValidateDep[${NAME}] artifacts consumed by SDRIAK:")
     message(STATUS "  package: find_package(${PACKAGE_NAME} CONFIG)")
     message(STATUS "  target: ${TARGET_NAME}")
     message(STATUS "  prefix hint (CMAKE_PREFIX_PATH): ${PREFIX}")

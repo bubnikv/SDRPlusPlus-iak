@@ -5,7 +5,7 @@ need to know is in this document plus the referenced files in this repository.
 
 ## Goal
 
-Add a new SDR++ misc module `station_schedules` to this fork that overlays the EiBi shortwave
+Add a new SDRIAK misc module `station_schedules` that overlays the EiBi shortwave
 broadcast schedule on the FFT/waterfall: station-name labels on their frequencies, shown only
 while the station is on air (UTC time + day of week), with click-to-tune and an informative
 tooltip. Conceptually similar to Otto Pattemore's `shortwave-station-list-sdrpp` plugin, but
@@ -19,7 +19,7 @@ seasonally, and never user-edited.
 
 ## Hard constraints
 
-- **Do not run builds.** Do not invoke cmake, msbuild, ninja, or any compiler on the SDR++
+- **Do not run builds.** Do not invoke cmake, msbuild, ninja, or any compiler on the SDRIAK
   tree. The user builds in Visual Studio himself. Write code carefully enough to compile
   first-try; you may desk-check by re-reading. (Exception: you may compile a *standalone*
   CSV-parser test program in your scratchpad directory with any available compiler, linked
@@ -29,7 +29,7 @@ seasonally, and never user-edited.
   style, naming). That module was just modernized and is the reference for module structure.
 - New module CMakeLists must follow the fork convention: `include(${SDRPP_MODULE_CMAKE})`
   (see `misc_modules/frequency_manager/CMakeLists.txt` as the template). This fork installs
-  plugins to `lib/sdrpp-iak/plugins` via that shared cmake file — do not hardcode install paths.
+  plugins to `lib/sdriak/plugins` via that shared cmake file — do not hardcode install paths.
 - License is GPL-3.0 like the rest of the repo. Credit the concept in a header comment:
   "Concept inspired by shortwave-station-list-sdrpp by Otto Pattemore (GPL-3.0). Schedule data
   from EiBi (http://www.eibispace.de) by Eike Bierwirth."
@@ -54,7 +54,7 @@ seasonally, and never user-edited.
 
 Reviewed from `darauble/bookmark_manager` and `OttoPattemore/shortwave-station-list-sdrpp`:
 
-1. Never download in the module constructor or GUI thread; the Otto plugin blocks SDR++
+1. Never download in the module constructor or GUI thread; the Otto plugin blocks SDRIAK
    startup with no curl timeout. All network I/O on a worker thread with
    `CURLOPT_CONNECTTIMEOUT` (10 s) and `CURLOPT_TIMEOUT` (60 s), and `CURLOPT_FOLLOWLOCATION`.
 2. Never filter/sort the whole database per frame. Parse once into a frequency-sorted
@@ -71,7 +71,7 @@ Reviewed from `darauble/bookmark_manager` and `OttoPattemore/shortwave-station-l
 
 ## Coexistence with other waterfall overlays (independent rendering)
 
-SDR++ has no overlay compositor. Every module that draws on the waterfall
+SDRIAK has no overlay compositor. Every module that draws on the waterfall
 (`frequency_manager`, `spots`, and this new module) binds its own `onFFTRedraw` /
 `onInputProcess` handlers; the waterfall fires all of them in bind order, they all paint into
 the same draw list, and each packs its label rows independently starting at row 0 — modules

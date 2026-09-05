@@ -106,13 +106,13 @@ void FreqModeSync::setSyncVfo(bool enabled) {
     }
 }
 
-// Called by SDR++ when the IQ center frequency changes (tune callback, GUI thread).
-// This is the SDR++ -> QMX direction. We:
+// Called by SDRIAK when the IQ center frequency changes (tune callback, GUI thread).
+// This is the SDRIAK -> QMX direction. We:
 //   1. Compute the new rig frequency from the cached status.
 //   2. Send that rig frequency to QMX.
 //   3. Update the cached status so it reflects the new rig frequency immediately
 //      (as if QMX had already confirmed it).
-//   4. If syncVfo: place the SDR++ VFO at the new rig frequency.
+//   4. If syncVfo: place the SDRIAK VFO at the new rig frequency.
 // This way the cached status is always the source of truth and tick() won't
 // produce a feedback bounce.
 void FreqModeSync::onIqCenterChanged(double newFreq) 
@@ -162,7 +162,7 @@ void FreqModeSync::onIqCenterChanged(double newFreq)
 #endif // NDEBUG
 
 /*
-    // 4. If syncVfo, move the SDR++ VFO to the rig frequency.
+    // 4. If syncVfo, move the SDRIAK VFO to the rig frequency.
     if (m_syncVfo && gui::mainWindow.getTuningMode() == tuner::TUNER_MODE_NORMAL) {
         std::string vfoName = gui::waterfall.selectedVFO;
         if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
@@ -217,7 +217,7 @@ void FreqModeSync::tick()
             const std::int64_t rigFreq = effectiveReceiveRigFrequency(m_status);
             const double centerFrequency = rigFrequencyToCenterFrequency(rigFreq, m_status);
             //flog::debug("FreqModeSync::tick(): QMX frequency updated to {}", m_status.hasFrequency() ? m_status.frequency : -1);
-            // Update SDR++ IQ center if it doesn't match the cached rig frequency.
+            // Update SDRIAK IQ center if it doesn't match the cached rig frequency.
             // tuner::tune(IQ_ONLY) calls our onIqCenterChanged, which will recompute
             // the same rig frequency from the just-updated cache -> no-op, no feedback.
             if (std::llround(m_iqCenterFreq) != std::llround(centerFrequency)) {
@@ -241,7 +241,7 @@ void FreqModeSync::tick()
     }
 
     if (syncVfo) {
-        // VFO sync: move SDR++ VFO to rig frequency and sync mode.
+        // VFO sync: move SDRIAK VFO to rig frequency and sync mode.
         std::string vfoName = gui::waterfall.selectedVFO;
         if (!vfoName.empty() && sigpath::vfoManager.vfoExists(vfoName)) {
             /*
@@ -254,7 +254,7 @@ void FreqModeSync::tick()
                 }
             }
             */
-            // Sync mode: QMX -> SDR++ radio.
+            // Sync mode: QMX -> SDRIAK radio.
             if ((qmxStatusUpdate & static_cast<qmx::QmxStatusFlags>(qmx::QmxStatusFlag::Mode)) != 0 && core::modComManager.getModuleName(vfoName) == "radio") {
                 int targetMode = qmxModeToRadioIface(m_status.mode);
                 if (targetMode >= 0) {

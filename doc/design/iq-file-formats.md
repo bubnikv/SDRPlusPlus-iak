@@ -1,8 +1,8 @@
-# SDR++ IQ File I/O Format Plan
+# SDRIAK IQ File I/O Format Plan
 
 ## Purpose
 
-This document proposes the IQ/baseband file formats that this SDR++ fork should support for recording, playback, import, and export. The main goal is interoperability with other desktop SDR applications and analysis tools while keeping the implementation maintainable.
+This document proposes the IQ/baseband file formats that SDRIAK should support for recording, playback, import, and export. The main goal is interoperability with other desktop SDR applications and analysis tools while keeping the implementation maintainable.
 
 This document covers IQ/baseband data only. Demodulated audio recording is a separate feature and should use audio formats such as WAV, FLAC, Opus, and MP3. Lossy audio codecs must not be used for IQ/baseband data.
 
@@ -22,14 +22,14 @@ The recommended implementation order is:
 4. **WAV IQ float32 read/write**  
    Useful for analysis-quality recordings and DSP workflows.
 
-5. **FLAC IQ as SDR++-specific compressed IQ**  
+5. **FLAC IQ as SDRIAK-specific compressed IQ**
    Useful for compact lossless storage, but not a general interchange format.
 
 6. **Optional import: SDRangel `.sdriq`**  
    Useful for SDRangel compatibility, but not recommended as an export format.
 
 7. **Optional import: GNU Radio File Meta**  
-   Useful for GNU Radio users, but less attractive than SigMF for general SDR++ interoperability.
+   Useful for GNU Radio users, but less attractive than SigMF for general SDRIAK interoperability.
 
 ## Interoperability Ranking
 
@@ -39,7 +39,7 @@ The recommended implementation order is:
 | 2 | SigMF `.sigmf-meta` + `.sigmf-data` | Yes | Yes | Metadata-rich standard format |
 | 3 | Raw IQ `.cu8`, `.cs8`, `.cs16`, `.cf32`, `.cfile` | Yes | Yes | Expert / GNU Radio / inspectrum compatibility |
 | 4 | WAV IQ float32 | Yes | Yes | High-quality analysis format |
-| 5 | FLAC IQ | Yes | Yes | SDR++ compressed lossless IQ; not a standard interchange format |
+| 5 | FLAC IQ | Yes | Yes | SDRIAK compressed lossless IQ; not a standard interchange format |
 | 6 | SDRangel `.sdriq` | Yes | Optional / No | Import legacy SDRangel recordings |
 | 7 | GNU Radio File Meta | Optional | Optional / No | Import GNU Radio metadata recordings |
 
@@ -86,7 +86,7 @@ sample 2: I2, Q2
 
 ## Why support it
 
-WAV IQ is widely understood by desktop SDR applications. It is simple, easy to inspect, and already familiar to SDR++ users.
+WAV IQ is widely understood by desktop SDR applications. It is simple, easy to inspect, and already familiar to SDRIAK users.
 
 It is the best default for compatibility with applications such as SDR++, SDR#, HDSDR, and similar desktop receiver software.
 
@@ -197,9 +197,9 @@ SigMF cf32_le   analysis-quality export
     "core:datatype": "ci16_le",
     "core:sample_rate": 2400000,
     "core:version": "1.2.6",
-    "core:recorder": "SDR++ fork",
+    "core:recorder": "SDRIAK",
     "core:hw": "RTL-SDR Blog V4",
-    "core:description": "SDR++ IQ recording"
+    "core:description": "SDRIAK IQ recording"
   },
   "captures": [
     {
@@ -222,7 +222,7 @@ For a 2.4 MS/s recording where the center frequency changes every 10 seconds:
     "core:datatype": "ci16_le",
     "core:sample_rate": 2400000,
     "core:version": "1.2.6",
-    "core:recorder": "SDR++ fork",
+    "core:recorder": "SDRIAK",
     "core:hw": "Airspy HF+ Discovery",
     "core:description": "Recording with several center-frequency changes"
   },
@@ -278,7 +278,7 @@ Annotations can describe signals inside the recording:
 
 Annotations are useful for later manual or automatic signal labeling, but they are not required for initial support.
 
-## SDR++ recording behavior
+## SDRIAK recording behavior
 
 On recording start:
 
@@ -320,14 +320,14 @@ recording.sigmf-meta
 recording.sigmf-data
 ```
 
-This is SDR++-specific compressed IQ with SigMF-like metadata:
+This is SDRIAK-specific compressed IQ with SigMF-like metadata:
 
 ```text
 recording.sigmf-meta
 recording.flac
 ```
 
-The second form may be useful, but it should be clearly marked as SDR++-specific or non-standard. Other SigMF tools will normally expect `.sigmf-data` to contain raw sample bytes matching `core:datatype`.
+The second form may be useful, but it should be clearly marked as SDRIAK-specific or non-standard. Other SigMF tools will normally expect `.sigmf-data` to contain raw sample bytes matching `core:datatype`.
 
 ---
 
@@ -370,7 +370,7 @@ Raw IQ is useful for:
 
 ## Import dialog
 
-Because raw IQ has no metadata, SDR++ should show an import dialog with:
+Because raw IQ has no metadata, SDRIAK should show an import dialog with:
 
 ```text
 Sample format:
@@ -440,7 +440,7 @@ Extension: .wav
 
 ## Why support it
 
-Float32 IQ is useful when avoiding quantization during analysis or data exchange between DSP tools. It is also convenient internally if the SDR++ DSP chain already uses normalized floating-point samples.
+Float32 IQ is useful when avoiding quantization during analysis or data exchange between DSP tools. It is also convenient internally if the SDRIAK DSP chain already uses normalized floating-point samples.
 
 ## Limitation
 
@@ -458,7 +458,7 @@ WAV IQ float32 - analysis quality, less compatible
 
 ## Recommendation
 
-Support FLAC IQ as an SDR++-specific lossless compressed IQ format, not as a primary interchange format.
+Support FLAC IQ as an SDRIAK-specific lossless compressed IQ format, not as a primary interchange format.
 
 ## Why support it
 
@@ -468,7 +468,7 @@ Useful cases:
 
 - long monitoring recordings
 - archival of integer IQ captures
-- SDR++ playback of SDR++ recordings
+- SDRIAK playback of SDRIAK recordings
 - storage-constrained systems
 
 ## Limitations
@@ -481,11 +481,11 @@ FLAC is an audio codec/container. Other SDR applications will usually interpret 
 - the SDR hardware
 - whether this is IQ or demodulated audio
 
-Therefore, FLAC IQ needs explicit SDR++ metadata or a sidecar file.
+Therefore, FLAC IQ needs explicit SDRIAK metadata or a sidecar file.
 
 ## Recommended layout
 
-For simple SDR++ internal use:
+For simple SDRIAK internal use:
 
 ```text
 recording.iq.flac
@@ -507,7 +507,7 @@ recording.sigmf-meta
 
 If using a SigMF-like sidecar, clearly document that the data file is FLAC-compressed and is not a normal SigMF `.sigmf-data` raw dataset.
 
-## Recommended metadata key for SDR++ extension
+## Recommended metadata key for SDRIAK extension
 
 Example private metadata:
 
@@ -516,11 +516,11 @@ Example private metadata:
   "global": {
     "core:datatype": "ci16_le",
     "core:sample_rate": 2400000,
-    "core:recorder": "SDR++ fork",
+    "core:recorder": "SDRIAK",
     "core:version": "1.2.6",
-    "sdrpp:payload_container": "flac",
-    "sdrpp:payload_kind": "iq",
-    "sdrpp:iq_order": "IQ"
+    "sdriak:payload_container": "flac",
+    "sdriak:payload_kind": "iq",
+    "sdriak:iq_order": "IQ"
   },
   "captures": [
     {
@@ -533,7 +533,7 @@ Example private metadata:
 }
 ```
 
-This is useful for SDR++, but should be treated as an SDR++ extension rather than standard SigMF interchange.
+This is useful for SDRIAK, but should be treated as an SDRIAK extension rather than standard SigMF interchange.
 
 ---
 
@@ -568,7 +568,7 @@ The payload is raw interleaved I/Q samples in SDRangel's internal sample format,
 
 ## Why import may be useful
 
-Import is useful for users who have existing SDRangel recordings and want to inspect or replay them in SDR++.
+Import is useful for users who have existing SDRangel recordings and want to inspect or replay them in SDRIAK.
 
 ## Why export is not recommended
 
@@ -606,13 +606,13 @@ Additional metadata can be stored using GNU Radio PMT dictionaries and stream ta
 
 ## Why it is lower priority
 
-The format is powerful but GNU Radio-specific. Metadata is not as easy to inspect as SigMF JSON. For broad SDR++ interoperability, SigMF is cleaner.
+The format is powerful but GNU Radio-specific. Metadata is not as easy to inspect as SigMF JSON. For broad SDRIAK interoperability, SigMF is cleaner.
 
 ---
 
 # Internal Metadata Model
 
-To support all formats cleanly, SDR++ should use one internal metadata structure and map it to each file format.
+To support all formats cleanly, SDRIAK should use one internal metadata structure and map it to each file format.
 
 Suggested structure:
 
@@ -749,7 +749,7 @@ Baseband / IQ recording format:
   SigMF cf32          metadata-rich standard, analysis quality
   Raw IQ              expert mode
   WAV IQ float32      analysis WAV, less compatible
-  FLAC IQ             SDR++ compressed lossless IQ
+  FLAC IQ             SDRIAK compressed lossless IQ
 ```
 
 ## Import / playback menu
@@ -794,7 +794,7 @@ Raw
 
 # Scaling Rules
 
-SDR++ internally usually processes IQ as complex float. File formats need deterministic conversion.
+SDRIAK internally usually processes IQ as complex float. File formats need deterministic conversion.
 
 Recommended conversions:
 
@@ -844,7 +844,7 @@ Supported in:
 - SDRangel `.sdriq`: no practical multi-retune metadata model
 - WAV IQ: no standard way
 - raw IQ: no way
-- FLAC IQ: only with SDR++ sidecar metadata
+- FLAC IQ: only with SDRIAK sidecar metadata
 
 Recommended behavior:
 
@@ -875,9 +875,9 @@ Possible future SigMF extension:
 
 ```json
 {
-  "sdrpp:tuner_gain_db": 32.8,
-  "sdrpp:lna_gain_db": 16.0,
-  "sdrpp:if_gain_db": 8.0
+  "sdriak:tuner_gain_db": 32.8,
+  "sdriak:lna_gain_db": 16.0,
+  "sdriak:if_gain_db": 8.0
 }
 ```
 
@@ -968,7 +968,7 @@ Test explicit little-endian and big-endian raw import. For export, prefer little
 
 - WAV IQ float32
 - FLAC IQ read/write
-- SDR++ sidecar metadata for FLAC IQ
+- SDRIAK sidecar metadata for FLAC IQ
 
 ## Milestone 5: Optional importers
 
@@ -1001,7 +1001,7 @@ Reason: compact, standard, metadata-rich, and suitable for long-term interchange
 SigMF cf32_le
 ```
 
-Reason: preserves SDR++ internal float IQ without int16 quantization.
+Reason: preserves SDRIAK internal float IQ without int16 quantization.
 
 ## Recommended expert format
 
@@ -1014,7 +1014,7 @@ Reason: simple exchange with GNU Radio, inspectrum, Python, and command-line too
 ## Recommended compressed IQ format
 
 ```text
-FLAC IQ with SDR++ metadata sidecar
+FLAC IQ with SDRIAK metadata sidecar
 ```
 
 Reason: useful storage savings, but not a general SDR interchange format.
@@ -1028,8 +1028,8 @@ The fork should treat IQ file support as two separate problems:
 1. **Interchange with other SDR applications**  
    Use WAV IQ int16, SigMF, and raw IQ.
 
-2. **Efficient SDR++ archival storage**  
-   Use FLAC IQ with explicit SDR++ metadata.
+2. **Efficient SDRIAK archival storage**
+   Use FLAC IQ with explicit SDRIAK metadata.
 
 The best interoperability set is:
 

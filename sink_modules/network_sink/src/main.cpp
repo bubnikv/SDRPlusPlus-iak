@@ -16,7 +16,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "network_sink",
-    /* Description:     */ "Network sink module for SDR++",
+    /* Description:     */ "Network sink module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

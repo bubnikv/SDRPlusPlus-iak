@@ -1,6 +1,6 @@
 #
 # Top-level CMake project to download, configure and build third-party
-# dependencies for SDR++ iak. Adapted from PrusaSlicer's deps/ subsystem.
+# dependencies for SDRIAK. Adapted from PrusaSlicer's deps/ subsystem.
 #
 # Each library lives in a +<Name>/ folder containing a single <Name>.cmake
 # recipe. Adding a new dependency = drop in a new folder.
@@ -12,7 +12,7 @@
 # Outputs land in <buildDir>/destdir/usr/local. Bundled deps are consumed via
 # CMake config packages; pkg-config metadata is pruned from the prefix.
 # Validation manifests, generated probe projects, and compatibility shims stay
-# in <buildDir>/. Point the SDR++ build at the install prefix:
+# in <buildDir>/. Point the SDRIAK build at the install prefix:
 #   cmake -S . -B build -G "Visual Studio 18 2026" -A x64 \
 #         -DCMAKE_PREFIX_PATH=<absolute>/deps/build-vs2026-x64-Release/destdir/usr/local
 #
@@ -44,7 +44,7 @@ set(SDRPP_DEP_FORCE_BUNDLED "" CACHE STRING "Comma/space/semicolon-separated dep
 set(SDRPP_DEP_FORCE_SYSTEM "" CACHE STRING "Comma/space/semicolon-separated dependency names to force system-provided")
 set(SDRPP_DEP_FORCE_SHARED "" CACHE STRING "Comma/space/semicolon-separated dependency names to force shared linkage")
 set(SDRPP_DEP_FORCE_STATIC "" CACHE STRING "Comma/space/semicolon-separated dependency names to force static linkage")
-set(SDRPP_DEP_ROOT_PACKAGES "" CACHE STRING "Comma/space/semicolon-separated top-level dependency recipes required by the parent SDR++ build")
+set(SDRPP_DEP_ROOT_PACKAGES "" CACHE STRING "Comma/space/semicolon-separated top-level dependency recipes required by the parent SDRIAK build")
 set(SDRPP_TRACE_DEP_ARTIFACTS "OFF" CACHE STRING "Print validated dependency artifacts to the console (ON/all, or comma/semicolon-separated dependency names)")
 option(SDRPP_DEP_POLICY_STRICT "Require explicit policy metadata for every dependency" OFF)
 
@@ -390,4 +390,4 @@ add_custom_target(deps ALL DEPENDS ${_build_list_toplevel})
 
 set(DEP_MESSAGES_WRITTEN ON CACHE BOOL "")
 
-install(CODE "message(STATUS \"SDR++ dependencies built into ${SDRPP_DEPS_INSTALL_PREFIX}\")")
+install(CODE "message(STATUS \"SDRIAK dependencies built into ${SDRPP_DEPS_INSTALL_PREFIX}\")")

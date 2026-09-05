@@ -1,5 +1,5 @@
 #
-# Central policy helpers for SDR++ third-party dependencies.
+# Central policy helpers for SDRIAK third-party dependencies.
 #
 # This layer resolves three orthogonal per-package attributes:
 #   - source origin  : bundled | system | auto

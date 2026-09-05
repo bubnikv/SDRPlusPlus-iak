@@ -4,7 +4,7 @@ project(sdrpp)
 # Backends
 option(OPT_BACKEND_GLFW "Use the GLFW backend" ON)
 option(OPT_BACKEND_ANDROID "Use the Android backend" OFF)
-option(OPT_BUILD_TESTS "Build SDR++ tests" OFF)
+option(OPT_BUILD_TESTS "Build SDRIAK tests" OFF)
 if (OPT_BUILD_TESTS)
     enable_testing()
 endif ()
@@ -15,7 +15,7 @@ endif ()
 # CMAKE_PREFIX_PATH. Default OFF — normal flow is to build deps once
 # (cmake -S deps --preset vs2026-x64-release && cmake --build deps/build-vs2026-x64-Release --config Release)
 # and point the app build at the install prefix via CMAKE_PREFIX_PATH.
-option(OPT_BUILD_DEPS "Build third-party dependencies before configuring SDR++" OFF)
+option(OPT_BUILD_DEPS "Build third-party dependencies before configuring SDRIAK" OFF)
 option(SDRPP_DEPS_OUTPUT_QUIET "Suppress output of the dependency build" OFF)
 set(SDRPP_DEPS_PRESET "default" CACHE STRING "Preset name to use for the dependency build")
 set(SDRPP_DEPS_BUILD_DIR "" CACHE PATH "Override the binary directory of the dependency build")
@@ -52,7 +52,7 @@ option(OPT_BUILD_RFSPACE_SOURCE "Build RFspace Source Module (no dependencies re
 option(OPT_BUILD_RTL_SDR_SOURCE "Build RTL-SDR Source Module (Dependencies: librtlsdr)" ON)
 option(OPT_BUILD_RTL_TCP_SOURCE "Build RTL-TCP Source Module (no dependencies required)" ON)
 option(OPT_BUILD_SDDC_SOURCE "Build SDDC Source Module (Dependencies: libusb)" OFF)
-option(OPT_BUILD_SDRPP_SERVER_SOURCE "Build SDR++ Server Source Module (no dependencies required)" ON)
+option(OPT_BUILD_SDRIAK_SERVER_SOURCE "Build SDRIAK Server Source Module (no dependencies required)" ON)
 option(OPT_BUILD_SDRPLAY_SOURCE "Build SDRplay Source Module (Dependencies: libsdrplay)" OFF)
 option(OPT_BUILD_SOAPY_SOURCE "Build SoapySDR Source Module (Dependencies: soapysdr)" OFF)
 option(OPT_BUILD_SPECTRAN_SOURCE "Build Spectran Source Module (Dependencies: Aaronia RTSA Suite)" OFF)
@@ -91,8 +91,8 @@ option(OPT_BUILD_FREQUENCY_MANAGER "Build the Frequency Manager module" ON)
 option(OPT_BUILD_IQ_EXPORTER "Build the IQ Exporter module" ON)
 option(OPT_BUILD_NOISE_REDUCTION_LOGMMSE "Build the LogMMSE/OMLSA noise reduction module" ON)
 option(OPT_BUILD_RECORDER "Audio and baseband recorder" ON)
-option(OPT_BUILD_RIGCTL_CLIENT "Rigctl client to make SDR++ act as a panadapter" ON)
-option(OPT_BUILD_RIGCTL_SERVER "Rigctl backend for controlling SDR++ with software like gpredict" ON)
+option(OPT_BUILD_RIGCTL_CLIENT "Rigctl client to make SDRIAK act as a panadapter" ON)
+option(OPT_BUILD_RIGCTL_SERVER "Rigctl backend for controlling SDRIAK with software like gpredict" ON)
 option(OPT_BUILD_SCANNER "Frequency scanner" ON)
 option(OPT_BUILD_SCHEDULER "Build the scheduler" OFF)
 option(OPT_BUILD_SPOTS "Build Spots module" ON)
@@ -147,7 +147,7 @@ endif ()
 set(SDRPP_MODULE_CMAKE "${CMAKE_SOURCE_DIR}/sdrpp_module.cmake")
 
 # Build-tree runtime layout: the application and core runtime library live
-# together, while SDR++ plugins keep their existing per-module output layout.
+# together, while SDRIAK plugins keep their existing per-module output layout.
 if (MSVC)
     set(SDRPP_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
 elseif (NOT ANDROID)
@@ -220,7 +220,7 @@ else ()
         $<$<NOT:$<CONFIG:Debug>>:IMGUI_DISABLE_DEMO_WINDOWS>)
 endif ()
 
-# Core of SDR++
+# Core of SDRIAK
 add_subdirectory("core")
 
 function(sdrpp_add_optional_modules)
@@ -266,7 +266,7 @@ sdrpp_add_optional_modules(
     RTL_SDR_SOURCE:source_modules/rtl_sdr_source
     RTL_TCP_SOURCE:source_modules/rtl_tcp_source
     SDDC_SOURCE:source_modules/sddc_source
-    SDRPP_SERVER_SOURCE:source_modules/sdrpp_server_source
+    SDRIAK_SERVER_SOURCE:source_modules/sdriak_server_source
     SDRPLAY_SOURCE:source_modules/sdrplay_source
     SOAPY_SOURCE:source_modules/soapy_source
     SPECTRAN_SOURCE:source_modules/spectran_source
@@ -328,7 +328,7 @@ else ()
     add_executable(sdrpp "src/main.cpp")
 endif ()
 
-set_target_properties(sdrpp PROPERTIES OUTPUT_NAME "sdrpp-iak")
+set_target_properties(sdrpp PROPERTIES OUTPUT_NAME "sdriak")
 
 target_link_libraries(sdrpp PRIVATE sdrpp_core Threads::Threads)
 
@@ -404,12 +404,12 @@ configure_file(${CMAKE_SOURCE_DIR}/sdrpp_module.cmake ${CMAKE_CURRENT_BINARY_DIR
 
 # Install directives
 install(TARGETS sdrpp DESTINATION bin)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdrpp-iak)
-configure_file(${CMAKE_SOURCE_DIR}/sdrpp-iak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-iak.desktop @ONLY)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdriak)
+configure_file(${CMAKE_SOURCE_DIR}/sdriak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdriak.desktop @ONLY)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdrpp-iak.desktop DESTINATION share/applications)
-    install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdrpp-iak RENAME copyright)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdriak.desktop DESTINATION share/applications)
+    install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdriak RENAME copyright)
 
     # Bundled-shared deps (sdrplay's closed-source blob, librfnm, any other dep
     # the policy resolved to distro:bundled distro:shared) live under
@@ -454,7 +454,7 @@ endif ()
 
 if (APPLE)
     set(SDRPP_MACOS_BUNDLE_STAGE_ROOT "${CMAKE_BINARY_DIR}/stage/macos-bundle" CACHE INTERNAL "Root directory for macOS bundle staging" FORCE)
-    set(_sdrpp_macos_bundle_dir "${SDRPP_MACOS_BUNDLE_STAGE_ROOT}/$<CONFIG>/SDR++-iak.app")
+    set(_sdrpp_macos_bundle_dir "${SDRPP_MACOS_BUNDLE_STAGE_ROOT}/$<CONFIG>/SDRIAK.app")
     get_property(_sdrpp_plugin_targets GLOBAL PROPERTY SDRPP_PLUGIN_TARGETS)
 
     set(_sdrpp_stage_macos_commands
@@ -522,9 +522,9 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         set(CPACK_PACKAGE_VERSION "${_sdrpp_deb_base}")
     endif ()
 
-    set(CPACK_PACKAGE_NAME "sdrpp-iak")
-    set(CPACK_PACKAGE_FILE_NAME "sdrpp_debian_pkg")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Bloat-free SDR receiver software")
+    set(CPACK_PACKAGE_NAME "sdriak")
+    set(CPACK_PACKAGE_FILE_NAME "sdriak_debian_pkg")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "SDRIAK software radio application")
     set(CPACK_PACKAGING_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
     set(CPACK_GENERATOR "DEB")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Vojtech Bubnik OK1IAK")
@@ -542,7 +542,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     string(REGEX REPLACE "^/" "" _sdrpp_deb_install_prefix_rel "${CMAKE_INSTALL_PREFIX}")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS
         "${_sdrpp_deb_install_prefix_rel}/lib"
-        "${_sdrpp_deb_install_prefix_rel}/lib/sdrpp-iak/plugins")
+        "${_sdrpp_deb_install_prefix_rel}/lib/sdriak/plugins")
 
     include(CPack)
 endif ()

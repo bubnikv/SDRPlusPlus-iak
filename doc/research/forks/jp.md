@@ -16,7 +16,7 @@ after the previously fetched `v1.4.3-alpha` state.
   subsequent work, so every core/UI port needs adaptation to the current tree.
 - `master` is 201 commits past that fork point. The new review window contains
   122 commits and changes 81 files (`+9,828/-147`), but much of that is an
-  imported decoder, release churn, and the `sdrpp-iak` -> `sdrpp-jp` rebrand.
+  imported decoder, release churn, and the `sdriak` -> `sdrpp-jp` rebrand.
 - The latest beta tag is `v1.3.2-beta` at `90d9feb5` (2026-08-03). `master` is
   three commits ahead, but those commits only add and then delete an incomplete
   WEFAX directory: its tree is byte-for-byte equal to the release tag.

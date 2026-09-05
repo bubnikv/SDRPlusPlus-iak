@@ -10,7 +10,7 @@
 #      the parent project when sondedump is built as a sub-project — the
 #      resulting offset is bogus. Use CMAKE_CURRENT_SOURCE_DIR instead.
 #   3. Drops the `sondedump` reference executable and its install rule —
-#      SDR++ only consumes the `radiosonde` static library.
+#      SDRIAK only consumes the `radiosonde` static library.
 #   4. Adds install rules for the radiosonde library and the public API
 #      headers under include/sondedump/.
 #   5. Fixes an RS41 serial-field over-read that Android's fortified libc
@@ -74,12 +74,12 @@ target_link_libraries(sondedump PRIVATE radiosonde
 
 # Install targets
 install(TARGETS sondedump DESTINATION bin)"
-"# sondedump reference executable disabled by SDR++ deps build."
+"# sondedump reference executable disabled by SDRIAK deps build."
 )
 
 # --- Patch 4: install rules for the radiosonde library + public headers ---
 # Append once; the marker makes the append idempotent across re-runs.
-set(_sdrpp_install_marker "# SDR++ deps install rules begin")
+set(_sdrpp_install_marker "# SDRIAK deps install rules begin")
 string(FIND "${_content}" "${_sdrpp_install_marker}" _marker_idx)
 if (_marker_idx LESS 0)
     string(APPEND _content "
@@ -90,7 +90,7 @@ install(TARGETS radiosonde
 \tRUNTIME DESTINATION bin)
 file(GLOB _SDRPP_SONDEDUMP_PUBLIC_HEADERS \"\${CMAKE_CURRENT_SOURCE_DIR}/include/*.h\")
 install(FILES \${_SDRPP_SONDEDUMP_PUBLIC_HEADERS} DESTINATION include/sondedump)
-# SDR++ deps install rules end
+# SDRIAK deps install rules end
 ")
 endif ()
 

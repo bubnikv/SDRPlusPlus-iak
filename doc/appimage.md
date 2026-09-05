@@ -1,4 +1,4 @@
-# SDR++ iak AppImage — Compatibility and Internals
+# SDRIAK AppImage — Compatibility and Internals
 
 The Linux AppImage produced by `docker_builds/appimage/` is a single,
 self-contained executable that bundles all SDR-specific runtime
@@ -93,8 +93,8 @@ would require building GLFW with Wayland support; not currently done.
 
 The binary is compiled with `INSTALL_PREFIX="/usr"`, which means the
 defaults in `core/src/core.cpp` for `modulesDirectory` and
-`resourcesDirectory` point at `/usr/lib/sdrpp-iak/plugins` and
-`/usr/share/sdrpp-iak`. On a host without an installed `.deb`, those
+`resourcesDirectory` point at `/usr/lib/sdriak/plugins` and
+`/usr/share/sdriak`. On a host without an installed `.deb`, those
 paths do not exist.
 
 To handle this without touching the persisted config file, all reads
@@ -112,8 +112,8 @@ The accessors are defined in `core/src/core.cpp`. Under
 return the bundled paths:
 
 ```
-modulesDirectory   = $APPDIR/usr/lib/sdrpp-iak/plugins
-resourcesDirectory = $APPDIR/usr/share/sdrpp-iak
+modulesDirectory   = $APPDIR/usr/lib/sdriak/plugins
+resourcesDirectory = $APPDIR/usr/share/sdriak
 ```
 
 Outside the AppImage build (vanilla `.deb`, Windows, macOS, Android),
@@ -148,8 +148,8 @@ directory from any side-by-side `.deb` install:
 
 | Build | Config root |
 |---|---|
-| `.deb` / source build | `~/.config/sdrpp-iak/` |
-| AppImage | `~/.config/sdrpp-iak-appimage/` |
+| `.deb` / source build | `~/.config/sdriak/` |
+| AppImage | `~/.config/sdriak-appimage/` |
 
 The split is done in `core/src/command_args.cpp` under
 `#elif defined(__linux__) && defined(BUILD_APPIMAGE)`. A user running
@@ -164,7 +164,7 @@ cleanup.
 * Matrix entries in `.github/workflows/build_all.yml` produce x86_64
   (`ubuntu-latest`) and aarch64 (`ubuntu-24.04-arm`) AppImages.
 * Output filenames embed the full version, e.g.
-  `sdrpp-iak-1.2.3+45-gabc1234-linux-x86_64.AppImage`.
+  `sdriak-1.2.3+45-gabc1234-linux-x86_64.AppImage`.
 * On PRs, the AppImage matrix is gated on the `detect_changes` job —
   it only runs when files that affect AppImage layout change
   (appimage scripts, root + core CMakeLists, `sdrpp_module.cmake`,

@@ -16,7 +16,7 @@ Review date: **2026-08-19**. Serial-transport follow-up: **2026-08-23**.
 | M0OPK default branch `brown-panadapter` | [`dbc7cf29fdd3b979d3f723e090a4999960cdf36e`](https://github.com/M0OPK/SDRPlusPlus/commit/dbc7cf29fdd3b979d3f723e090a4999960cdf36e) | 2026-08-04 | Fork tip under review |
 | Common Brown ancestor / M0OPK `brown` | [`6f4cb5c530d935741bbfdbb1d0cd54e7507e7b2a`](https://github.com/sannysanoff/SDRPlusPlusBrown/commit/6f4cb5c530d935741bbfdbb1d0cd54e7507e7b2a) | 2026-05-07 | Exact comparison base |
 | Brown `master` at review time | [`5fca05446b3f985ab49c7c3c257980aaf2ec34fe`](https://github.com/sannysanoff/SDRPlusPlusBrown/commit/5fca05446b3f985ab49c7c3c257980aaf2ec34fe) | 2026-08-13 | Current Brown drift reference |
-| This SDR++ tree | `4deb965d9d3aaf2189006d76597e2ad260a401a9` | 2026-08-17 | Local comparison target |
+| This SDRIAK tree | `4deb965d9d3aaf2189006d76597e2ad260a401a9` | 2026-08-17 | Local comparison target |
 | M0OPK `async_comm` submodule | [`a020b99aed7a3723e1d5516f4241b943e193e981`](https://github.com/M0OPK/async_comm/commit/a020b99aed7a3723e1d5516f4241b943e193e981) | 2026-06-09 | Exact serial implementation used by both direct CAT modules |
 
 The complete M0OPK-specific range is

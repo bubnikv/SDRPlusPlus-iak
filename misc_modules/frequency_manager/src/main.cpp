@@ -22,7 +22,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "frequency_manager",
-    /* Description:     */ "Frequency manager module for SDR++",
+    /* Description:     */ "Frequency manager module for SDRIAK",
     /* Author:          */ "Ryzerth;Zimm;Darau Ble;Davide Rovelli",
     /* Version:         */ 0, 4, 0,
     /* Max instances    */ 1

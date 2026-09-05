@@ -263,7 +263,7 @@ Two distinct traditions, and which one applies depends on whether the thing is a
 | **SDRangel** | `NFM` | `WFM` |
 | **SDRuno** (SDRplay) | `NFM` | `WFM` (+ `MFM`, `SWFM`) |
 | **GQRX** | `Narrow FM` | `WFM (mono)` / `WFM (stereo)` |
-| **SDR++** UI (this app, since 2021) | `NFM` | `WFM` |
+| **SDRIAK** UI (derived from SDR++'s UI) | `NFM` | `WFM` |
 | — | | |
 | **Hamlib** | `FM` ("narrow" band FM) | `WFM` (broadcast wide FM) |
 | **Icom IC-705** | `FM` | `WFM` (RX only) |
@@ -308,7 +308,7 @@ the radio menu from `NFM` to `FM`, against the convention of every SDR program
 this app's users come from, to match a vocabulary that only exists inside
 rigctl, where it is already translated.
 
-**Option 1 is the recommendation.** SDR++ is an SDR receiver; its users arrive
+**Option 1 is the recommendation.** SDRIAK is an SDR receiver; its users arrive
 from SDR#, SDRangel, GQRX and SDRuno, all of which say `NFM`/`WFM`; and its own
 UI has said `NFM`/`WFM` since 2021. Hamlib's `FM` stays behind rigctl's
 translation table, which is exactly what that table is for. Cost: zero UI

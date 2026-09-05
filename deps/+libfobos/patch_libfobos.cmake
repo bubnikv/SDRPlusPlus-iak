@@ -29,7 +29,7 @@ file(READ "${_f}" _content)
 # which would override the deps destdir.  Drop it.
 patch_replace_or_fail(_content
     "set(CMAKE_INSTALL_PREFIX \"C:/Program Files/RigExpert/Fobos/\")"
-    "# CMAKE_INSTALL_PREFIX hardcode removed by SDR++ deps build")
+    "# CMAKE_INSTALL_PREFIX hardcode removed by SDRIAK deps build")
 
 
 # --- Patch 2: remove bundled libusb-1.0.dll install rule ---
@@ -39,7 +39,7 @@ patch_replace_or_fail(_content
 # by dep_libusb, so just drop this rule.
 string(REGEX REPLACE
     "install[ \t]*\\([ \t]*FILES[ \t]+\\$<TARGET_FILE_DIR:fobos>/libusb-1\\.0\\.dll[^\n]*\n?"
-    "# libusb-1.0.dll install removed by SDR++ deps build (libusb built separately)\n"
+    "# libusb-1.0.dll install removed by SDRIAK deps build (libusb built separately)\n"
     _content "${_content}")
 
 

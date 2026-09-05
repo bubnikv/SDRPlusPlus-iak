@@ -1,7 +1,7 @@
 # QMX-Panadapter — what's worth porting
 
 Assessment of [SteffenLav/qmx-panadapter](https://github.com/SteffenLav/qmx-panadapter)
-against this SDR++ fork, focused on the QMX radio supported by `qmx_source`.
+against SDRIAK, focused on the QMX radio supported by `qmx_source`.
 
 ## Review status
 
@@ -109,7 +109,7 @@ The previous review (v1.3.0 through v1.8.4) found these larger themes:
 
 ## Current feature comparison
 
-| Feature | This SDR++ fork | Port value | Difficulty |
+| Feature | SDRIAK | Port value | Difficulty |
 |---|---|---:|---:|
 | Gram-Schmidt adaptive I/Q balance correction | Missing. “IQ Correction” still only calls `IQFrontEnd::setDCBlocking()` (`core/src/gui/menus/source.cpp:192,280`). | High | Easy |
 | QMX synthesizer-spur suppression | Missing; upstream parked its control in v1.8.9 | Research value only until zoom-aware and validated with antennas | Medium–Hard |
@@ -278,7 +278,7 @@ It is not a standalone 50-line DSP block. A clean SDR++ implementation needs:
   would also alter demodulator and decoder input;
 - invalidation on source, sample-rate, FFT-size and FFT-window changes;
 - frequency-safe restore and cancellation on source stop, user tuning, RIT or TX;
-- bin-to-frequency handling for SDR++'s configurable FFT sizes rather than
+- bin-to-frequency handling for SDRIAK's configurable FFT sizes rather than
   copying fixed 1024-bin indices; and
 - deterministic tests of A/B/C classification, DC treatment, capacity eviction,
   cache expiry, subtraction bounds and interpolation runs.

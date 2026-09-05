@@ -1,4 +1,4 @@
-#include "sdrpp_server_client.h"
+#include "sdriak_server_client.h"
 #include <volk/volk.h>
 #include <algorithm>
 #include <cstring>
@@ -100,7 +100,7 @@ namespace server {
             case CONN_ERR_BUSY:
                 throw std::runtime_error("Server busy");
             case CONN_ERR_PROTOCOL:
-                throw std::runtime_error("Incompatible SDR++ server protocol/fork");
+                throw std::runtime_error("Incompatible SDRIAK server protocol");
             case CONN_ERR_AUTH:
                 throw std::runtime_error("Authentication failed");
             case CONN_ERR_CANCELLED:
@@ -297,7 +297,7 @@ namespace server {
                 // recv() only returns 0 with the socket still open on a
                 // timeout; on close/error it closes the socket first.
                 if (rres == 0 && watchdog && sock->isOpen()) {
-                    flog::error("SDR++ server link timed out (no traffic for {0} ms), disconnecting", LINK_TIMEOUT_MS);
+                    flog::error("SDRIAK server link timed out (no traffic for {0} ms), disconnecting", LINK_TIMEOUT_MS);
                 }
                 break;
             }
@@ -425,7 +425,7 @@ namespace server {
             }
             else if (r_pkt_hdr->type == PACKET_TYPE_ERROR) {
                 uint8_t err = (r_pkt_hdr->size > sizeof(PacketHeader)) ? r_pkt_data[0] : ERROR_INVALID_PACKET;
-                flog::error("SDR++ Server Error: {0}", err);
+                flog::error("SDRIAK Server Error: {0}", err);
                 if (err == ERROR_AUTH_REQUIRED || err == ERROR_AUTH_FAILED) {
                     authFailed = true;
                     authCnd.notify_all();

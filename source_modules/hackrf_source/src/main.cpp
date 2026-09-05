@@ -19,7 +19,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "hackrf_source",
-    /* Description:     */ "HackRF source module for SDR++",
+    /* Description:     */ "HackRF source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

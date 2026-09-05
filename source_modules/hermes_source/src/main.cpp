@@ -15,7 +15,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "hermes_source",
-    /* Description:     */ "Hermes Lite 2 source module for SDR++",
+    /* Description:     */ "Hermes Lite 2 source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 1,
     /* Max instances    */ 1

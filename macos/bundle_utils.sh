@@ -8,7 +8,7 @@
 # bundle_is_not_to_be_installed [dylib_name]
 bundle_is_not_to_be_installed() {
     # NOTE: Customize this list to exclude libraries you don't want copied into the bundle
-    if [ "$1" = "libsdrpp_core.dylib" ]; then echo 1; fi
+    if [ "$1" = "libsdriak_core.dylib" ]; then echo 1; fi
     if [ "$1" = "OpenGL" ]; then echo 1; fi
     if [ "$1" = "libc++.1.dylib" ]; then echo 1; fi
     if [ "$1" = "libSystem.B.dylib" ]; then echo 1; fi
@@ -230,7 +230,7 @@ bundle_create_plist() {
     # usage string macOS cannot present the consent prompt, so the input stream
     # silently delivers zeros (empty waterfall). Applies to any audio-input
     # capture in this bundle, not just QMX.
-    echo '        <key>NSMicrophoneUsageDescription</key><string>SDR++ needs microphone access to capture the IQ audio stream from sound-card SDR devices such as the QMX/QDX.</string>' >> $8
+    echo '        <key>NSMicrophoneUsageDescription</key><string>SDRIAK needs microphone access to capture the IQ audio stream from sound-card SDR devices such as the QMX/QDX.</string>' >> $8
     echo '    </dict>' >> $8
     echo '</plist>' >> $8
 }

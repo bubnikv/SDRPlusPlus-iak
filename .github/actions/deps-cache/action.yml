@@ -1,6 +1,6 @@
 name: Cache deps
 description: >-
-  Restores the deps download-tarball cache shared by every SDR++ build
+  Restores the deps download-tarball cache shared by every SDRIAK build
   workflow, and, if destdir-path is given, the per-target deps install
   prefix (destdir) cache on top of it.
 inputs:

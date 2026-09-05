@@ -27,7 +27,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "qmx_source",
-    /* Description:     */ "Direct QMX USB source module for SDR++",
+    /* Description:     */ "Direct QMX USB source module for SDRIAK",
     /* Author:          */ "OK1IAK",
     /* Version:         */ 0, 2, 0,
     /* Max instances    */ 1
@@ -565,7 +565,7 @@ private:
 
     static std::string formatModeLabel(const qmx::QmxStatus& status) {
         if (status.hasMode()) {
-            // Modes the app also has go through the same QMX->SDR++ mapping the
+            // Modes the app also has go through the same QMX->SDRIAK mapping the
             // sync uses, so the panel cannot name a mode differently from the
             // radio menu it is driving.
             int radioMode = FreqModeSync::qmxModeToRadioIface(status.mode);

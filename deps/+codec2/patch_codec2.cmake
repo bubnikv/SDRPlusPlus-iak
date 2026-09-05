@@ -73,7 +73,7 @@ patch_replace_or_fail(_src_content
 if(CMAKE_CROSSCOMPILING)"
 "# when crosscompiling we need a native executable
 if(GENERATE_CODEBOOK)
-    # Pre-built native helper supplied by the caller (e.g. SDR++ iak deps
+    # Pre-built native helper supplied by the caller (e.g. SDRIAK deps
     # build when cross-compiling x64 host -> ARM64 target). Avoids the
     # nested ExternalProject below, which would inherit the cross-target
     # compiler env and produce an equally un-runnable helper exe.

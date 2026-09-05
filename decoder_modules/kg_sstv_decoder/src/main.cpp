@@ -24,7 +24,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "kg_sstv_decoder",
-    /* Description:     */ "KG-SSTV Digital SSTV Decoder for SDR++",
+    /* Description:     */ "KG-SSTV Digital SSTV Decoder for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

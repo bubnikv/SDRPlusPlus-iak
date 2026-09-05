@@ -1,8 +1,8 @@
-# SDR++ Spots Module
+# SDRIAK Spots Module
 
-![SDR++ Spots Screeshot showing lots of labels on the waterfall](spots_screenshot.png)
+![SDRIAK Spots screenshot showing labels on the waterfall](spots_screenshot.png)
 
-Adds spots to the waterfall display in [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus).
+Adds spots to the waterfall display in [SDRIAK](https://github.com/bubnikv/sdriak).
 
 Sources of spots:
  * ClusterDX network from [HamQTH](https://hamqth.com) API
@@ -12,7 +12,7 @@ Sources of spots:
 
 # Building
 
-This module is built in-tree by SDR++ when `OPT_BUILD_SPOTS` is enabled.
-Enable the module from the module manager after installing SDR++.
+This module is built in-tree by SDRIAK when `OPT_BUILD_SPOTS` is enabled.
+Enable the module from the module manager after installing SDRIAK.
 
 Thanks to [dbdexter-dev/sdrpp_radiosonde](https://github.com/dbdexter-dev/sdrpp_radiosonde/tree/master) from which I based these directions.

@@ -1,7 +1,7 @@
 # SDR++ Community Edition — merge review
 
 Review of [LunaeMons/SDRPlusPlus_CommunityEdition](https://github.com/LunaeMons/SDRPlusPlus_CommunityEdition)
-against our fork (`bubnikv/SDRPlusPlus-iak`), asking: *what is worth merging?*
+against our fork (`bubnikv/sdriak`), asking: *what is worth merging?*
 
 Reviewed: 2026-07-07 (Claude Code assisted).
 

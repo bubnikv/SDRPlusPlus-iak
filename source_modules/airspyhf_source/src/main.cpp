@@ -17,7 +17,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "airspyhf_source",
-    /* Description:     */ "Airspy HF+ source module for SDR++",
+    /* Description:     */ "Airspy HF+ source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

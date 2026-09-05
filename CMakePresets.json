@@ -36,7 +36,7 @@
         {
             "name": "vs2026-x64-debug",
             "displayName": "Visual Studio 2026 x64 Debug (uses pre-built deps)",
-            "description": "Configures SDR++ Debug against deps already built via deps/build-vs2026-x64-Debug.",
+            "description": "Configures SDRIAK Debug against deps already built via deps/build-vs2026-x64-Debug.",
             "inherits": "vs2026-x64-base",
             "binaryDir": "${sourceDir}/build-vs2026-x64-Debug",
             "cacheVariables": {
@@ -47,7 +47,7 @@
         {
             "name": "vs2026-x64-relwithdebinfo",
             "displayName": "Visual Studio 2026 x64 RelWithDebInfo (uses pre-built deps)",
-            "description": "Configures SDR++ RelWithDebInfo against deps already built via deps/build-vs2026-x64-RelWithDebInfo.",
+            "description": "Configures SDRIAK RelWithDebInfo against deps already built via deps/build-vs2026-x64-RelWithDebInfo.",
             "inherits": "vs2026-x64-base",
             "binaryDir": "${sourceDir}/build-vs2026-x64-RelWithDebInfo",
             "cacheVariables": {
@@ -58,7 +58,7 @@
         {
             "name": "vs2026-x64-release",
             "displayName": "Visual Studio 2026 x64 Release (uses pre-built deps)",
-            "description": "Configures SDR++ Release against deps already built via deps/build-vs2026-x64-Release.",
+            "description": "Configures SDRIAK Release against deps already built via deps/build-vs2026-x64-Release.",
             "inherits": "vs2026-x64-base",
             "binaryDir": "${sourceDir}/build-vs2026-x64-Release",
             "cacheVariables": {
@@ -85,7 +85,7 @@
         {
             "name": "vs2026-arm64-debug",
             "displayName": "Visual Studio 2026 ARM64 Debug (uses pre-built deps)",
-            "description": "Configures SDR++ ARM64 Debug against deps already built via deps/build-vs2026-arm64-Debug.",
+            "description": "Configures SDRIAK ARM64 Debug against deps already built via deps/build-vs2026-arm64-Debug.",
             "inherits": "vs2026-arm64-base",
             "binaryDir": "${sourceDir}/build-vs2026-arm64-Debug",
             "cacheVariables": {
@@ -96,7 +96,7 @@
         {
             "name": "vs2026-arm64-relwithdebinfo",
             "displayName": "Visual Studio 2026 ARM64 RelWithDebInfo (uses pre-built deps)",
-            "description": "Configures SDR++ ARM64 RelWithDebInfo against deps already built via deps/build-vs2026-arm64-RelWithDebInfo.",
+            "description": "Configures SDRIAK ARM64 RelWithDebInfo against deps already built via deps/build-vs2026-arm64-RelWithDebInfo.",
             "inherits": "vs2026-arm64-base",
             "binaryDir": "${sourceDir}/build-vs2026-arm64-RelWithDebInfo",
             "cacheVariables": {
@@ -107,7 +107,7 @@
         {
             "name": "vs2026-arm64-release",
             "displayName": "Visual Studio 2026 ARM64 Release (uses pre-built deps)",
-            "description": "Configures SDR++ ARM64 Release against deps already built via deps/build-vs2026-arm64-Release.",
+            "description": "Configures SDRIAK ARM64 Release against deps already built via deps/build-vs2026-arm64-Release.",
             "inherits": "vs2026-arm64-base",
             "binaryDir": "${sourceDir}/build-vs2026-arm64-Release",
             "cacheVariables": {

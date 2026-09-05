@@ -39,7 +39,7 @@ namespace icons {
             return false;
         }
 
-        LOGO = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/sdrpp.png");
+        LOGO = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/sdriak.png");
         PLAY = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/play.png");
         STOP = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/stop.png");
         MENU = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/menu.png");

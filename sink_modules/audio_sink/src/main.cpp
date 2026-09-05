@@ -18,7 +18,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "audio_sink",
-    /* Description:     */ "Audio sink module for SDR++",
+    /* Description:     */ "Audio sink module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

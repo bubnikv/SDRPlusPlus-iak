@@ -60,13 +60,13 @@ if [ -n "$CMAKE_VER" ]; then
 fi
 
 # Allow git commands on the volume-mounted repo (git ≥ 2.35.2 safe.directory check)
-git config --global --add safe.directory /root/SDRPlusPlus
+git config --global --add safe.directory /root/sdriak
 
-cd SDRPlusPlus
+cd sdriak
 cmake --preset ci-linux-deb ${CURL_DEP_ARG}
 cd build
 make VERBOSE=1 -j"$(nproc)"
 cpack
 
 cd ..
-mv build/sdrpp_debian_pkg.deb .
+mv build/sdriak_debian_pkg.deb .

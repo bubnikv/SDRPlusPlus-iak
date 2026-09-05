@@ -18,7 +18,7 @@ Modules (reasonably self-contained):
 
 Core changes (pervasive, mixed quality):
 - The entire TRX experience — mic pipeline, TX button/PTT, mic squelch, QSO recording/logging, CQ player, voice control — lives inside a 3,642-line MobileMainWindow subclass in core/src/gui/brown/, plus imgui-notify (with a 78k-line embedded font header) and implot.
-- SDR++ server upgrades: FFT-based baseband compression (self-labeled "experimental"), prebuffering, PBKDF2 password auth, TX over network, proper client-disconnect handling (~500 changed lines in server.cpp).
+- SDRIAK server upgrades: FFT-based baseband compression (self-labeled "experimental"), prebuffering, PBKDF2 password auth, TX over network, proper client-disconnect handling (~500 changed lines in server.cpp).
 - Multithreaded waterfall update (hardcoded 8 threads) and SSE zoom speedup — Brown's waterfall.cpp diverges from upstream by 653 lines; ours also touches that file, so it's a conflict zone.
 - dsp/stream.h is instrumented with debug origin tags and I/O hooks (including a snprintf into a const char buffer) — representative of the fork's core code quality: functional but hacky, and impractical to merge wholesale.
 

@@ -25,7 +25,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "weather_sat_decoder",
-    /* Description:     */ "Weather Satellite Decoder for SDR++",
+    /* Description:     */ "Weather Satellite Decoder for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

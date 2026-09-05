@@ -27,7 +27,7 @@ A feature and reliability release focused on touch operation, faster tuning and 
 ### Platforms and connectivity
 
 - Native macOS CoreAudio output sink, ported from SDR++Brown by [@sannysanoff](https://github.com/sannysanoff), with UTF-8 device names, device-rate tracking and a safe null-output fallback ([upstream #1776](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1776)).
-- SDR++ Server and SpyServer connections are asynchronous, cancellable and bounded by DNS/connect timeouts; the remaining blocking TCP paths also gained finite timeouts and clearer errors. The original work was contributed by [@edudant](https://github.com/edudant) in [fork PR #20](https://github.com/bubnikv/SDRPlusPlus-iak/pull/20), resolving [fork #19](https://github.com/bubnikv/SDRPlusPlus-iak/issues/19).
+- SDRIAK Server and SpyServer connections are asynchronous, cancellable and bounded by DNS/connect timeouts; the remaining blocking TCP paths also gained finite timeouts and clearer errors. The original work was contributed by [@edudant](https://github.com/edudant) in [fork PR #20](https://github.com/bubnikv/SDRPlusPlus-iak/pull/20), resolving [fork #19](https://github.com/bubnikv/SDRPlusPlus-iak/issues/19).
 - Server and rigctl handling was hardened against dead links, socket leaks and shutdown races. Hamlib interoperability now includes additional VFO tokens, receive-only PTT replies and CWR capability reporting (upstream [#1462](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1462), [#1061](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1061), [#1506](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1506), [#1092](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1092)).
 - Relative config, module and resource paths now resolve from the executable instead of the launch directory ([upstream #1265](https://github.com/AlexandreRouma/SDRPlusPlus/issues/1265)). Windows builds use UTF-8 console handling and flush logs reliably; the logging fix was ported from SDR++Brown with [@sannysanoff](https://github.com/sannysanoff).
 
@@ -40,9 +40,9 @@ A feature and reliability release focused on touch operation, faster tuning and 
 - Fixed an Android RS41 radiosonde decoder abort caused by a serial-field over-read. Thanks to [@jprincl](https://github.com/jprincl).
 - Additional fixes cover malformed band-plan/resource files, configuration deadlocks and Windows save interference, stale waterfall auto-range data, socket lifetime and several DSP boundary/race conditions.
 
-## v1.2.2 - 2026-07-14 — first public release of SDR++ iak
+## v1.2.2 - 2026-07-14 — first public release (then named SDR++ iak)
 
-The first public release of the **SDR++ iak** fork, maintained by Vojtech Bubnik (OK1IAK) since March 2026. It builds on [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus) by Alexandre Rouma (@AlexandreRouma) and stays merged with the current upstream master. The fork installs side by side with upstream SDR++ (own package names, config directory and Android app ID). This entry summarizes everything since the fork.
+The first public release, then named **SDR++ iak**, was maintained by Vojtech Bubnik (OK1IAK) from March 2026. It builds on [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus) by Alexandre Rouma (@AlexandreRouma) and stays merged with the current upstream master. The fork installs side by side with upstream SDR++ (own package names, config directory and Android app ID). This entry summarizes everything since the fork.
 
 ### QRP Labs QMX transceiver support — the reason this fork exists
 
@@ -74,7 +74,7 @@ The first public release of the **SDR++ iak** fork, maintained by Vojtech Bubnik
 
 - FLAC baseband recording (adopted from @qrp73's fork) and FLAC playback in the file source; Opus lossy audio recording; 24-bit PCM; extended WAV support (RF64, float, multi-channel, crash recovery — also from @qrp73's fork).
 
-### SDR++ server
+### SDRIAK Server (then called SDR++ Server)
 
 - Password authentication (PBKDF2/HMAC challenge-response, ported from SDRPlusPlusBrown by @sannysanoff), source tuning-range synchronization to remote clients, configurable RX prebuffer, and extensive session/protocol hardening. **The network protocol is no longer compatible with upstream SDR++.**
 

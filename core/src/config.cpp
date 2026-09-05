@@ -41,13 +41,13 @@ namespace {
 
     // This is the one config commit lock. The in-process mutex serializes the
     // saver with explicit save()/load() calls; desktop builds additionally lock
-    // one sidecar for the complete config root so other SDR++ processes join the
+    // one sidecar for the complete config root so other SDRIAK processes join the
     // same serialization domain. The OS releases its part after a crash.
     class ConfigCommitLock {
     public:
         explicit ConfigCommitLock(const std::filesystem::path& root)
             : processLock(configCommitMutex) {
-            const std::filesystem::path lockPath = normalizeRoot(root) / ".sdrpp-config.lock";
+            const std::filesystem::path lockPath = normalizeRoot(root) / ".config.lock";
 #ifdef _WIN32
             handle = CreateFileW(
                 lockPath.c_str(),
@@ -764,7 +764,7 @@ bool ConfigManager::shutdown() {
     disableAutoSaveImpl();
 
     // New accesses are rejected in Closing, so one final dirty-only commit is a
-    // stable local snapshot. The cross-process lock still merges other SDR++
+    // stable local snapshot. The cross-process lock still merges other SDRIAK
     // instances that commit before us.
     if (!saveImpl(true, true, SaveRetryMode::TransientWindowsLocks)) {
         std::string failedPath;

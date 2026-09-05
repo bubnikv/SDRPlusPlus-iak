@@ -39,7 +39,7 @@ string(REGEX REPLACE
     _content "${_content}")
 
 set(_stub "
-# >>> SDR++ deps build: stub PkgConfig::libusb when pkg-config isn't available.
+# >>> SDRIAK deps build: stub PkgConfig::libusb when pkg-config isn't available.
 # Only fires when our deps tree has populated the override vars (bundled libusb
 # path). When libusb is system-provided, LIBUSB_INCLUDE_DIR / LIBUSB_LIBRARY are
 # empty — skip the stub so the subsequent pkg_check_modules() can populate the
@@ -50,7 +50,7 @@ if (NOT TARGET PkgConfig::libusb AND LIBUSB_INCLUDE_DIR AND LIBUSB_LIBRARY)
         INTERFACE_LINK_LIBRARIES \"\${LIBUSB_LIBRARY}\"
         INTERFACE_INCLUDE_DIRECTORIES \"\${LIBUSB_INCLUDE_DIR}\")
 endif ()
-# <<< SDR++ deps build")
+# <<< SDRIAK deps build")
 
 string(REGEX REPLACE
     "(find_package[ \t]*\\([ \t]*PkgConfig[ \t]*[^\\)]*\\))"

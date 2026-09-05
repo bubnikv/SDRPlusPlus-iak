@@ -1,4 +1,4 @@
-# SDR++ DSP Pipeline — Threading, Buffering and Latency
+# SDRIAK DSP Pipeline — Threading, Buffering and Latency
 
 This document describes how samples flow from a source module (SDR driver) through
 the IQ front-end, the VFOs, a decoder (e.g. `radio`) and into a sink module

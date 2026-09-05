@@ -15,7 +15,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "plutosdr_source",
-    /* Description:     */ "PlutoSDR source module for SDR++",
+    /* Description:     */ "PlutoSDR source module for SDRIAK",
     /* Author:          */ "Ryzerth;F5OEO",
     /* Version:         */ 0, 2, 1,
     /* Max instances    */ 1

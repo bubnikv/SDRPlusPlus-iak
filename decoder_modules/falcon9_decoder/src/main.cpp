@@ -26,7 +26,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "falcon9_decoder",
-    /* Description:     */ "Falcon9 telemetry decoder for SDR++",
+    /* Description:     */ "Falcon9 telemetry decoder for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

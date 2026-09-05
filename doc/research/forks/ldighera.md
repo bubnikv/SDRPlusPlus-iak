@@ -1,7 +1,7 @@
 # LDighera / WB6BBB fork — merge review
 
 Review of [LDighera/SDRPlusPlus](https://github.com/LDighera/SDRPlusPlus) against our
-fork (`bubnikv/SDRPlusPlus-iak`), asking: *what is worth merging, and is the fork's
+fork (`bubnikv/sdriak`), asking: *what is worth merging, and is the fork's
 development style sustainable?*
 
 Reviewed: 2026-07-26 (Claude Code assisted). Not built or run — code read only, plus the
@@ -408,7 +408,7 @@ patch to vendored `core/src/imgui/imgui_tables.cpp`.
   US broadcast feature and off-axis for us. The `CMakeLists.txt` is worth keeping as a
   reference for optional-external-library wiring.
 - **`debian/`, `packaging/nrsc5/`, `INSTALL.txt`, `make_*` scripts** — Pi 5 / Trixie
-  specific, and our fork installs to `lib/sdrpp-iak/plugins` anyway.
+  specific, and our fork installs to `lib/sdriak/plugins` anyway.
 - **The `pr/*` branches** (`pr/code-only-feature-bundle`, `pr/frequency-manager-scanner`,
   `pr/rds-sequencing`, `pr/rnnoise-controls`, March 2026) — subsets of the same work
   prepared for an upstream PR that was never opened, superseded by the release branch.

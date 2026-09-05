@@ -27,7 +27,7 @@ waits for an in-progress autosave, then synchronously commits any remaining dirt
 state. Stop and destroy every object or worker that can write the config before
 calling it. A failed shutdown remains retryable but continues rejecting access.
 
-Desktop builds serialize commits from every SDR++ process with the config-root
+Desktop builds serialize commits from every SDRIAK process with the config-root
 lock. A shutdown commit rereads the newest disk document and merges only changes
 relative to its own baseline, so independent edits survive concurrent instance
 shutdown. Conflicting edits to the same scalar, array, or object leaf remain

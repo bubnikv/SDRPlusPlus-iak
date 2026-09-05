@@ -6,18 +6,18 @@
 #include <mutex>
 #include <string>
 
-// Encapsulates bidirectional frequency/mode synchronization between QMX and SDR++.
+// Encapsulates bidirectional frequency/mode synchronization between QMX and SDRIAK.
 //
 // The cached QmxStatus is the single source of truth for frequency.
 //
-// SDR++ → QMX direction:
+// SDRIAK → QMX direction:
 //   onIqCenterChanged() converts the new IQ center to rig frequency using the
 //   cached status, sends it to QMX, and immediately updates the cached status
 //   so that tick() sees no difference and produces no feedback.
 //
-// QMX → SDR++ direction:
+// QMX → SDRIAK direction:
 //   tick() applies any pending polled status.  If the cached rig frequency
-//   differs from the current SDR++ IQ center, it calls tuner::tune which
+//   differs from the current SDRIAK IQ center, it calls tuner::tune which
 //   triggers onIqCenterChanged — but that recomputes the same rig frequency
 //   from the just-cached value, so it's a no-op.
 //
@@ -52,7 +52,7 @@ public:
 
     // ── Events (inputs) ───────────────────────────────────────────────
 
-    // SDR++ changed the IQ center frequency (tune callback).
+    // SDRIAK changed the IQ center frequency (tune callback).
     void onIqCenterChanged(double newFreq);
 
     // CatPoller delivered a new status snapshot (called from poller thread).

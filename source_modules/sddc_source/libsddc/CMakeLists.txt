@@ -36,7 +36,7 @@ add_library(sddc SHARED ${SRC})
 # Include the include folder
 target_include_directories(sddc PUBLIC "include/")
 
-# Link to libusb, preferring the SDR++ deps / kit prefix when present.
+# Link to libusb, preferring the SDRIAK deps / kit prefix when present.
 sdrpp_link_dep(sddc libusb PC_NAME libusb-1.0)
 
 

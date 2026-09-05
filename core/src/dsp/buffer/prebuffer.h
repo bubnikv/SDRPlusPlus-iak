@@ -281,7 +281,7 @@ namespace dsp::buffer {
     //
     // Not thread-safe on its own: the caller serializes setPrebufferMsec()
     // against its own start()/stop() (see the KiwiSDR source's bufferModeMtx
-    // and the SDR++ server client's pushedStateMtx). If `in` has a manual
+    // and the SDRIAK server client's pushedStateMtx). If `in` has a manual
     // writer that can sit blocked in swap(), the caller is responsible for
     // releasing it around a live mode switch (see the KiwiSDR source).
     template <class T>

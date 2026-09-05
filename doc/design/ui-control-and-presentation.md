@@ -6,7 +6,7 @@ Status: Proposal
 
 ## Summary
 
-SDR++ should keep Dear ImGui as its local renderer and `SmGui` as the current
+SDRIAK should keep Dear ImGui as its local renderer and `SmGui` as the current
 remote source-menu transport. The application-wide improvement should be two
 small internal layers:
 
@@ -414,7 +414,7 @@ ownership, and tempt high-rate DSP state into an inappropriate path.
 ### A second UI framework
 
 Compose, React/WebView, Qt Quick, and similar frameworks may make one view more
-declarative, but SDR++ would then own two layout, input, lifecycle, plugin, and
+declarative, but SDRIAK would then own two layout, input, lifecycle, plugin, and
 remote-presentation systems. They do not resolve control ownership by
 themselves.
 

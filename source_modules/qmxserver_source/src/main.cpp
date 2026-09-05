@@ -15,7 +15,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "qmxserver_source",
-    /* Description:     */ "QMX Server source module for SDR++",
+    /* Description:     */ "QMX Server source module for SDRIAK",
     /* Author:          */ "OK1IAK",
     /* Version:         */ 0, 0, 1,
     /* Max instances    */ 1
@@ -50,7 +50,7 @@ public:
     QmxServerSourceModule(std::string name) {
         this->name = name;
 
-        // Not served headless: chaining SDR++ server -> QMX server adds a
+        // Not served headless: chaining SDRIAK server -> QMX server adds a
         // pointless network hop; a client should connect to the QMX server
         // directly. Skip registration like the file source does.
         if (core::args["server"].b()) { return; }

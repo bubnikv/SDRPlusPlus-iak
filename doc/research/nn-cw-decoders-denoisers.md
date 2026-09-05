@@ -4,7 +4,7 @@
 
 ## Scope
 
-Survey of publicly available Morse (CW) decoders and radio-audio denoisers, with focus on what is actually published (weights, inference code, training code, data), the neural architectures used, achievable quality, and what would be required to reproduce or reuse each project — including licensing implications for SDR++ integration.
+Survey of publicly available Morse (CW) decoders and radio-audio denoisers, with focus on what is actually published (weights, inference code, training code, data), the neural architectures used, achievable quality, and what would be required to reproduce or reuse each project — including licensing implications for SDRIAK integration.
 
 Projects reviewed:
 
@@ -200,7 +200,7 @@ Denoisers: HamNoise v1 (GRU-64 spectral gains, RNNoise-style, MCU-capable) and v
 - **Duplicate (inference/product)**: yes for e04's decoder and denoiser, but only under AGPL and reusing their weights.
 - **Retrain / truly reproduce**: e04 publishes nothing, but the path is clear: VE3NEA's **MIT-licensed** data generator (text statistics, keying styles, Watterson fading, band-limited SNR convention) + a PyTorch Conformer matching the dissected e04 architecture (§1) + CTC training ≈ a from-scratch, license-clean reproduction. Missing unknowns: e04's exact augmentation ranges, corpus (likely real callsign/QSO-format text — the app decodes real QSOs well), training length, and any distillation/fine-tuning steps. For the denoiser: standard clean/noisy pair training (clean speech corpora or synthetic CW + recorded band noise), architectures fully recoverable from the C source.
 
-## Licensing notes for SDR++ integration
+## Licensing notes for SDRIAK integration
 
 - **ggmorse (MIT)** and **VE3NEA DeepCW (MIT)** are unproblematic in any module.
 - **e04 HamNoise / DeepCW (AGPL-3.0)**: GPLv3→AGPLv3 linking is permitted (GPLv3 §13), so an SDR++ (GPL-3.0) module could incorporate the C denoiser core or the ONNX weights, but the combined work becomes effectively AGPL-obligated for network-service use, and the module itself would carry AGPL. Keep any such module clearly separated.

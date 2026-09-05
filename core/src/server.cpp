@@ -271,7 +271,7 @@ namespace server {
             std::fill(password.begin(), password.end(), '\0');
             core::args.scrubString("password");
             authRequired = true;
-            flog::info("SDR++ server password authentication enabled");
+            flog::info("SDRIAK server password authentication enabled");
         }
 
         // Load config
@@ -570,7 +570,7 @@ namespace server {
         if (pendingSession.get() != s) { return false; }
         if (currentSession && currentSession->isOpen() && running) { return false; }
         if (currentSession) {
-            flog::info("Closing previous SDR++ server client, displaced by a newly handshaken connection.");
+            flog::info("Closing previous SDRIAK server client, displaced by a newly handshaken connection.");
             // Closed and destroyed by heartbeatTick: destroying it here would
             // join its read worker, which may be blocked on the controlMtx we
             // hold.
@@ -593,13 +593,13 @@ namespace server {
     // The handshake finished, but a competing client holds the slot.
     // COMMAND_DISCONNECT is what the client maps to "server busy".
     static void rejectBusyLocked(ClientSession* s) {
-        flog::info("Rejecting handshaken SDR++ server client: the server is in use.");
+        flog::info("Rejecting handshaken SDRIAK server client: the server is in use.");
         s->protocolRejected = true;
         s->sendCommand(COMMAND_DISCONNECT, 0);
     }
 
     static void rejectSessionLocked(ClientSession* s, const char* reason) {
-        flog::warn("Rejecting SDR++ server client: {0}", reason);
+        flog::warn("Rejecting SDRIAK server client: {0}", reason);
         s->protocolRejected = true;
         if (s->isOpen()) { s->sendError(ERROR_PROTOCOL_MISMATCH); }
     }
@@ -638,7 +638,7 @@ namespace server {
             }
             if (!ok) {
                 authCooldownUntil = now + AUTH_FAIL_COOLDOWN;
-                flog::warn("Rejecting SDR++ server client: authentication failed{0}", throttled ? " (throttled)" : "");
+                flog::warn("Rejecting SDRIAK server client: authentication failed{0}", throttled ? " (throttled)" : "");
                 s->sendError(ERROR_AUTH_FAILED);
                 s->protocolRejected = true; // heartbeatTick closes the session
                 return;
@@ -889,7 +889,7 @@ namespace server {
         }
         if (expired) {
             if (!expired->protocolRejected.load() && expired->isOpen()) {
-                flog::warn("SDR++ server client did not complete the handshake in time; closing session");
+                flog::warn("SDRIAK server client did not complete the handshake in time; closing session");
             }
             if (expired->conn) { expired->conn->close(); }
             expired.reset();
@@ -926,7 +926,7 @@ namespace server {
 
         if (!shouldClose) { return; }
         if (timedOut) {
-            flog::warn("SDR++ server client heartbeat timed out; closing orphaned session");
+            flog::warn("SDRIAK server client heartbeat timed out; closing orphaned session");
         }
         {
             std::lock_guard lck(controlMtx);

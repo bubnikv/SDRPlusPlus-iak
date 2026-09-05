@@ -69,7 +69,7 @@ from the keyboard alone.
    which stops the *click* — but `||` still evaluates the key test, so `End`
    starts the stream anyway. Five network sources set that lock while
    disconnected (`spyserver_source/src/main.cpp:115`,
-   `sdrpp_server_source:131`, `rfspace_source:87`, `spectran_http_source:122`,
+   `sdriak_server_source:131`, `rfspace_source:87`, `spectran_http_source:122`,
    `qmxserver_source` commented out), which is exactly the state the lock exists
    to protect. `PopupDialog::applyButton()` already has the correct shape —
    `bool requested = !disabled && applyRequested(...)`.

@@ -1,4 +1,4 @@
-# SDR++ Source-to-Sink Pipeline, Threading, Buffers, and Latency
+# SDRIAK Source-to-Sink Pipeline, Threading, Buffers, and Latency
 
 This is an independent read of the receive pipeline from a source module to a
 sink module. It focuses on the normal desktop UI path:
@@ -11,7 +11,7 @@ core DSP graph is built out of the same primitives.
 
 ## Executive Summary
 
-SDR++ uses a mostly "one DSP block, one worker thread" architecture. Edges
+SDRIAK uses a mostly "one DSP block, one worker thread" architecture. Edges
 between blocks are `dsp::stream<T>` objects: a blocking, double-buffered,
 single-producer/single-consumer hand-off with one packet of queue depth.
 

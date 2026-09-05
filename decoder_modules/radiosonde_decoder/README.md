@@ -1,4 +1,4 @@
-Radiosonde decoder plugin for SDR++
+Radiosonde decoder plugin for SDRIAK
 ===================================
 
 ![radiosondeGPX](https://user-images.githubusercontent.com/17110004/144872708-2a578c62-5493-4845-9098-9328c4e914bf.png)
@@ -21,38 +21,20 @@ Compatibility:
 Installing
 ----------
 
-Binary releases for Windows and Linux (both x86-64 only, built for [SDR++
-nightlies](https://github.com/AlexandreRouma/SDRPlusPlus/actions)) are available from
-[the Releases page](https://github.com/dbdexter-dev/radiosonde_decoder/releases).
+The decoder is bundled with SDRIAK when `OPT_BUILD_RADIOSONDE_DECODER` is
+enabled (the default).
 
-- **Windows**: download the `.dll` file from the latest release, and place it in
-  the `modules` directory within your SDR++ installation.
-- **Linux**: download the `.so` file from the latest release, and place it in
-  the `/usr/lib/sdrpp/plugins` folder.
+- **Windows**: the module is installed in the `modules` directory within the
+  SDRIAK installation.
+- **Linux**: the module is installed in the SDRIAK plugin directory (normally
+  `/usr/local/lib/sdriak/plugins`).
 
-The plugin can then be enabled from the module manager in SDR++, under the name
+The plugin can then be enabled from the module manager in SDRIAK, under the name
 *radiosonde\_decoder*.
 
 
 Building from source
 --------------------
 
-If no binary is available for your platform, you can build this plugin from
-source:
-
-1. Download the SDR++ source code: `git clone https://github.com/AlexandreRouma/SDRPlusPlus`
-2. Open the top-level `CMakeLists.txt` file, and add the following line in the
-   `# Decoders` section at the top:
-```
-option(OPT_BUILD_RADIOSONDE_DECODER "Build the radiosonde decoder module (no dependencies required)" ON)
-```
-3. In that same file, search for the second `# Decoders` section, and add the
-   following lines:
-```
-if (OPT_BUILD_RADIOSONDE_DECODER)
-add_subdirectory("decoder_modules/radiosonde_decoder")
-endif (OPT_BUILD_RADIOSONDE_DECODER)
-```
-4. Navigate to the `decoder_modules` folder, then clone this repository: `git clone https://github.com/dbdexter-dev/radiosonde_decoder --recurse-submodules`
-5. Build and install SDR++ following the guide in the original repository
-6. Enable the module by adding it via the module manager
+Build SDRIAK normally with `OPT_BUILD_RADIOSONDE_DECODER=ON`, then enable the
+module from the module manager.

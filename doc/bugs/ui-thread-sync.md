@@ -92,7 +92,7 @@ member" found:
   phasor / small struct read compositely.
 - **Benign (pervasive):** dozens of single aligned scalars (volume, alpha, AGC
   gains, squelch level, deviation …) written under an ineffective `ctrlMtx` and
-  read live. UB on paper, but an aligned word doesn't tear on any target SDR++
+  read live. UB on paper, but an aligned word doesn't tear on any target SDRIAK
   ships to. Not worth per-field atomics.
 
 `ctrlMtx` note: taking it in a setter serializes control calls against each
@@ -292,7 +292,7 @@ private:
 };
 ```
 
-### SDR++ integration specifics (verified)
+### SDRIAK integration specifics (verified)
 
 - **GLFW loop is continuous `glfwPollEvents()`** (`core/backends/glfw/backend.cpp:256`),
   calling `mainWindow.draw()` every frame — **no `wake` callback needed**

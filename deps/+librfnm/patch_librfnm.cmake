@@ -19,7 +19,7 @@ file(READ "${_f}" _content)
 # --- Patch 1: remove hardcoded install prefix ---
 patch_replace_or_fail(_content
     "set(CMAKE_INSTALL_PREFIX \"C:/Program Files/RFNM/\")"
-    "# CMAKE_INSTALL_PREFIX hardcode removed by SDR++ deps build")
+    "# CMAKE_INSTALL_PREFIX hardcode removed by SDRIAK deps build")
 
 # --- Patch 2: remove bundled DLL install rules ---
 # librfnm ships install rules copying spdlog.dll, fmt.dll, and libusb-1.0.dll
@@ -28,7 +28,7 @@ patch_replace_or_fail(_content
 foreach(_dll "spdlog\\.dll" "fmt\\.dll" "libusb-1\\.0\\.dll")
     string(REGEX REPLACE
         "install[ \t]*\\([ \t]*FILES[ \t]+\\$<TARGET_FILE_DIR:rfnm>/${_dll}[^\n]*\n?"
-        "# bundled DLL install removed by SDR++ deps build\n"
+        "# bundled DLL install removed by SDRIAK deps build\n"
         _content "${_content}")
 endforeach()
 

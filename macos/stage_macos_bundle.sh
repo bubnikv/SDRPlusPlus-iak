@@ -15,12 +15,12 @@ rm -rf "$BUNDLE"
 bundle_create_struct "$BUNDLE"
 
 cp -R "$REPO_ROOT/root/res"/* "$BUNDLE/Contents/Resources/"
-bundle_create_icns "$REPO_ROOT/root/res/icons/sdrpp.macos.png" "$BUNDLE/Contents/Resources/sdrpp"
+bundle_create_icns "$REPO_ROOT/root/res/icons/sdriak.macos.png" "$BUNDLE/Contents/Resources/sdriak"
 
 eval "$("$REPO_ROOT/scripts/get_version.sh" "$REPO_ROOT")"
 APP_VERSION="$VERSION"
 
-bundle_create_plist sdrpp-iak "SDR++ iak" org.ok1iak.sdrpp "$APP_VERSION" sdri sdrpp-iak sdrpp "$BUNDLE/Contents/Info.plist"
+bundle_create_plist sdriak "SDRIAK" org.ok1iak.sdriak "$APP_VERSION" sdri sdriak sdriak "$BUNDLE/Contents/Info.plist"
 
 bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/MacOS" "$MAIN_EXEC"
 bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/Frameworks" "$CORE_DYLIB"
@@ -41,4 +41,4 @@ if [ -f "$SDRPLAY_LIB" ]; then
     bundle_install_binary "$BUNDLE" "$BUNDLE/Contents/Frameworks" "$SDRPLAY_LIB"
 fi
 
-bundle_sign "$BUNDLE" "$SCRIPT_DIR/sdrpp.entitlements"
+bundle_sign "$BUNDLE" "$SCRIPT_DIR/sdriak.entitlements"

@@ -67,7 +67,7 @@ What happens:
 3. The parent configure continues — every `find_package` and `sdrpp_link_dep`
    resolves into the per-config deps prefix.
 4. The build step compiles app + plugins, copies runtime DLLs next to the
-   exe, and produces `build-msvc-x64-debug\sdrpp-iak.exe` ready to F5.
+   exe, and produces `build-msvc-x64-debug\sdriak.exe` ready to F5.
 
 First run downloads and builds ~25 packages — expect 20–40 minutes depending
 on disk and CPU. Switching to a different config repeats this for that config
@@ -102,7 +102,7 @@ the CRT-mismatch problem this build system avoids.
 
 VS reads `CMakePresets.json` and exposes the presets in the configuration
 dropdown at the top of the IDE. Switching presets re-configures into the
-chosen build tree. F5 launches `sdrpp-iak.exe` from that tree.
+chosen build tree. F5 launches `sdriak.exe` from that tree.
 
 ### Command line
 
@@ -111,7 +111,7 @@ cmake --preset msvc-x64-debug
 cmake --build build-msvc-x64-debug
 
 # launch
-.\build-msvc-x64-debug\sdrpp-iak.exe
+.\build-msvc-x64-debug\sdriak.exe
 ```
 
 ## Debugging into dependencies
@@ -120,7 +120,7 @@ The whole point of the `msvc-x64-debug` preset: every dep is built with
 `/Od /Zi /MDd`, so stepping into `spdlog`, `libairspy`, `librtlsdr`, etc.
 from the VS debugger shows real source, real variable values, no `<optimized
 out>`. PDBs land next to the DLLs in the deps `destdir/bin/` and are
-auto-copied alongside `sdrpp-iak.exe` by the same POST_BUILD step that
+auto-copied alongside `sdriak.exe` by the same POST_BUILD step that
 handles the DLLs.
 
 `RelWithDebInfo` still produces PDBs but compiles with `/O2`, so stepping
@@ -141,7 +141,7 @@ functions inlined). Use it for performance-realistic debugging; use
 ## Quick reference
 
 ```powershell
-# from D:\src\SDRPlusPlus, in a VS Developer PowerShell:
+# from D:\src\sdriak, in a VS Developer PowerShell:
 
 # Debug (step into deps, /MDd, MSVC STL debug iterators):
 cmake --preset msvc-x64-debug

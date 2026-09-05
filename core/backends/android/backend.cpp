@@ -32,7 +32,7 @@ namespace backend {
     EGLDisplay _EglDisplay = EGL_NO_DISPLAY;
     EGLSurface _EglSurface = EGL_NO_SURFACE;
     EGLContext _EglContext = EGL_NO_CONTEXT;
-    char _LogTag[] = "SDR++ iak";
+    char _LogTag[] = "SDRIAK";
     bool initialized = false;
 
     void saveLifecycleState(const char* event) {
@@ -1151,7 +1151,7 @@ extern "C" {
 
     // JNI native method: MainActivity.nativeSetSleepRenderPaused(boolean)
     // Directly sets the C++ flag - zero overhead, no JNI field lookup.
-    JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeSetSleepRenderPaused(
+    JNIEXPORT void JNICALL Java_org_ok1iak_sdriak_MainActivity_nativeSetSleepRenderPaused(
         JNIEnv* env, jobject thiz, jboolean paused) {
         backend::sleepRenderPaused = (bool)paused;
         if (!paused) {
@@ -1161,7 +1161,7 @@ extern "C" {
 
     // JNI native method: MainActivity.nativeSetSleepScreenDimmed(boolean)
     // True during DIM and DARK phases; used as guard for touch/resume wake.
-    JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeSetSleepScreenDimmed(
+    JNIEXPORT void JNICALL Java_org_ok1iak_sdriak_MainActivity_nativeSetSleepScreenDimmed(
         JNIEnv* env, jobject thiz, jboolean dimmed) {
         backend::sleepScreenDimmed = (bool)dimmed;
     }
@@ -1169,14 +1169,14 @@ extern "C" {
 
 // JNI native method: MainActivity.nativeOnBackInvoked()
 // Runs on the UI thread; the app thread consumes the flag in renderLoop().
-extern "C" JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_nativeOnBackInvoked(JNIEnv*, jobject) {
+extern "C" JNIEXPORT void JNICALL Java_org_ok1iak_sdriak_MainActivity_nativeOnBackInvoked(JNIEnv*, jobject) {
     backend::backInvokedPending = true;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_notifyUsbHotplugChangedNative(JNIEnv*, jobject) {
+extern "C" JNIEXPORT void JNICALL Java_org_ok1iak_sdriak_MainActivity_notifyUsbHotplugChangedNative(JNIEnv*, jobject) {
     backend::usbHotplugGeneration.fetch_add(1, std::memory_order_relaxed);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_org_sdrpp_sdrpp_MainActivity_notifyAudioRoutingChangedNative(JNIEnv*, jobject) {
+extern "C" JNIEXPORT void JNICALL Java_org_ok1iak_sdriak_MainActivity_notifyAudioRoutingChangedNative(JNIEnv*, jobject) {
     backend::audioRoutingGeneration.fetch_add(1, std::memory_order_relaxed);
 }

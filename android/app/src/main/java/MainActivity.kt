@@ -1,4 +1,4 @@
-package org.sdrpp.sdrpp;
+package org.ok1iak.sdriak;
 
 import android.app.NativeActivity;
 import android.app.AlertDialog;
@@ -92,7 +92,7 @@ private val usbReceiver = object : BroadcastReceiver() {
     }
 }
 class MainActivity : NativeActivity() {
-    private val TAG : String = "SDR++ iak";
+    private val TAG : String = "SDRIAK";
     public var usbManager : UsbManager? = null;
     public var SDR_device : UsbDevice? = null;
     public var SDR_conn : UsbDeviceConnection? = null;
@@ -129,7 +129,7 @@ class MainActivity : NativeActivity() {
         private val openUsbDeviceNames = HashMap<String, Int>()
 
         init {
-            System.loadLibrary("sdrpp_core")
+            System.loadLibrary("sdriak_core")
         }
 
         private fun isQmxUsbDevice(dev: UsbDevice?): Boolean {
@@ -159,7 +159,7 @@ class MainActivity : NativeActivity() {
             }
             else {
                // On Android older than 9, we cannot confirm whether the audio USB device is a QRP Labs QMX or QDX product.
-                // Thus we rather enable audio routing to USB in SDR++ iak build for those old Android devices for now
+                // Thus we rather enable audio routing to USB in SDRIAK build for those old Android devices for now
                 // and leave it to the user to disable USB audio routing in development mode.
                 // Also the QMX source shows the recommendation in its UI page.
                 false
@@ -657,7 +657,7 @@ class MainActivity : NativeActivity() {
                 val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
                 wakeLock = pm.newWakeLock(
                     PowerManager.PARTIAL_WAKE_LOCK,
-                    "SDRPlusPlus:SleepTimer"
+                    "SDRIAK:SleepTimer"
                 )
             }
             if (wakeLock?.isHeld == false) {

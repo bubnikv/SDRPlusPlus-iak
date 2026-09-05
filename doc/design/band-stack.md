@@ -501,7 +501,7 @@ first-containing-band write-back.
 // Deliberately ABSENT, and why:
 //   bandwidth / filter  -- owned by the per-demod profiles (research §5); a copy
 //                          here would fight config.conf[<vfo>][<demod>].
-//   hardware centre     -- in SDR++ the centre is derived from the tune
+//   hardware centre     -- in SDRIAK the centre is derived from the tune
 //                          frequency by tuner::tune() per tuning mode, so
 //                          storing it (as Thetis does for its panadapter)
 //                          would fight the tuner.

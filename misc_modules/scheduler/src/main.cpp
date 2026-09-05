@@ -7,7 +7,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "scheduler",
-    /* Description:     */ "SDR++ Scheduler",
+    /* Description:     */ "SDRIAK Scheduler",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

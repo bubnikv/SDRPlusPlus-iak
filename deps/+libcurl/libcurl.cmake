@@ -3,7 +3,7 @@
 #
 # Reworked from cmake/find_or_fetch_curl.cmake. Static + PIC build pinned to
 # curl-8_11_1 (≥ 8.11 lifts WebSockets out of experimental). Protocols are
-# trimmed to the surface SDR++ uses; TLS backend is platform-native:
+# trimmed to the surface SDRIAK uses; TLS backend is platform-native:
 #   - Windows: Schannel
 #   - macOS:   Secure Transport
 #   - Android: MbedTLS (built by deps/+mbedtls)

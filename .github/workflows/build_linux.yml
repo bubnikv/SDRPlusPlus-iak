@@ -46,19 +46,19 @@ jobs:
           uses: ./.github/actions/deps-cache
 
         - name: Create Docker Image
-          run: docker build --build-arg BASE_IMAGE=${{ inputs.base_image }} -f $GITHUB_WORKSPACE/docker_builds/Dockerfile $GITHUB_WORKSPACE/docker_builds --tag sdrpp_build
+          run: docker build --build-arg BASE_IMAGE=${{ inputs.base_image }} -f $GITHUB_WORKSPACE/docker_builds/Dockerfile $GITHUB_WORKSPACE/docker_builds --tag sdriak_build
 
         - name: Run Container
           run: |
             docker run --name build \
-              -v $GITHUB_WORKSPACE:/root/SDRPlusPlus \
+              -v $GITHUB_WORKSPACE:/root/sdriak \
               --env VOLK_PACKAGE="${{ inputs.volk_package }}" \
               --env EXTRA_APT="${{ inputs.extra_apt }}" \
               --env CURL_SOURCE="${{ inputs.curl_source }}" \
               --env VERSION_FULL="${{ inputs.version_full }}" \
               --env GITHUB_ACTIONS \
               --env GITHUB_REF_TYPE \
-              sdrpp_build /root/do_build.sh
+              sdriak_build /root/do_build.sh
 
         # The container writes into the bind-mounted source tree as root,
         # so the resulting files (including newly downloaded tarballs in
@@ -73,7 +73,7 @@ jobs:
         # so the file inside the artifact already has its final published name.
         - name: Recover Deb Archive
           working-directory: ${{ runner.workspace }}
-          run: docker cp build:/root/SDRPlusPlus/sdrpp_debian_pkg.deb ./${{ inputs.artifact }}.deb
+          run: docker cp build:/root/sdriak/sdriak_debian_pkg.deb ./${{ inputs.artifact }}.deb
 
         - name: Save Deb Archive
           uses: actions/upload-artifact@v6

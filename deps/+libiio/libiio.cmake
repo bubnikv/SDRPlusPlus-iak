@@ -24,7 +24,7 @@ add_cmake_project(libiio
         -DWITH_USB_BACKEND=${_libiio_usb_backend}
         -DWITH_NETWORK_BACKEND=ON
         -DHAVE_DNS_SD=OFF
-        # SDR++ uses libiio purely as a client library. On Linux, libiio
+        # SDRIAK uses libiio purely as a client library. On Linux, libiio
         # defaults WITH_IIOD=ON, which pulls in the IIO daemon and its
         # flex/bison-generated parser — extra host build deps we don't want
         # to require for a portable AppImage. Disable the daemon explicitly.

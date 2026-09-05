@@ -32,16 +32,17 @@ def readVersionFromHeader() {
 def appVersion = readVersionFromHeader()
 
 android {
-    namespace = 'org.sdrpp.sdrpp'
+    namespace = 'org.ok1iak.sdriak'
     compileSdk 36
     ndkVersion "29.0.14206865"
     defaultConfig {
+        // Keep the published ID stable so SDRIAK upgrades the existing app and retains user data.
         applicationId "org.ok1iak.sdrpp"
         minSdk 23
         targetSdk 36
         versionCode appVersion.code
         versionName appVersion.name
-        resValue "string", "app_name", "SDR++ iak"
+        resValue "string", "app_name", "SDRIAK"
 
         externalNativeBuild {
             cmake {
@@ -93,7 +94,7 @@ android {
         debug {
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
-            resValue "string", "app_name", "SDR++ iak debug"
+            resValue "string", "app_name", "SDRIAK Debug"
             signingConfig = signingConfigs.debug
         }
     }
@@ -127,7 +128,7 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.each { output ->
-            output.outputFileName.set("sdrpp-iak-${variant.flavorName}-${variant.buildType}.apk")
+            output.outputFileName.set("sdriak-${variant.flavorName}-${variant.buildType}.apk")
         }
     }
 }

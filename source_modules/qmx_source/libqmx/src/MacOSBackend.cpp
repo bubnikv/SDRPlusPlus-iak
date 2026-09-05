@@ -174,7 +174,7 @@ namespace qmx::detail {
             case MicrophonePermission::Granted:
                 break;
             case MicrophonePermission::Denied:
-                error = "Microphone access denied. Allow it for SDR++ under "
+                error = "Microphone access denied. Allow it for SDRIAK under "
                         "System Settings > Privacy & Security > Microphone, then start the stream again.";
                 return false;
             case MicrophonePermission::Restricted:

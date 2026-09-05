@@ -9,7 +9,7 @@
 //
 // This file does not define legal allocations or the frequency spans displayed
 // by a band plan. It defines stable semantic band IDs and the service/family
-// vocabulary used while SDR++ still loads the country JSON files under
+// vocabulary used while SDRIAK still loads the country JSON files under
 // root/res/bandplans. band_mapping.cpp identifies an eligible legacy Band or
 // Segment when exactly one same-service/same-family canonical mapping has a
 // probe inside that row.

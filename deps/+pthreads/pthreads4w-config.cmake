@@ -1,6 +1,6 @@
 #
 # pthreads4w (PThreads4W v3) — CMake package config installed by the
-# SDR++ iak deps superbuild.
+# SDRIAK deps superbuild.
 #
 # Defines the imported target pthreads4w::pthreadVC3 (SHARED) wired to the
 # artifacts that pthreads.cmake installs:

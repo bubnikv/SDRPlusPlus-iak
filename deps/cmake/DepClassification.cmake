@@ -1,5 +1,5 @@
 #
-# Initial dependency classification table for SDR++.
+# Initial dependency classification table for SDRIAK.
 #
 # Linkage defaults stay shared unless a dependency has been reviewed and marked
 # as a static source-build candidate. Distro/system packages stay shared.
@@ -113,7 +113,7 @@ sdrpp_register_dep(libcurl
     # /usr/lib/x86_64-linux-gnu/libcurl.so.4 in ld.so.cache order — the
     # system curl would shadow ours at runtime, defeating the WS-mandatory
     # bundled build. Static links curl's symbols (curl_ws_send included)
-    # directly into libsdrpp_iak_core.so and leaves only libssl/libcrypto/
+    # directly into libsdriak_core.so and leaves only libssl/libcrypto/
     # libz as NEEDED entries, which dpkg-shlibdeps maps to system packages.
     # The distro:static value only takes effect when policy resolves the
     # source to bundled (FORCE_BUNDLED or matrix curl_source=bundled);

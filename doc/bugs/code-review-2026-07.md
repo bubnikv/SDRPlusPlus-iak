@@ -1,8 +1,8 @@
-# Whole-app review — SDR++ (fork)
+# Whole-app review — SDRIAK
 
 *Reviewed by Claude Fable 5 on 2026-07-13, at commit `765bf8a9` (plus uncommitted `FreqModeSync.cpp` changes).*
 
-Scope: core infrastructure (config, module loader, DSP primitives, signal path), both networking layers, the SDR++ server, the GUI/waterfall, the audio sink, the uncommitted `FreqModeSync.cpp` change, and pattern sweeps across all 546 first-party source files.
+Scope: core infrastructure (config, module loader, DSP primitives, signal path), both networking layers, the SDRIAK server, the GUI/waterfall, the audio sink, the uncommitted `FreqModeSync.cpp` change, and pattern sweeps across all 546 first-party source files.
 
 Overall: the recently reworked areas (server session lifecycle, auth, USB teardown) are in noticeably better shape than the inherited upstream plumbing, which is where almost all the real defects live.
 
@@ -12,7 +12,7 @@ Overall: the recently reworked areas (server session lifecycle, auth, USB teardo
 
 **2. `ConfigManager::load()` can return with the mutex held** — `core/src/config.cpp:20-31`. Both early returns (`path == ""` and "isn't a file") skip the `if (lock) mtx.unlock()` at the end. If the config path is ever a directory or unset, the next `acquire()` or autosave tick deadlocks the app.
 
-**3. `ConnClass::close()` leaks the socket when the peer disconnected first** — `core/src/utils/networking.cpp:38`. The socket is only closed `if (connectionOpen)`, but the read/write workers set `connectionOpen = false` themselves on any recv/send failure. So on every remote-initiated disconnect, `close()` skips `closesocket()` entirely — one leaked handle per disconnect in `sdrpp_server_source`, `rtl_tcp_source`, and the server itself.
+**3. `ConnClass::close()` leaks the socket when the peer disconnected first** — `core/src/utils/networking.cpp:38`. The socket is only closed `if (connectionOpen)`, but the read/write workers set `connectionOpen = false` themselves on any recv/send failure. So on every remote-initiated disconnect, `close()` skips `closesocket()` entirely — one leaked handle per disconnect in `sdriak_server_source`, `rtl_tcp_source`, and the server itself.
 
 **4. `ConnClass::write()` mishandles partial sends** — `core/src/utils/networking.cpp:126`. The retry loop calls `send(_sock, buf, count)` again from the *start* of the buffer with the *full* length instead of `&buf[beenWritten], count - beenWritten`. On any partial send (large baseband packets are up to 16 MB), the stream gets duplicated bytes and the protocol framing corrupts. Blocking sockets usually send fully, which is why this hasn't bitten, but it's wrong.
 

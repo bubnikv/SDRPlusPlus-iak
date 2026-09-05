@@ -16,7 +16,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "soapy_source",
-    /* Description:     */ "SoapySDR source module for SDR++",
+    /* Description:     */ "SoapySDR source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 5,
     /* Max instances    */ 1

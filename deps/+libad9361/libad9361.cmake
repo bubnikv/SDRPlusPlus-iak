@@ -35,7 +35,7 @@ add_cmake_project(libad9361
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         ${_libad9361_iio_args}
     # Upstream's default ALL target builds test executables that do not link
-    # cleanly against the bundled libiio import library on MSVC. SDR++ only
+    # cleanly against the bundled libiio import library on MSVC. SDRIAK only
     # needs the ad9361 library, so build that target and let our custom install
     # step copy the produced artifacts.
     BUILD_COMMAND

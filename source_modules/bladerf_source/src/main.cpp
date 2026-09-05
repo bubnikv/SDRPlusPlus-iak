@@ -19,7 +19,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "bladerf_source",
-    /* Description:     */ "BladeRF source module for SDR++",
+    /* Description:     */ "BladeRF source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

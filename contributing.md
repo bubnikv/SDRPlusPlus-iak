@@ -2,6 +2,14 @@
 
 Please open an issue discussing potential bugfixes or feature requests instead. Pull requests are welcome, but they may be refused in case of repo owner time constraints or code quality.
 
+## Product naming and compatibility
+
+`SDRIAK` is the product name and must be used in user-visible text, packaging,
+documentation that describes the current application, and new externally visible
+identifiers. Legacy `sdrpp` identifiers are retained only where required for ABI,
+configuration, Android package, plugin, or upstream compatibility. Do not rename
+those compatibility identifiers without an explicit migration plan.
+
 ## Band Frequency Allocation 
 
 Please follow this guide to properly format the JSON files for custom radio band allocation identifiers.

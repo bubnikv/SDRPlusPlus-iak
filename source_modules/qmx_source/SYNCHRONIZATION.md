@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `qmx_source` module bridges a QRP Labs QMX transceiver with SDR++.
+The `qmx_source` module bridges a QRP Labs QMX transceiver with SDRIAK.
 QMX provides IQ audio samples (via USB audio) and a Kenwood TS-480–style
 CAT control interface (via USB CDC serial).  The module must keep three
 frequency domains in agreement:
@@ -10,8 +10,8 @@ frequency domains in agreement:
 | Domain | Description |
 |--------|-------------|
 | **QMX rig frequency** | The frequency reported by QMX via CAT (`IF;`, `FA;`). This is the "radio dial" frequency. |
-| **IQ center frequency** | The center of the SDR++ waterfall / IQ stream. Offset from the rig frequency by a fixed IF offset (12 kHz) plus a mode-dependent CW offset. |
-| **SDR++ VFO frequency** | The frequency of the currently selected SDR++ demodulator VFO. Only relevant when "Sync VFO" is enabled. |
+| **IQ center frequency** | The center of the SDRIAK waterfall / IQ stream. Offset from the rig frequency by a fixed IF offset (12 kHz) plus a mode-dependent CW offset. |
+| **SDRIAK VFO frequency** | The frequency of the currently selected SDRIAK demodulator VFO. Only relevant when "Sync VFO" is enabled. |
 
 The relationship between rig and IQ center is:
 
@@ -53,13 +53,13 @@ See `qmxRigToIqOffset()`, `rigFrequencyToCenterFrequency()`,
 ┌─────────────────────────────┐
 │  GUI thread (ImGui)         │
 │                             │
-│  menuHandler()              │  ← SDR++ calls per frame when source panel visible
-│  frameDraw()                │  ← SDR++ calls every frame unconditionally
+│  menuHandler()              │  ← SDRIAK calls per frame when source panel visible
+│  frameDraw()                │  ← SDRIAK calls every frame unconditionally
 │    ├─ syncSdrToQmx()        │
 │    ├─ syncVfoToQmx()        │
 │    └─ applyPendingStatus()  │
 │                             │
-│  tune()                     │  ← SDR++ calls when IQ center changes
+│  tune()                     │  ← SDRIAK calls when IQ center changes
 │                             │
 └─────────────────────────────┘
            ▲ pendingStatus (mutex-protected)
@@ -120,12 +120,12 @@ between two modes.
 ### Mode 1: IQ Center Sync Only (`syncVfo = false`)
 
 This is the basic mode.  Only the IQ center frequency is kept in sync
-between SDR++ and QMX.  SDR++ VFO position and radio mode are
+between SDRIAK and QMX.  SDRIAK VFO position and radio mode are
 independent.
 
-#### SDR++ → QMX (`syncSdrToQmx`)
+#### SDRIAK → QMX (`syncSdrToQmx`)
 
-Runs every GUI frame.  If the current SDR++ IQ center frequency (`freq`),
+Runs every GUI frame.  If the current SDRIAK IQ center frequency (`freq`),
 converted to a rig frequency, differs from the QMX reported rig
 frequency, send `FA<newfreq>;` to QMX.
 
@@ -142,7 +142,7 @@ frequency back before the next poll confirms the change.
 This function is **skipped** when `syncVfo` is on (VFO sync handles it
 instead).
 
-#### QMX → SDR++ (`applyPendingStatus`)
+#### QMX → SDRIAK (`applyPendingStatus`)
 
 When new status arrives from the poller and `syncVfo` is off:
 
@@ -157,29 +157,29 @@ prevents feedback loops from sub-Hz floating-point discrepancies.
 
 #### `tune()` callback
 
-Called by SDR++ whenever the IQ center frequency changes (user drag,
+Called by SDRIAK whenever the IQ center frequency changes (user drag,
 `tuner::tune`, etc.).  Always stores the new `freq`.  In mode 1 this is
 sufficient — `syncSdrToQmx()` on the next frame will push it to QMX.
 
 ### Mode 2: VFO + Mode Sync (`syncVfo = true`)
 
 Extends Mode 1 with bidirectional VFO frequency and radio mode
-synchronization between QMX and the currently selected SDR++ radio VFO.
+synchronization between QMX and the currently selected SDRIAK radio VFO.
 
-#### SDR++ VFO → QMX (`syncVfoToQmx`)
+#### SDRIAK VFO → QMX (`syncVfoToQmx`)
 
 Runs every GUI frame when `syncVfo` is on.
 
-**Frequency:** Computes the absolute frequency of the selected SDR++ VFO
+**Frequency:** Computes the absolute frequency of the selected SDRIAK VFO
 (`waterfall center + VFO offset`) and compares to the QMX rig frequency.
 If they differ, sends `FA<vfoRigFreq>;`.
 
-**Mode:** Reads the SDR++ radio module's current demod mode via
+**Mode:** Reads the SDRIAK radio module's current demod mode via
 `core::modComManager.callInterface(vfoName, RADIO_IFACE_CMD_GET_MODE)`.
 Maps it to a QMX mode.  If it differs from `currentStatus.mode`, sends
 `MD<mode>;`.
 
-#### QMX → SDR++ VFO (`applyPendingStatus`, syncVfo branch)
+#### QMX → SDRIAK VFO (`applyPendingStatus`, syncVfo branch)
 
 When new status arrives and `syncVfo` is on:
 
@@ -207,7 +207,7 @@ When new status arrives and `syncVfo` is on:
 Bidirectional sync creates a classic feedback loop risk:
 
 ```
-SDR++ sets freq → QMX echoes back → SDR++ re-applies → ...
+SDRIAK sets freq → QMX echoes back → SDRIAK re-applies → ...
 ```
 
 ### Mechanisms
@@ -225,17 +225,17 @@ SDR++ sets freq → QMX echoes back → SDR++ re-applies → ...
    before the next poll cycle confirms the new value.
 
 3. **`lastRigFreqSentToQmx` / `lastModeSentToQmx`.**  When
-   `applyPendingStatus()` pushes a QMX frequency/mode to the SDR++ VFO,
+   `applyPendingStatus()` pushes a QMX frequency/mode to the SDRIAK VFO,
    it records the value.  `syncVfoToQmx()` skips sending to QMX if the
    VFO value matches what was just received.  This breaks the
-   QMX→SDR++→QMX echo.
+   QMX→SDRIAK→QMX echo.
 
 4. **Skipping during TX.**  All sync is suppressed while
    `currentStatus.transmit` is true to avoid disturbing an active
    transmission.
 
 5. **`syncSdrToQmx()` is disabled when `syncVfo` is on.**  VFO sync
-   (`syncVfoToQmx`) handles the SDR++→QMX direction instead, using the
+   (`syncVfoToQmx`) handles the SDRIAK→QMX direction instead, using the
    VFO frequency rather than the IQ center.  Running both would conflict.
 
 ### Steady-State Convergence
@@ -269,7 +269,7 @@ it does not touch the serial port.
 
 ---
 
-## SDR++ APIs Used
+## SDRIAK APIs Used
 
 | API | Purpose |
 |-----|---------|
@@ -302,7 +302,7 @@ Persisted in `qmx_source_config.json`:
 
 | File | Role |
 |------|------|
-| `src/main.cpp` | SDR++ module: UI, sync logic, sample forwarding |
+| `src/main.cpp` | SDRIAK module: UI, sync logic, sample forwarding |
 | `libqmx/src/CatPoller.h/.cpp` | CAT poll loop, command queue, response batching |
 | `libqmx/src/QmxCatStatus.h/.cpp` | CAT response parser, sticky `QmxStatus` accumulation |
 | `libqmx/src/SerialCat.h/.cpp` | Serial port transport (`CatTransport` impl for desktop) |

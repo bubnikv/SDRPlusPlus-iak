@@ -27,7 +27,7 @@ namespace LoadingScreen {
         ImGui::BeginPopupModal("Credits", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
 
         ImGui::PushFont(style::hugeFont);
-        ImGui::TextUnformatted("SDR++ iak ");
+        ImGui::TextUnformatted("SDRIAK ");
         ImGui::PopFont();
         ImGui::SameLine();
         ImGui::Image(icons::LOGO, imageSize);

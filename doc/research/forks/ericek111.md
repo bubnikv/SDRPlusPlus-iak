@@ -1,7 +1,7 @@
 # ericek111 fork — features worth porting
 
 Review of [`ericek111/SDRPlusPlus`](https://github.com/ericek111/SDRPlusPlus) for
-changes worth merging into this fork (SDRPlusPlus-iak).
+changes worth merging into this fork (sdriak).
 
 ## How the fork is structured
 

@@ -1,5 +1,5 @@
 #
-# GLFW — windowing/input library used by the SDR++ GLFW backend on
+# GLFW — windowing/input library used by the SDRIAK GLFW backend on
 # Windows/Linux/macOS. Android uses a native EGL+ANativeWindow backend and
 # does not need this dependency.
 #

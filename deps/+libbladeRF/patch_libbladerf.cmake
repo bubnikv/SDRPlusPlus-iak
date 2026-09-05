@@ -16,7 +16,7 @@ file(READ "${_f}" _content)
 # set(LIBUSB_VERSION "0.0.0"), set ( LIBUSB_VERSION 0.0.0 ), etc.
 string(REGEX REPLACE
     "set[ \t]*\\([ \t]*LIBUSB_VERSION[ \t]+\"?0\\.0\\.0\"?[ \t]*\\)"
-    "set(LIBUSB_VERSION 1.0.27)  # patched by SDR++ deps build"
+    "set(LIBUSB_VERSION 1.0.27)  # patched by SDRIAK deps build"
     _content "${_content}")
 file(WRITE "${_f}" "${_content}")
 message(STATUS "Patched ${_f}")
@@ -26,7 +26,7 @@ message(STATUS "Patched ${_f}")
 set(_g "${SRC}/host/utilities/bladeRF-cli/src/cmd/generate.c")
 file(READ "${_g}" _content)
 if(NOT _content MATCHES "_USE_MATH_DEFINES")
-    file(WRITE "${_g}" "#define _USE_MATH_DEFINES  /* patched by SDR++ deps build */\n${_content}")
+    file(WRITE "${_g}" "#define _USE_MATH_DEFINES  /* patched by SDRIAK deps build */\n${_content}")
     message(STATUS "Patched ${_g}")
 endif()
 
@@ -38,6 +38,6 @@ set(_u "${SRC}/host/cmake/modules/FindLibUSB.cmake")
 file(READ "${_u}" _content)
 patch_replace_or_fail(_content
     "set(LIBUSB_LIBRARY_PATH_SUFFIX MS64/dll)"
-    "set(LIBUSB_LIBRARY_PATH_SUFFIX bin)  # patched by SDR++ deps build")
+    "set(LIBUSB_LIBRARY_PATH_SUFFIX bin)  # patched by SDRIAK deps build")
 file(WRITE "${_u}" "${_content}")
 message(STATUS "Patched ${_u}")

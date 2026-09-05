@@ -14,7 +14,7 @@ namespace spyserver {
 
         output->clearWriteStop();
 
-        sendHandshake("SDR++");
+        sendHandshake("SDRIAK");
 
         client->readAsync(sizeof(SpyServerMessageHeader), (uint8_t*)&receivedHeader, dataHandler, this);
     }

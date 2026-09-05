@@ -20,7 +20,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "meteor_demodulator",
-    /* Description:     */ "Meteor demodulator for SDR++",
+    /* Description:     */ "Meteor demodulator for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

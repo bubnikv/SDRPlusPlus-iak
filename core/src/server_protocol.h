@@ -8,17 +8,17 @@
 
 namespace server {
     // inline (not static): the helpers below odr-use these from a header.
-    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x494B5053; // "SPKI": SDR++ iak
+    inline constexpr uint32_t SERVER_PROTOCOL_MAGIC = 0x494B5053; // "SPKI": SDRIAK
     inline constexpr uint16_t SERVER_PROTOCOL_MAJOR = 1;
     inline constexpr uint16_t SERVER_PROTOCOL_MINOR = 0;
     inline constexpr uint32_t SERVER_PROTOCOL_CAP_HEARTBEAT = 1u << 0;
     inline constexpr uint32_t SERVER_PROTOCOL_CAP_AUTH = 1u << 1;
     inline constexpr int SERVER_PROTOCOL_FORK_ID_SIZE = 32;
-    inline constexpr char SERVER_PROTOCOL_FORK_ID[] = "sdrpp-iak";
+    inline constexpr char SERVER_PROTOCOL_FORK_ID[] = "sdriak";
     inline constexpr int SERVER_AUTH_CHALLENGE_SIZE = 32;
     inline constexpr int SERVER_AUTH_RESPONSE_SIZE = 32;
     inline constexpr uint32_t SERVER_AUTH_PBKDF2_ITERATIONS = 20000;
-    inline constexpr char SERVER_AUTH_SALT[] = "sdrpp-iak-server-auth-v1";
+    inline constexpr char SERVER_AUTH_SALT[] = "sdriak-server-auth-v1";
 
     enum PacketType {
         // Client to Server
@@ -42,7 +42,7 @@ namespace server {
         COMMAND_SET_SAMPLE_TYPE,
         COMMAND_SET_COMPRESSION,
         // Must be the first command sent by a client. Payload: HelloPayload.
-        // Refuses other SDR++ forks unless they preserve our fork lineage ID.
+        // Refuses non-SDRIAK forks unless they preserve our fork lineage ID.
         COMMAND_HELLO,
         // Payload: HMAC-SHA256(challenge) using the PBKDF2-derived auth key.
         COMMAND_AUTH_RESPONSE,

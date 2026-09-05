@@ -22,7 +22,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "file_source",
-    /* Description:     */ "Wav file source module for SDR++",
+    /* Description:     */ "Wav file source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 2,
     /* Max instances    */ 1

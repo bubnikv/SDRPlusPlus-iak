@@ -12,7 +12,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "discord_integration",
-    /* Description:     */ "Discord Rich Presence module for SDR++",
+    /* Description:     */ "Discord Rich Presence module for SDRIAK",
     /* Author:          */ "Cam K.;Ryzerth",
     /* Version:         */ 0, 0, 2,
     /* Max instances    */ 1
@@ -130,9 +130,9 @@ private:
         // Set the first presence
         presence.details = "Initializing rich presence...";
         presence.startTimestamp = time(0);
-        presence.largeImageKey = "sdrpp_large";
+        presence.largeImageKey = "sdriak_large";
         presence.smallImageKey = "github";
-        presence.smallImageText = "SDRPlusPlus on GitHub";
+        presence.smallImageText = "SDRIAK on GitHub";
         Discord_UpdatePresence(&presence);
     }
 

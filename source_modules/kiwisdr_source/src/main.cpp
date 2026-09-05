@@ -37,7 +37,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "kiwisdr_source",
-    /* Description:     */ "KiwiSDR WebSDR source module for SDR++",
+    /* Description:     */ "KiwiSDR WebSDR source module for SDRIAK",
     /* Author:          */ "san",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ 1

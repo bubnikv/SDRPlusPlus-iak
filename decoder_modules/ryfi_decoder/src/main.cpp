@@ -17,7 +17,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "ryfi_decoder",
-    /* Description:     */ "RyFi decoder for SDR++",
+    /* Description:     */ "RyFi decoder for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 0,
     /* Max instances    */ -1

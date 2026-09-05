@@ -1,5 +1,5 @@
 #
-# FFTW3 — single-precision float build (matches Android kit / SDR++ usage).
+# FFTW3 — single-precision float build (matches Android kit / SDRIAK usage).
 # Pure-CMake upstream, simplest possible recipe.
 #
 # Hash sourced from https://www.fftw.org/release-notes.html — verify on first

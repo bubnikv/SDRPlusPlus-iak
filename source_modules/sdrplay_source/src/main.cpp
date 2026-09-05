@@ -16,7 +16,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "sdrplay_source",
-    /* Description:     */ "SDRplay source module for SDR++",
+    /* Description:     */ "SDRplay source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 2, 0,
     /* Max instances    */ 1

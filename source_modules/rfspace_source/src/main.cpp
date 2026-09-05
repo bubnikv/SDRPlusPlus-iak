@@ -15,7 +15,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "rfspace_source",
-    /* Description:     */ "RFspace source module for SDR++",
+    /* Description:     */ "RFspace source module for SDRIAK",
     /* Author:          */ "Ryzerth",
     /* Version:         */ 0, 1, 1,
     /* Max instances    */ 1

@@ -21,7 +21,7 @@
 
 SDRPP_MOD_INFO{
     /* Name:            */ "hydrasdr_source",
-    /* Description:     */ "HydraSDR source module for SDR++",
+    /* Description:     */ "HydraSDR source module for SDRIAK",
     /* Author:          */ "Ryzerth/B.VERNOUX",
     /* Version:         */ 0, 1, 1,
     /* Max instances    */ 1
