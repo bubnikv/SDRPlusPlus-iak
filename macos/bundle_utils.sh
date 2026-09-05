@@ -56,13 +56,22 @@ bundle_get_exec_deps() {
 }
 
 # bundle_get_exec_rpaths [exec_path]
+#
+# Prints the binary's LC_RPATH entries, one per line, deduplicated.
+#
+# NOTE: `otool -l` dumps the load commands of *every* architecture of a
+# universal binary, so a fat dylib (e.g. SDRplay's x86_64 + arm64
+# libsdrplay_api.so.3) lists each of its rpaths once per slice. install_name_tool
+# operates on the whole fat file at once, so a second `-delete_rpath` of the same
+# path fails with "no LC_RPATH load command with path: ... found" and, under
+# `set -e`, aborts the whole bundling step. Dedupe here so each rpath is deleted
+# exactly once. Matching on the LC_RPATH command (rather than grepping for
+# "path ") also avoids picking up unrelated load-command fields.
 bundle_get_exec_rpaths() {
-    RPATHS_RAW=$(otool -l $1 | grep "path\ ")
-
-    # Iterate over all lines
-    echo "$RPATHS_RAW" | while read -r RPATH; do
-        echo $(bundle_get_second_element $RPATH)
-    done
+    otool -l "$1" | awk '
+        $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+        in_rpath && $1 == "path" { if (!seen[$2]++) print $2; in_rpath = 0 }
+    '
 }
 
 # bundle_find_full_path [dep_path] [exec_rpaths]
@@ -175,15 +184,27 @@ bundle_install_binary() {
         install_name_tool -change $DEP @rpath/$DEP_NAME $EXEC_DEST
     done
 
-    # Remove all its rpaths
+    # Remove all its rpaths.
+    #
+    # Deliberately fatal (callers run under `set -e`). install_name_tool has no
+    # -arch selector: it edits every slice of a universal binary or none, and if
+    # one slice lacks the requested rpath it errors out without writing anything.
+    # So a binary whose slices carry *different* rpaths cannot be normalized by
+    # this function at all — it would need lipo -thin / edit / lipo -create.
+    # Don't paper over that with a warning: a swallowed failure leaves a slice
+    # holding a stale absolute rpath and, worse, makes the -add_rpath below fail
+    # as a duplicate, silently shipping an .app that can't resolve its bundled
+    # dylibs on one architecture. Fail loudly instead; install_name_tool's own
+    # message names the path and the architecture.
     if [ "$RPATHS" != "" ]; then
         echo "$RPATHS" | while read -r RPATH; do
-            install_name_tool -delete_rpath $RPATH $EXEC_DEST
+            install_name_tool -delete_rpath "$RPATH" "$EXEC_DEST"
         done
     fi
-    
-    # Add new single rpath
-    install_name_tool -add_rpath @loader_path/../Frameworks $EXEC_DEST
+
+    # Add new single rpath. Safe unconditionally: every pre-existing rpath was
+    # deleted above (or we aborted), so this cannot collide with a leftover.
+    install_name_tool -add_rpath @loader_path/../Frameworks "$EXEC_DEST"
 }
 
 bundle_create_icns() {
