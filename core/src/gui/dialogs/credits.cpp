@@ -35,9 +35,9 @@ namespace credits {
         ImGui::BeginPopupModal("Credits", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
         ImGui::PushFont(style::hugeFont);
-        ImGui::TextUnformatted("SDRIAK      ");
+        ImGui::TextUnformatted("SDRIAK");
         ImGui::PopFont();
-        ImGui::SameLine();
+        ImGui::SameLine(ImGui::GetContentRegionMax().x - imageSize.x, 0.0f);
         ImGui::Image(icons::LOGO, imageSize);
         ImGui::Spacing();
         ImGui::Spacing();

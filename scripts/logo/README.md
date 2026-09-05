@@ -11,8 +11,9 @@ larger without visibly bending the wave.
 Both sinusoidal field surfaces are calculated from their amplitudes and phase,
 closed back along the propagation axis, filled translucently, and outlined.
 The SVG and raster outputs share the same mathematical scene definition.
-The Windows/Linux artwork uses a compact black plate with transparent
-surroundings. The legacy macOS iconset uses a premasked 824 px plate with
+The Windows/Linux artwork uses a black plate that reaches the canvas edges,
+with a Windows-style 2 px corner radius on the 48 px design grid. The legacy
+macOS iconset uses a premasked 824 px plate with
 continuous corners and a subtle shadow on its 1024 px canvas, following the
 legacy macOS production grid. Only the graph is scaled for each platform and
 target size; the background plate and its border remain fixed.
@@ -21,9 +22,10 @@ Raster files intentionally omit embedded DPI metadata: Windows selects an ICO
 entry by pixel dimensions, and Android selects density-qualified resources.
 The renderer uses proportional stroke widths at normal sizes and minimum pixel
 widths at small sizes so the wave outlines remain dominant while axes and field
-vectors remain visible. Desktop icons use a 1.20 graph scale at 48 px and
-larger, 1.24 at 32 px, and 1.28 at 24 px and smaller. The Windows 16, 24, and
-32 px ICO entries and the equivalent Linux variants omit the E/H cross because
+vectors remain visible. Windows, Linux, and in-app icons use a 1.40 graph scale
+at 48 px and larger, 1.54 at 32 px, and 1.50 at 24 px and smaller. The Windows
+16, 24, and 32 px ICO entries and the equivalent Linux variants omit the E/H
+cross because
 it is not independently resolvable at those sizes; 48 px and larger variants
 retain it. The 16, 22, and 24 px Linux variants and the 16 and 24 px Windows
 entries also omit field-vector hatching. The 32 px entries use four simplified
@@ -46,11 +48,12 @@ python scripts/logo/generate_logo.py --install
 ```
 
 Platform-specific desktop sources are grouped under `root/res/icons/windows`,
-`root/res/icons/macos`, and `root/res/icons/linux`. The universal `sdriak.png`
-remains directly under `root/res/icons` because the About/Credits dialog and
-other runtime UI use it on every platform. Android launcher assets remain in
-Android's density-qualified resource directories as required by its resource
-system.
+`root/res/icons/macos`, and `root/res/icons/linux`. The full-bleed universal
+`sdriak.png` remains directly under `root/res/icons` for the About/Credits and
+loading dialogs. Full-bleed, size-specific toolbar variants live under
+`root/res/icons/ui` so the top-right button stays crisp at each UI scale.
+Android launcher assets remain in Android's density-qualified resource
+directories as required by its resource system.
 
 The Windows ICO contains a PNG-compressed 256 px entry plus conventional 32-bit
 DIB entries at 128, 64, 48, 32, 24, and 16 px. This hybrid layout follows the
@@ -63,8 +66,9 @@ Android 8 and newer use the generated adaptive icon in
 background drawables. Its foreground graph scale is 0.94 in the 108 dp layer.
 Android 13 and newer select the `mipmap-anydpi-v33` variant, which adds a
 monochrome layer for themed launcher icons. Android 6 and 7 fall back to
-density-specific legacy PNGs from `mipmap-mdpi` through `mipmap-xxxhdpi`, with
-a 1.18 graph scale.
+density-specific legacy PNGs from `mipmap-mdpi` through `mipmap-xxxhdpi`. Their
+rounded backing plate reaches the canvas edges while the graph retains its
+conservative 1.18 scale for launcher compatibility.
 
 The macOS source remains a premasked, size-specific iconset under
 `root/res/icons/macos` because the current bundle script converts it into a
@@ -77,13 +81,12 @@ effects itself.
 
 Linux packages install authored 16, 22, 24, 32, 48, 64, 96, 128, 192, 256,
 and 512 px PNGs in the corresponding `hicolor` application-icon directories.
-The universal `sdriak.png`, which is always packaged for the About/Credits,
-loading-screen, and toolbar logo, also supplies the identical 512 px hicolor
-and GLFW representation. The other Linux variants live under
-`root/res/icons/linux`. The desktop entry uses the theme name `sdriak`; on X11,
-GLFW loads the authored variants directly instead of reducing that 512 px
-master. Wayland resolves the icon through the desktop entry, and macOS uses the
-bundle's ICNS icon.
+The universal `sdriak.png`, which is always packaged for the About/Credits and
+loading dialogs, also supplies the identical 512 px hicolor and GLFW
+representation. The other Linux variants live under `root/res/icons/linux`.
+The desktop entry uses the theme name `sdriak`; on X11, GLFW loads the authored
+variants directly instead of reducing that 512 px master. Wayland resolves the
+icon through the desktop entry, and macOS uses the bundle's ICNS icon.
 
 Use `--check` (with optional `--install`) to verify that committed outputs are
 byte-for-byte current without modifying them.

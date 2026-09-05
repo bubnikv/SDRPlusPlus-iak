@@ -16,6 +16,7 @@ namespace icons {
     extern ImTextureID KEYPAD;
     extern ImTextureID CONTRAST;
 
+    ImTextureID toolbarLogo(int physicalSize);
     GLuint loadTexture(std::string path);
     bool load(std::string resDir);
 }

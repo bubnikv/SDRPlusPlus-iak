@@ -598,7 +598,20 @@ void MainWindow::draw() {
     // only happened to look centred at uiScale 1.
     ImGui::SetCursorPosX(ImGui::GetWindowSize().x - logoRightInset - logoSize);
     centerInRow(logoSize);
-    if (ImGui::ImageButton(icons::LOGO, ImVec2(logoSize, logoSize), ImVec2(0, 0), ImVec2(1, 1), 0)) {
+    // Use an authored, full-bleed raster near the physical button size here.
+    // The logo supplies its own black plate, so a second ImGui button surface
+    // would add an unwanted background around it.
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+    const bool logoClicked = ImGui::ImageButton(
+        icons::toolbarLogo((int)logoSize),
+        ImVec2(logoSize, logoSize),
+        ImVec2(0, 0),
+        ImVec2(1, 1),
+        0);
+    ImGui::PopStyleColor(3);
+    if (logoClicked) {
         showCredits = true;
     }
 

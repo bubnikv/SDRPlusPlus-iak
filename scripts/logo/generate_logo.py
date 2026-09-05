@@ -27,9 +27,11 @@ Point = tuple[float, float]
 Color = tuple[int, int, int, int]
 
 CANVAS_SIZE = 1024
-DESKTOP_BACKGROUND_SIZE = 880
+WINDOWS_LINUX_BACKGROUND_SIZE = CANVAS_SIZE
+WINDOWS_LINUX_CORNER_RADIUS_RATIO = 2.0 / 48.0
+ANDROID_LEGACY_BACKGROUND_SIZE = CANVAS_SIZE
+ANDROID_LEGACY_CORNER_RADIUS_RATIO = 190.0 / 920.0
 MACOS_BACKGROUND_SIZE = 824
-BACKGROUND_RADIUS_RATIO = 190.0 / 920.0
 MACOS_CORNER_EXPONENT = 5.0
 MACOS_SHADOW_OFFSET_Y = 10.0
 MACOS_SHADOW_BLUR_RADIUS = 18.0
@@ -64,10 +66,11 @@ SIMPLIFIED_FIELD_VECTOR_FRACTIONS = (1 / 6, 2 / 6, 4 / 6, 5 / 6)
 ANDROID_ADAPTIVE_GRAPH_SCALE = 0.94
 ANDROID_LEGACY_GRAPH_SCALE = 1.18
 MACOS_GRAPH_SCALE = 1.12
-LARGE_DESKTOP_GRAPH_SCALE = 1.20
-MEDIUM_DESKTOP_GRAPH_SCALE = 1.24
-MICRO_DESKTOP_GRAPH_SCALE = 1.28
+LARGE_DESKTOP_GRAPH_SCALE = 1.40
+MEDIUM_DESKTOP_GRAPH_SCALE = 1.54
+MICRO_DESKTOP_GRAPH_SCALE = 1.50
 ICO_SIZES = (256, 128, 64, 48, 32, 24, 16)
+TOOLBAR_ICON_SIZES = (32, 48, 64, 96, 128)
 LINUX_ICON_SIZES = (256, 192, 128, 96, 64, 48, 32, 24, 22, 16)
 MACOS_ICONSET_SLOTS = (
     ("icon_16x16.png", 16),
@@ -342,8 +345,8 @@ def build_svg(*, scientific: bool) -> bytes:
         svg_tag("stop"),
         {"offset": "1", "stop-color": css_color(BG_END)},
     )
-    background_size = DESKTOP_BACKGROUND_SIZE
-    background_radius = background_size * BACKGROUND_RADIUS_RATIO
+    background_size = WINDOWS_LINUX_BACKGROUND_SIZE
+    background_radius = background_size * WINDOWS_LINUX_CORNER_RADIUS_RATIO
     ET.SubElement(
         root,
         svg_tag("rect"),
@@ -501,7 +504,8 @@ def draw_polyline(
 def build_raster_master(
     *,
     target_size: int = CANVAS_SIZE,
-    background_size: int = DESKTOP_BACKGROUND_SIZE,
+    background_size: int = WINDOWS_LINUX_BACKGROUND_SIZE,
+    background_radius_ratio: float = WINDOWS_LINUX_CORNER_RADIUS_RATIO,
     graph_scale: float = LARGE_DESKTOP_GRAPH_SCALE,
     macos_legacy: bool = False,
 ) -> "PillowImage.Image":
@@ -534,7 +538,7 @@ def build_raster_master(
 
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     inset = (CANVAS_SIZE - background_size) / 2.0 * scale
-    background_radius = background_size * BACKGROUND_RADIUS_RATIO * scale
+    background_radius = background_size * background_radius_ratio * scale
     plate_points = (
         continuous_rectangle_points(size, inset)
         if macos_legacy
@@ -1005,7 +1009,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         icon_dir = repo_root / "root" / "res" / "icons"
         macos_iconset_dir = icon_dir / "macos" / "sdriak.iconset"
         android_res = repo_root / "android" / "app" / "src" / "main" / "res"
-        master = build_raster_master(target_size=512)
+        master = build_raster_master(
+            target_size=512,
+            graph_scale=desktop_graph_scale(512),
+        )
         icon_png = png_bytes(master, 512)
         outputs.extend(
             [
@@ -1054,6 +1061,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 png_bytes(
                     build_raster_master(
                         target_size=size,
+                        background_size=ANDROID_LEGACY_BACKGROUND_SIZE,
+                        background_radius_ratio=ANDROID_LEGACY_CORNER_RADIUS_RATIO,
                         graph_scale=ANDROID_LEGACY_GRAPH_SCALE,
                     ),
                     size,
@@ -1073,6 +1082,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
             )
             for size in LINUX_ICON_SIZES
+        )
+        outputs.extend(
+            (
+                icon_dir / "ui" / f"sdriak-toolbar-{size}.png",
+                png_bytes(
+                    build_raster_master(
+                        target_size=size,
+                        graph_scale=desktop_graph_scale(size),
+                    ),
+                    size,
+                ),
+            )
+            for size in TOOLBAR_ICON_SIZES
         )
 
     return 0 if all(emit(path, content, check=args.check) for path, content in outputs) else 1

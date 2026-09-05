@@ -323,6 +323,11 @@ endif ()
 set(_sdrpp_executable_sources "src/main.cpp")
 if (WIN32)
     list(APPEND _sdrpp_executable_sources "win32/resources.rc")
+    set_property(
+        SOURCE "win32/resources.rc"
+        APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_SOURCE_DIR}/root/res/icons/windows/sdriak.ico"
+    )
 endif ()
 if (MSVC)
     # utf8.manifest opts the process into the UTF-8 ANSI codepage (Win10 1903+);
