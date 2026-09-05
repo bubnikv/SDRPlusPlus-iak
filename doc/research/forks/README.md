@@ -5,6 +5,7 @@ worth merging. Kept as raw notes on purpose — one line of description, then th
 links. Forks that got a full review have their own file here:
 
 - [Brown (sannysanoff)](brown.md) — TX, FT8, noise reduction, mobile UI; re-reviewed 2026-08-09 (agent/e2e test infra, 3 small fixes worth taking)
+- [M0OPK Brown panadapter fork](m0opk.md) — fixed-IF/mode-offset infrastructure, two-way Icom/Yaesu/rigctl control, filter sync; QMX architecture comparison
 - [qrp73](qrp73.md)
 - [ericek111](ericek111.md)
 - [qmx-panadapter (SteffenLav)](qmx-panadapter.md)
