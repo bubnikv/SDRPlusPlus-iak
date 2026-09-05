@@ -223,6 +223,7 @@ bundle_create_icns() {
     sips -z 256 256   $1 --out $2.iconset/icon_256x256.png
     sips -z 512 512   $1 --out $2.iconset/icon_256x256@2x.png
     sips -z 512 512   $1 --out $2.iconset/icon_512x512.png
+    sips -z 1024 1024 $1 --out $2.iconset/icon_512x512@2x.png
     iconutil -c icns $2.iconset
     rm -R $2.iconset
 }

@@ -37,6 +37,15 @@ jobs:
           with:
             fetch-depth: 0
 
+        - uses: actions/setup-python@v6
+          with:
+            python-version: '3.12'
+
+        - name: Verify generated logo assets
+          run: |
+            python -m pip install -r scripts/logo/requirements-logo.txt
+            python scripts/logo/generate_logo.py --install --check
+
         - name: Read version
           id: read
           run: |

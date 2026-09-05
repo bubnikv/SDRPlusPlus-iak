@@ -404,12 +404,29 @@ configure_file(${CMAKE_SOURCE_DIR}/sdrpp_module.cmake ${CMAKE_CURRENT_BINARY_DIR
 
 # Install directives
 install(TARGETS sdrpp DESTINATION bin)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/ DESTINATION share/sdriak)
+install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/root/res/
+    DESTINATION share/sdriak
+    PATTERN "sdriak.ico" EXCLUDE
+    PATTERN "sdriak.macos.png" EXCLUDE
+)
 configure_file(${CMAKE_SOURCE_DIR}/sdriak.desktop ${CMAKE_CURRENT_BINARY_DIR}/sdriak.desktop @ONLY)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdriak.desktop DESTINATION share/applications)
     install(FILES ${CMAKE_SOURCE_DIR}/license DESTINATION share/doc/sdriak RENAME copyright)
+    foreach (_sdriak_icon_size 16 22 24 32 48 64 96 128 192 256)
+        install(
+            FILES ${CMAKE_SOURCE_DIR}/root/res/icons/sdriak-${_sdriak_icon_size}.png
+            DESTINATION share/icons/hicolor/${_sdriak_icon_size}x${_sdriak_icon_size}/apps
+            RENAME sdriak.png
+        )
+    endforeach ()
+    install(
+        FILES ${CMAKE_SOURCE_DIR}/root/res/icons/sdriak.png
+        DESTINATION share/icons/hicolor/512x512/apps
+        RENAME sdriak.png
+    )
 
     # Bundled-shared deps (sdrplay's closed-source blob, librfnm, any other dep
     # the policy resolved to distro:bundled distro:shared) live under
@@ -437,6 +454,9 @@ if (MSVC)
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/root" "${_sdrpp_windows_bundle_stage_dir}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_sdrpp_windows_bundle_stage_dir}/modules"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:sdrpp>" "${_sdrpp_windows_bundle_stage_dir}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${_sdrpp_windows_bundle_stage_dir}/res/icons/sdriak.ico"
+            "${_sdrpp_windows_bundle_stage_dir}/res/icons/sdriak.macos.png"
         COMMENT "Staging Windows bundle under ${SDRPP_WINDOWS_BUNDLE_STAGE_ROOT}"
         VERBATIM)
     add_dependencies(stage_windows_bundle sdrpp)

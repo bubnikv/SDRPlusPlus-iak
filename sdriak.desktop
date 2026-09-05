@@ -5,5 +5,5 @@ Type=Application
 Terminal=false
 Exec=@CMAKE_INSTALL_PREFIX@/bin/sdriak
 Name=SDRIAK
-Icon=@CMAKE_INSTALL_PREFIX@/share/sdriak/icons/sdriak.png
+Icon=sdriak
 Categories=HamRadio

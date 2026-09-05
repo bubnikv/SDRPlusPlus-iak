@@ -58,14 +58,13 @@ make install DESTDIR="${APPDIR}"
 
 # linuxdeploy expects the icon and desktop file at the AppDir root in addition
 # to the standard usr/share/... locations.
-cp "${APPDIR}/usr/share/${APP_NAME}/icons/sdriak.png" "${APPDIR}/${APP_NAME}.png"
+cp "${APPDIR}/usr/share/icons/hicolor/512x512/apps/${APP_NAME}.png" "${APPDIR}/${APP_NAME}.png"
 
 # CMake-generated desktop file points at /usr/bin/sdriak. AppImages need
-# Exec= to be a bare binary name and Icon= to be a basename (no extension).
+# Exec= to be a bare binary name; Icon= is already a basename with no extension.
 DESKTOP_SRC="${APPDIR}/usr/share/applications/${APP_NAME}.desktop"
 DESKTOP_DST="${APPDIR}/${APP_NAME}.desktop"
 sed -e "s|^Exec=.*|Exec=${APP_NAME}|" \
-    -e "s|^Icon=.*|Icon=${APP_NAME}|" \
     "${DESKTOP_SRC}" > "${DESKTOP_DST}"
 cp "${DESKTOP_DST}" "${DESKTOP_SRC}"
 

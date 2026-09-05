@@ -15,6 +15,9 @@ rm -rf "$BUNDLE"
 bundle_create_struct "$BUNDLE"
 
 cp -R "$REPO_ROOT/root/res"/* "$BUNDLE/Contents/Resources/"
+rm -f "$BUNDLE/Contents/Resources/icons/sdriak.ico"
+rm -f "$BUNDLE/Contents/Resources/icons/sdriak.macos.png"
+rm -f "$BUNDLE/Contents/Resources/icons"/sdriak-[0-9]*.png
 bundle_create_icns "$REPO_ROOT/root/res/icons/sdriak.macos.png" "$BUNDLE/Contents/Resources/sdriak"
 
 eval "$("$REPO_ROOT/scripts/get_version.sh" "$REPO_ROOT")"

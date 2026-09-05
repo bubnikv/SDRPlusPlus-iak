@@ -8,9 +8,9 @@
 #include <utils/opengl_include_code.h>
 #include <version.h>
 #include <core.h>
-#include <filesystem>
+#ifndef __APPLE__
 #include <stb_image.h>
-#include <stb_image_resize.h>
+#endif
 
 namespace backend {
     const char* OPENGL_VERSIONS_GLSL[] = {
@@ -137,46 +137,35 @@ namespace backend {
             common::initScaleState(scaleState, resDir, xscale, userScaleFactor);
         }
 
-        // Load app icon
-        if (!std::filesystem::is_regular_file(resDir + "/icons/sdriak.png")) {
-            flog::error("Icon file '{0}' doesn't exist!", resDir + "/icons/sdriak.png");
+#ifndef __APPLE__
+        // Load the authored variants so micro icons keep their simplified
+        // geometry instead of inheriting all detail from the 512 px artwork.
+        // macOS uses the application bundle's ICNS icon and does not support
+        // per-window icons through GLFW.
+        const int iconSizes[] = { 16, 22, 24, 32, 48, 64, 96, 128, 192, 256, 512 };
+        GLFWimage icons[sizeof(iconSizes) / sizeof(iconSizes[0])] = {};
+        int iconCount = 0;
+        for (int iconSize : iconSizes) {
+            std::string iconPath = iconSize == 512
+                ? resDir + "/icons/sdriak.png"
+                : resDir + "/icons/sdriak-" + std::to_string(iconSize) + ".png";
+            GLFWimage& icon = icons[iconCount];
+            icon.pixels = stbi_load(iconPath.c_str(), &icon.width, &icon.height, 0, 4);
+            if (icon.pixels == nullptr) {
+                flog::warn("Failed to load icon file '{0}'", iconPath);
+                continue;
+            }
+            iconCount++;
+        }
+        if (iconCount == 0) {
+            flog::error("No application icon variants could be loaded from '{0}/icons'", resDir);
             return 1;
         }
-
-        GLFWimage icons[10];
-        icons[0].pixels = stbi_load(((std::string)(resDir + "/icons/sdriak.png")).c_str(), &icons[0].width, &icons[0].height, 0, 4);
-        icons[1].pixels = (unsigned char*)malloc(16 * 16 * 4);
-        icons[1].width = icons[1].height = 16;
-        icons[2].pixels = (unsigned char*)malloc(24 * 24 * 4);
-        icons[2].width = icons[2].height = 24;
-        icons[3].pixels = (unsigned char*)malloc(32 * 32 * 4);
-        icons[3].width = icons[3].height = 32;
-        icons[4].pixels = (unsigned char*)malloc(48 * 48 * 4);
-        icons[4].width = icons[4].height = 48;
-        icons[5].pixels = (unsigned char*)malloc(64 * 64 * 4);
-        icons[5].width = icons[5].height = 64;
-        icons[6].pixels = (unsigned char*)malloc(96 * 96 * 4);
-        icons[6].width = icons[6].height = 96;
-        icons[7].pixels = (unsigned char*)malloc(128 * 128 * 4);
-        icons[7].width = icons[7].height = 128;
-        icons[8].pixels = (unsigned char*)malloc(196 * 196 * 4);
-        icons[8].width = icons[8].height = 196;
-        icons[9].pixels = (unsigned char*)malloc(256 * 256 * 4);
-        icons[9].width = icons[9].height = 256;
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[1].pixels, 16, 16, 16 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[2].pixels, 24, 24, 24 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[3].pixels, 32, 32, 32 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[4].pixels, 48, 48, 48 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[5].pixels, 64, 64, 64 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[6].pixels, 96, 96, 96 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[7].pixels, 128, 128, 128 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[8].pixels, 196, 196, 196 * 4, 4);
-        stbir_resize_uint8(icons[0].pixels, icons[0].width, icons[0].height, icons[0].width * 4, icons[9].pixels, 256, 256, 256 * 4, 4);
-        glfwSetWindowIcon(window, 10, icons);
-        stbi_image_free(icons[0].pixels);
-        for (int i = 1; i < 10; i++) {
-            free(icons[i].pixels);
+        glfwSetWindowIcon(window, iconCount, icons);
+        for (int i = 0; i < iconCount; i++) {
+            stbi_image_free(icons[i].pixels);
         }
+#endif
 
         // Add callback for max/min if GLFW supports it
     #if (GLFW_VERSION_MAJOR == 3) && (GLFW_VERSION_MINOR >= 3)

@@ -57,7 +57,14 @@ FIELD_VECTORS_MIN_SIZE = 32
 FULL_FIELD_VECTORS_MIN_SIZE = 48
 FIELD_VECTOR_FRACTIONS = (1 / 8, 2 / 8, 3 / 8, 5 / 8, 6 / 8, 7 / 8)
 SIMPLIFIED_FIELD_VECTOR_FRACTIONS = (1 / 6, 2 / 6, 4 / 6, 5 / 6)
+ANDROID_ADAPTIVE_GRAPH_SCALE = 0.94
+ANDROID_LEGACY_GRAPH_SCALE = 1.18
+MACOS_GRAPH_SCALE = 1.18
+LARGE_DESKTOP_GRAPH_SCALE = 1.20
+MEDIUM_DESKTOP_GRAPH_SCALE = 1.24
+MICRO_DESKTOP_GRAPH_SCALE = 1.28
 ICO_SIZES = (256, 128, 64, 48, 32, 24, 16)
+LINUX_ICON_SIZES = (256, 192, 128, 96, 64, 48, 32, 24, 22, 16)
 ANDROID_LEGACY_SIZES = {
     "mdpi": 48,
     "hdpi": 72,
@@ -172,6 +179,20 @@ def h_wave_points() -> list[Point]:
 def filled_surface(curve: Sequence[Point]) -> list[Point]:
     """Close a wave curve back along its propagation-axis baseline."""
     return [*curve, *reversed(baseline_points())]
+
+
+def graph_points(points: Iterable[Point], graph_scale: float) -> list[Point]:
+    """Scale projected graph geometry about the center of the icon."""
+    return [(x * graph_scale, y * graph_scale) for x, y in points]
+
+
+def desktop_graph_scale(target_size: int) -> float:
+    """Give simplified small desktop icons more room than full-detail ones."""
+    if target_size <= 24:
+        return MICRO_DESKTOP_GRAPH_SCALE
+    if target_size <= 32:
+        return MEDIUM_DESKTOP_GRAPH_SCALE
+    return LARGE_DESKTOP_GRAPH_SCALE
 
 
 def svg_points(points: Iterable[Point]) -> str:
@@ -323,13 +344,16 @@ def build_svg(*, scientific: bool) -> bytes:
         },
     )
 
-    e_curve = e_wave_points()
-    h_curve = h_wave_points()
+    graph_scale = 1.0 if scientific else LARGE_DESKTOP_GRAPH_SCALE
+    e_curve_base = e_wave_points()
+    h_curve_base = h_wave_points()
+    e_curve = graph_points(e_curve_base, graph_scale)
+    h_curve = graph_points(h_curve_base, graph_scale)
 
     # Filled field surfaces sit behind their outlines and all three axes.
     add_path(
         root,
-        filled_surface(h_curve),
+        graph_points(filled_surface(h_curve_base), graph_scale),
         fill=H_FILL,
         stroke=None,
         close=True,
@@ -337,7 +361,7 @@ def build_svg(*, scientific: bool) -> bytes:
     )
     add_path(
         root,
-        filled_surface(e_curve),
+        graph_points(filled_surface(e_curve_base), graph_scale),
         fill=E_FILL,
         stroke=None,
         close=True,
@@ -345,30 +369,52 @@ def build_svg(*, scientific: bool) -> bytes:
     )
     for index, distance in enumerate(field_vector_distances()):
         phase = math.sin(2.0 * math.pi * (distance - WAVE_START) / (WAVE_END - WAVE_START))
-        origin = project(distance, 0.0, 0.0)
+        origin = graph_points([project(distance, 0.0, 0.0)], graph_scale)[0]
         add_line(
             root,
             origin,
-            project(distance, E_AMPLITUDE * phase, 0.0),
+            graph_points(
+                [project(distance, E_AMPLITUDE * phase, 0.0)], graph_scale
+            )[0],
             (*E_STROKE[:3], 72),
-            FIELD_VECTOR_WIDTH,
+            FIELD_VECTOR_WIDTH * graph_scale,
             f"E-field vector {index}",
         )
         add_line(
             root,
             origin,
-            project(distance, 0.0, H_AMPLITUDE * phase),
+            graph_points(
+                [project(distance, 0.0, H_AMPLITUDE * phase)], graph_scale
+            )[0],
             (*H_STROKE[:3], 72),
-            FIELD_VECTOR_WIDTH,
+            FIELD_VECTOR_WIDTH * graph_scale,
             f"H-field vector {index}",
         )
 
-    add_line(root, project(K_AXIS_START, 0.0, 0.0), project(K_AXIS_END, 0.0, 0.0), K_AXIS, K_AXIS_WIDTH, "Propagation axis k")
-    add_line(root, project(FIELD_AXES_X, -185.0, 0.0), project(FIELD_AXES_X, 185.0, 0.0), E_AXIS, FIELD_AXIS_WIDTH, "Electric-field axis E")
-    add_line(root, project(FIELD_AXES_X, 0.0, -155.0), project(FIELD_AXES_X, 0.0, 155.0), H_AXIS, FIELD_AXIS_WIDTH, "Magnetic-field axis H")
+    k_start, k_end = graph_points(
+        [project(K_AXIS_START, 0.0, 0.0), project(K_AXIS_END, 0.0, 0.0)],
+        graph_scale,
+    )
+    e_axis_start, e_axis_end = graph_points(
+        [
+            project(FIELD_AXES_X, -185.0, 0.0),
+            project(FIELD_AXES_X, 185.0, 0.0),
+        ],
+        graph_scale,
+    )
+    h_axis_start, h_axis_end = graph_points(
+        [
+            project(FIELD_AXES_X, 0.0, -155.0),
+            project(FIELD_AXES_X, 0.0, 155.0),
+        ],
+        graph_scale,
+    )
+    add_line(root, k_start, k_end, K_AXIS, K_AXIS_WIDTH * graph_scale, "Propagation axis k")
+    add_line(root, e_axis_start, e_axis_end, E_AXIS, FIELD_AXIS_WIDTH * graph_scale, "Electric-field axis E")
+    add_line(root, h_axis_start, h_axis_end, H_AXIS, FIELD_AXIS_WIDTH * graph_scale, "Magnetic-field axis H")
 
-    add_path(root, h_curve, fill=None, stroke=H_STROKE, width=WAVE_STROKE_WIDTH, title="H-field sine curve")
-    add_path(root, e_curve, fill=None, stroke=E_STROKE, width=WAVE_STROKE_WIDTH, title="E-field sine curve")
+    add_path(root, h_curve, fill=None, stroke=H_STROKE, width=WAVE_STROKE_WIDTH * graph_scale, title="H-field sine curve")
+    add_path(root, e_curve, fill=None, stroke=E_STROKE, width=WAVE_STROKE_WIDTH * graph_scale, title="E-field sine curve")
     if scientific:
         add_svg_label(root, "E", (-270.0, 390.0), E_STROKE, 64)
         add_svg_label(root, "H", (-455.0, 55.0), H_STROKE, 64)
@@ -379,8 +425,13 @@ def build_svg(*, scientific: bool) -> bytes:
     return xml + b"\n"
 
 
-def scaled_points(points: Iterable[Point], scale: float) -> list[tuple[float, float]]:
-    return [(x * scale, y * scale) for x, y in map(to_screen, points)]
+def scaled_points(
+    points: Iterable[Point], scale: float, graph_scale: float
+) -> list[tuple[float, float]]:
+    return [
+        (x * scale, y * scale)
+        for x, y in map(to_screen, graph_points(points, graph_scale))
+    ]
 
 
 def composite_draw(
@@ -410,7 +461,10 @@ def draw_polyline(
 
 
 def build_raster_master(
-    *, target_size: int = CANVAS_SIZE, background_size: int = DESKTOP_BACKGROUND_SIZE
+    *,
+    target_size: int = CANVAS_SIZE,
+    background_size: int = DESKTOP_BACKGROUND_SIZE,
+    graph_scale: float = LARGE_DESKTOP_GRAPH_SCALE,
 ) -> "PillowImage.Image":
     try:
         from PIL import Image, ImageChops, ImageDraw
@@ -422,10 +476,21 @@ def build_raster_master(
     size = target_size * RASTER_SCALE
     scale = size / CANVAS_SIZE
 
-    def line_width(design_width: float, minimum_pixels: float) -> int:
+    def line_width(
+        design_width: float,
+        minimum_pixels: float,
+        *,
+        scale_with_graph: bool = True,
+    ) -> int:
+        content_scale = graph_scale if scale_with_graph else 1.0
         return max(
             1,
-            round(max(design_width * scale, minimum_pixels * RASTER_SCALE)),
+            round(
+                max(
+                    design_width * content_scale * scale,
+                    minimum_pixels * RASTER_SCALE,
+                )
+            ),
         )
 
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -456,7 +521,11 @@ def build_raster_master(
             (inset, inset, size - inset, size - inset),
             radius=background_radius,
             outline=BORDER,
-            width=line_width(5.0, BORDER_MIN_PIXELS),
+            width=line_width(
+                5.0,
+                BORDER_MIN_PIXELS,
+                scale_with_graph=False,
+            ),
         ),
     )
 
@@ -465,11 +534,17 @@ def build_raster_master(
 
     image = composite_draw(
         image,
-        lambda layer: layer.polygon(scaled_points(filled_surface(h_curve), scale), fill=H_FILL),
+        lambda layer: layer.polygon(
+            scaled_points(filled_surface(h_curve), scale, graph_scale),
+            fill=H_FILL,
+        ),
     )
     image = composite_draw(
         image,
-        lambda layer: layer.polygon(scaled_points(filled_surface(e_curve), scale), fill=E_FILL),
+        lambda layer: layer.polygon(
+            scaled_points(filled_surface(e_curve), scale, graph_scale),
+            fill=E_FILL,
+        ),
     )
     def draw_vectors(layer: "PillowImageDraw.ImageDraw") -> None:
         if target_size < FIELD_VECTORS_MIN_SIZE:
@@ -479,28 +554,84 @@ def build_raster_master(
         )
         for distance in distances:
             phase = math.sin(2.0 * math.pi * (distance - WAVE_START) / (WAVE_END - WAVE_START))
-            origin = scaled_points([project(distance, 0.0, 0.0)], scale)[0]
-            e_end = scaled_points([project(distance, E_AMPLITUDE * phase, 0.0)], scale)[0]
-            h_end = scaled_points([project(distance, 0.0, H_AMPLITUDE * phase)], scale)[0]
+            origin = scaled_points(
+                [project(distance, 0.0, 0.0)], scale, graph_scale
+            )[0]
+            e_end = scaled_points(
+                [project(distance, E_AMPLITUDE * phase, 0.0)],
+                scale,
+                graph_scale,
+            )[0]
+            h_end = scaled_points(
+                [project(distance, 0.0, H_AMPLITUDE * phase)],
+                scale,
+                graph_scale,
+            )[0]
             draw_polyline(layer, [origin, e_end], (*E_STROKE[:3], 72), line_width(FIELD_VECTOR_WIDTH, VECTOR_MIN_PIXELS), round_ends=False)
             draw_polyline(layer, [origin, h_end], (*H_STROKE[:3], 72), line_width(FIELD_VECTOR_WIDTH, VECTOR_MIN_PIXELS), round_ends=False)
 
     image = composite_draw(image, draw_vectors)
 
     def draw_axes(layer: "PillowImageDraw.ImageDraw") -> None:
-        draw_polyline(layer, scaled_points([project(K_AXIS_START, 0.0, 0.0), project(K_AXIS_END, 0.0, 0.0)], scale), K_AXIS, line_width(K_AXIS_WIDTH, AXIS_MIN_PIXELS))
+        draw_polyline(
+            layer,
+            scaled_points(
+                [
+                    project(K_AXIS_START, 0.0, 0.0),
+                    project(K_AXIS_END, 0.0, 0.0),
+                ],
+                scale,
+                graph_scale,
+            ),
+            K_AXIS,
+            line_width(K_AXIS_WIDTH, AXIS_MIN_PIXELS),
+        )
         if target_size >= FIELD_AXES_MIN_SIZE:
-            draw_polyline(layer, scaled_points([project(FIELD_AXES_X, -185.0, 0.0), project(FIELD_AXES_X, 185.0, 0.0)], scale), E_AXIS, line_width(FIELD_AXIS_WIDTH, AXIS_MIN_PIXELS))
-            draw_polyline(layer, scaled_points([project(FIELD_AXES_X, 0.0, -155.0), project(FIELD_AXES_X, 0.0, 155.0)], scale), H_AXIS, line_width(FIELD_AXIS_WIDTH, AXIS_MIN_PIXELS))
+            draw_polyline(
+                layer,
+                scaled_points(
+                    [
+                        project(FIELD_AXES_X, -185.0, 0.0),
+                        project(FIELD_AXES_X, 185.0, 0.0),
+                    ],
+                    scale,
+                    graph_scale,
+                ),
+                E_AXIS,
+                line_width(FIELD_AXIS_WIDTH, AXIS_MIN_PIXELS),
+            )
+            draw_polyline(
+                layer,
+                scaled_points(
+                    [
+                        project(FIELD_AXES_X, 0.0, -155.0),
+                        project(FIELD_AXES_X, 0.0, 155.0),
+                    ],
+                    scale,
+                    graph_scale,
+                ),
+                H_AXIS,
+                line_width(FIELD_AXIS_WIDTH, AXIS_MIN_PIXELS),
+            )
 
     image = composite_draw(image, draw_axes)
     image = composite_draw(
         image,
-        lambda layer: draw_polyline(layer, scaled_points(h_curve, scale), H_STROKE, line_width(WAVE_STROKE_WIDTH, WAVE_MIN_PIXELS)),
+        lambda layer: draw_polyline(
+            layer,
+            scaled_points(h_curve, scale, graph_scale),
+            H_STROKE,
+            line_width(WAVE_STROKE_WIDTH, WAVE_MIN_PIXELS),
+        ),
     )
     image = composite_draw(
         image,
-        lambda layer: draw_polyline(layer, scaled_points(e_curve, scale), E_STROKE, line_width(WAVE_STROKE_WIDTH, WAVE_MIN_PIXELS)),
+        lambda layer: draw_polyline(
+            layer,
+            scaled_points(e_curve, scale, graph_scale),
+            E_STROKE,
+            line_width(WAVE_STROKE_WIDTH, WAVE_MIN_PIXELS),
+        ),
     )
 
     return image
@@ -537,7 +668,10 @@ def ico_bytes() -> bytes:
         return parsed
 
     def rendered_entry(size: int, *, bitmap_format: str) -> tuple[bytes, bytes]:
-        master = build_raster_master(target_size=size)
+        master = build_raster_master(
+            target_size=size,
+            graph_scale=desktop_graph_scale(size),
+        )
         image = master.resize((size, size), Image.Resampling.LANCZOS)
         output = io.BytesIO()
         image.save(
@@ -656,8 +790,8 @@ def android_foreground_xml(*, monochrome: bool = False) -> bytes:
         {
             android_attr("pivotX"): str(CANVAS_SIZE / 2),
             android_attr("pivotY"): str(CANVAS_SIZE / 2),
-            android_attr("scaleX"): "0.8",
-            android_attr("scaleY"): "0.8",
+            android_attr("scaleX"): fmt(ANDROID_ADAPTIVE_GRAPH_SCALE),
+            android_attr("scaleY"): fmt(ANDROID_ADAPTIVE_GRAPH_SCALE),
         },
     )
     e_curve = e_wave_points()
@@ -773,6 +907,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         macos_master = build_raster_master(
             target_size=1024,
             background_size=MACOS_BACKGROUND_SIZE,
+            graph_scale=MACOS_GRAPH_SCALE,
         )
         icon_png = png_bytes(master, 512)
         outputs.extend(
@@ -805,9 +940,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         outputs.extend(
             (
                 android_res / f"mipmap-{density}" / "ic_launcher.png",
-                png_bytes(build_raster_master(target_size=size), size),
+                png_bytes(
+                    build_raster_master(
+                        target_size=size,
+                        graph_scale=ANDROID_LEGACY_GRAPH_SCALE,
+                    ),
+                    size,
+                ),
             )
             for density, size in ANDROID_LEGACY_SIZES.items()
+        )
+        outputs.extend(
+            (
+                icon_dir / f"sdriak-{size}.png",
+                png_bytes(
+                    build_raster_master(
+                        target_size=size,
+                        graph_scale=desktop_graph_scale(size),
+                    ),
+                    size,
+                ),
+            )
+            for size in LINUX_ICON_SIZES
         )
 
     return 0 if all(emit(path, content, check=args.check) for path, content in outputs) else 1
