@@ -1,8 +1,0 @@
-{
-  "substance": "./emwave.substance",
-  "style": [
-    "./emwave-scientific.style"
-  ],
-  "domain": "./emwave.domain",
-  "variation": "SDRIAKEMWaveScientific"
-}

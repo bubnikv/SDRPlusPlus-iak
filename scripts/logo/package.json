@@ -1,6 +1,0 @@
-{
-  "devDependencies": {
-    "@penrose/roger": "^3.3.1",
-    "canvas": "^3.2.3"
-  }
-}
