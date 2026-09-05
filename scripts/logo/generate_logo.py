@@ -47,18 +47,16 @@ ANDROID_LEGACY_SIZES = {
 
 BG: Color = (5, 12, 24, 255)
 BORDER: Color = (26, 82, 133, 217)
-K_AXIS: Color = (209, 230, 250, 148)
-K_ARROW: Color = (209, 230, 250, 199)
-E_AXIS: Color = (46, 212, 255, 122)
-E_ARROW: Color = (46, 212, 255, 191)
-E_FILL: Color = (31, 209, 255, 52)
-E_GLOW: Color = (20, 166, 255, 46)
-E_STROKE: Color = (31, 209, 255, 255)
-H_AXIS: Color = (84, 245, 148, 122)
-H_ARROW: Color = (84, 245, 148, 191)
-H_FILL: Color = (77, 245, 140, 48)
-H_GLOW: Color = (51, 242, 122, 38)
-H_STROKE: Color = (77, 245, 140, 255)
+K_AXIS: Color = (113, 131, 148, 255)
+K_ARROW: Color = K_AXIS
+E_AXIS: Color = (26, 108, 134, 255)
+E_ARROW: Color = E_AXIS
+E_FILL: Color = (41, 197, 246, 84)
+E_STROKE: Color = (41, 197, 246, 255)
+H_AXIS: Color = (128, 91, 18, 255)
+H_ARROW: Color = H_AXIS
+H_FILL: Color = (255, 176, 0, 84)
+H_STROKE: Color = (255, 176, 0, 255)
 
 SVG_NS = "http://www.w3.org/2000/svg"
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
@@ -225,8 +223,8 @@ def add_path(
 
 
 def k_arrow_points() -> list[Point]:
-    tip = project(390.0, 0.0, 0.0)
-    base = project(352.0, 0.0, 0.0)
+    tip = project(440.0, 0.0, 0.0)
+    base = project(400.0, 0.0, 0.0)
     perpendicular = (0.5, ISOMETRIC_X)
     return [
         tip,
@@ -326,23 +324,6 @@ def build_svg(*, scientific: bool) -> bytes:
         close=True,
         title="Filled E-field wave surface",
     )
-    add_path(
-        root,
-        h_curve,
-        fill=None,
-        stroke=H_GLOW,
-        width=28.0,
-        title="H-field glow",
-    )
-    add_path(
-        root,
-        e_curve,
-        fill=None,
-        stroke=E_GLOW,
-        width=28.0,
-        title="E-field glow",
-    )
-
     for index, distance in enumerate((-255.0, -170.0, -85.0, 85.0, 170.0, 255.0)):
         phase = math.sin(2.0 * math.pi * (distance - WAVE_START) / (WAVE_END - WAVE_START))
         origin = project(distance, 0.0, 0.0)
@@ -350,7 +331,7 @@ def build_svg(*, scientific: bool) -> bytes:
             root,
             origin,
             project(distance, E_AMPLITUDE * phase, 0.0),
-            (E_STROKE[0], E_STROKE[1], E_STROKE[2], 56),
+            (*E_STROKE[:3], 72),
             3.0,
             f"E-field vector {index}",
         )
@@ -358,17 +339,17 @@ def build_svg(*, scientific: bool) -> bytes:
             root,
             origin,
             project(distance, 0.0, H_AMPLITUDE * phase),
-            (H_STROKE[0], H_STROKE[1], H_STROKE[2], 56),
+            (*H_STROKE[:3], 72),
             3.0,
             f"H-field vector {index}",
         )
 
-    add_line(root, project(-390.0, 0.0, 0.0), project(390.0, 0.0, 0.0), K_AXIS, 5.0, "Propagation axis k")
-    add_line(root, project(WAVE_START, -185.0, 0.0), project(WAVE_START, 185.0, 0.0), E_AXIS, 4.0, "Electric-field axis E")
-    add_line(root, project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 155.0), H_AXIS, 4.0, "Magnetic-field axis H")
+    add_line(root, project(-390.0, 0.0, 0.0), project(400.0, 0.0, 0.0), K_AXIS, 5.0, "Propagation axis k")
+    add_line(root, project(WAVE_START, -185.0, 0.0), project(WAVE_START, 150.0, 0.0), E_AXIS, 4.0, "Electric-field axis E")
+    add_line(root, project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 120.0), H_AXIS, 4.0, "Magnetic-field axis H")
 
-    add_path(root, h_curve, fill=None, stroke=H_STROKE, width=13.0, title="H-field sine curve")
-    add_path(root, e_curve, fill=None, stroke=E_STROKE, width=13.0, title="E-field sine curve")
+    add_path(root, h_curve, fill=None, stroke=H_STROKE, width=9.0, title="H-field sine curve")
+    add_path(root, e_curve, fill=None, stroke=E_STROKE, width=9.0, title="E-field sine curve")
     add_polygon(root, k_arrow_points(), K_ARROW, "Propagation arrow")
     add_polygon(root, e_arrow_points(), E_ARROW, "Electric-field arrow")
     add_polygon(root, h_arrow_points(), H_ARROW, "Magnetic-field arrow")
@@ -445,39 +426,30 @@ def build_raster_master() -> "PillowImage.Image":
         image,
         lambda layer: layer.polygon(scaled_points(filled_surface(e_curve), scale), fill=E_FILL),
     )
-    image = composite_draw(
-        image,
-        lambda layer: draw_polyline(layer, scaled_points(h_curve, scale), H_GLOW, 28 * scale),
-    )
-    image = composite_draw(
-        image,
-        lambda layer: draw_polyline(layer, scaled_points(e_curve, scale), E_GLOW, 28 * scale),
-    )
-
     def draw_vectors(layer: "PillowImageDraw.ImageDraw") -> None:
         for distance in (-255.0, -170.0, -85.0, 85.0, 170.0, 255.0):
             phase = math.sin(2.0 * math.pi * (distance - WAVE_START) / (WAVE_END - WAVE_START))
             origin = scaled_points([project(distance, 0.0, 0.0)], scale)[0]
             e_end = scaled_points([project(distance, E_AMPLITUDE * phase, 0.0)], scale)[0]
             h_end = scaled_points([project(distance, 0.0, H_AMPLITUDE * phase)], scale)[0]
-            draw_polyline(layer, [origin, e_end], (*E_STROKE[:3], 56), 3 * scale, round_ends=False)
-            draw_polyline(layer, [origin, h_end], (*H_STROKE[:3], 56), 3 * scale, round_ends=False)
+            draw_polyline(layer, [origin, e_end], (*E_STROKE[:3], 72), 3 * scale, round_ends=False)
+            draw_polyline(layer, [origin, h_end], (*H_STROKE[:3], 72), 3 * scale, round_ends=False)
 
     image = composite_draw(image, draw_vectors)
 
     def draw_axes(layer: "PillowImageDraw.ImageDraw") -> None:
-        draw_polyline(layer, scaled_points([project(-390.0, 0.0, 0.0), project(390.0, 0.0, 0.0)], scale), K_AXIS, 5 * scale)
-        draw_polyline(layer, scaled_points([project(WAVE_START, -185.0, 0.0), project(WAVE_START, 185.0, 0.0)], scale), E_AXIS, 4 * scale)
-        draw_polyline(layer, scaled_points([project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 155.0)], scale), H_AXIS, 4 * scale)
+        draw_polyline(layer, scaled_points([project(-390.0, 0.0, 0.0), project(400.0, 0.0, 0.0)], scale), K_AXIS, 5 * scale)
+        draw_polyline(layer, scaled_points([project(WAVE_START, -185.0, 0.0), project(WAVE_START, 150.0, 0.0)], scale), E_AXIS, 4 * scale)
+        draw_polyline(layer, scaled_points([project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 120.0)], scale), H_AXIS, 4 * scale)
 
     image = composite_draw(image, draw_axes)
     image = composite_draw(
         image,
-        lambda layer: draw_polyline(layer, scaled_points(h_curve, scale), H_STROKE, 13 * scale),
+        lambda layer: draw_polyline(layer, scaled_points(h_curve, scale), H_STROKE, 9 * scale),
     )
     image = composite_draw(
         image,
-        lambda layer: draw_polyline(layer, scaled_points(e_curve, scale), E_STROKE, 13 * scale),
+        lambda layer: draw_polyline(layer, scaled_points(e_curve, scale), E_STROKE, 9 * scale),
     )
 
     def draw_arrows(layer: "PillowImageDraw.ImageDraw") -> None:
@@ -630,9 +602,6 @@ def android_foreground_xml() -> bytes:
     h_curve = h_wave_points()
     add_android_path(group, filled_surface(h_curve), fill=H_FILL, close=True)
     add_android_path(group, filled_surface(e_curve), fill=E_FILL, close=True)
-    add_android_path(group, h_curve, stroke=H_GLOW, width=28.0)
-    add_android_path(group, e_curve, stroke=E_GLOW, width=28.0)
-
     for distance in (-255.0, -170.0, -85.0, 85.0, 170.0, 255.0):
         phase = math.sin(
             2.0 * math.pi * (distance - WAVE_START) / (WAVE_END - WAVE_START)
@@ -641,36 +610,36 @@ def android_foreground_xml() -> bytes:
         add_android_path(
             group,
             [origin, project(distance, E_AMPLITUDE * phase, 0.0)],
-            stroke=(*E_STROKE[:3], 56),
+            stroke=(*E_STROKE[:3], 72),
             width=3.0,
         )
         add_android_path(
             group,
             [origin, project(distance, 0.0, H_AMPLITUDE * phase)],
-            stroke=(*H_STROKE[:3], 56),
+            stroke=(*H_STROKE[:3], 72),
             width=3.0,
         )
 
     add_android_path(
         group,
-        [project(-390.0, 0.0, 0.0), project(390.0, 0.0, 0.0)],
+        [project(-390.0, 0.0, 0.0), project(400.0, 0.0, 0.0)],
         stroke=K_AXIS,
         width=5.0,
     )
     add_android_path(
         group,
-        [project(WAVE_START, -185.0, 0.0), project(WAVE_START, 185.0, 0.0)],
+        [project(WAVE_START, -185.0, 0.0), project(WAVE_START, 150.0, 0.0)],
         stroke=E_AXIS,
         width=4.0,
     )
     add_android_path(
         group,
-        [project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 155.0)],
+        [project(WAVE_START, 0.0, -155.0), project(WAVE_START, 0.0, 120.0)],
         stroke=H_AXIS,
         width=4.0,
     )
-    add_android_path(group, h_curve, stroke=H_STROKE, width=13.0)
-    add_android_path(group, e_curve, stroke=E_STROKE, width=13.0)
+    add_android_path(group, h_curve, stroke=H_STROKE, width=9.0)
+    add_android_path(group, e_curve, stroke=E_STROKE, width=9.0)
     add_android_path(group, k_arrow_points(), fill=K_ARROW, close=True)
     add_android_path(group, e_arrow_points(), fill=E_ARROW, close=True)
     add_android_path(group, h_arrow_points(), fill=H_ARROW, close=True)
