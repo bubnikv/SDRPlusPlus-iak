@@ -8,7 +8,7 @@
 #include <utils/opengl_include_code.h>
 #include <version.h>
 #include <core.h>
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <stb_image.h>
 #endif
 
@@ -141,10 +141,10 @@ namespace backend {
             common::initScaleState(scaleState, resDir, xscale, userScaleFactor);
         }
 
-#if defined(__linux__)
-        // X11 needs _NET_WM_ICON data on the window. Wayland identifies the
-        // application through its desktop-file ID instead. Windows uses the
-        // embedded ICO resource and macOS uses the application bundle's ICNS.
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+        // X11 needs _NET_WM_ICON data on the window. On Linux, Wayland instead
+        // identifies the application through its desktop-file ID. Windows uses
+        // the embedded ICO resource and macOS uses the application bundle's ICNS.
         const std::string iconPath = resDir + "/icons/sdriak.png";
         GLFWimage icon = {};
         icon.pixels = stbi_load(iconPath.c_str(), &icon.width, &icon.height, 0, 4);
