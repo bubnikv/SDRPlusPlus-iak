@@ -6,7 +6,6 @@
 #include <imgui/stb_image.h>
 #include <filesystem>
 #include <utils/flog.h>
-#include <array>
 
 namespace icons {
     ImTextureID LOGO;
@@ -19,19 +18,6 @@ namespace icons {
     ImTextureID CENTER_TUNING;
     ImTextureID KEYPAD;
     ImTextureID CONTRAST;
-
-    struct ToolbarLogoVariant {
-        int size;
-        ImTextureID texture;
-    };
-
-    static std::array<ToolbarLogoVariant, 5> toolbarLogoVariants = {{
-        { 32, 0 },
-        { 48, 0 },
-        { 64, 0 },
-        { 96, 0 },
-        { 128, 0 },
-    }};
 
     GLuint loadTexture(std::string path) {
         int w, h, n;
@@ -47,13 +33,6 @@ namespace icons {
         return texId;
     }
 
-    ImTextureID toolbarLogo(int physicalSize) {
-        for (const ToolbarLogoVariant& variant : toolbarLogoVariants) {
-            if (physicalSize <= variant.size) { return variant.texture; }
-        }
-        return toolbarLogoVariants.back().texture;
-    }
-
     bool load(std::string resDir) {
         if (!std::filesystem::is_directory(resDir)) {
             flog::error("Invalid resource directory: {0}", resDir);
@@ -61,10 +40,6 @@ namespace icons {
         }
 
         LOGO = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/sdriak.png");
-        for (ToolbarLogoVariant& variant : toolbarLogoVariants) {
-            variant.texture = (ImTextureID)(uintptr_t)loadTexture(
-                resDir + "/icons/ui/sdriak-toolbar-" + std::to_string(variant.size) + ".png");
-        }
         PLAY = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/play.png");
         STOP = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/stop.png");
         MENU = (ImTextureID)(uintptr_t)loadTexture(resDir + "/icons/menu.png");

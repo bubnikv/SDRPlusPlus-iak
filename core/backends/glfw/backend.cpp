@@ -142,33 +142,18 @@ namespace backend {
         }
 
 #if defined(__linux__)
-        // Load the authored variants so micro icons keep their simplified
-        // geometry instead of inheriting all detail from the 512 px artwork.
-        // Windows uses the embedded GLFW_ICON resource, while macOS uses the
-        // application bundle's ICNS icon.
-        const int iconSizes[] = { 16, 22, 24, 32, 48, 64, 96, 128, 192, 256, 512 };
-        GLFWimage icons[sizeof(iconSizes) / sizeof(iconSizes[0])] = {};
-        int iconCount = 0;
-        for (int iconSize : iconSizes) {
-            std::string iconPath = iconSize == 512
-                ? resDir + "/icons/sdriak.png"
-                : resDir + "/icons/linux/sdriak-" + std::to_string(iconSize) + ".png";
-            GLFWimage& icon = icons[iconCount];
-            icon.pixels = stbi_load(iconPath.c_str(), &icon.width, &icon.height, 0, 4);
-            if (icon.pixels == nullptr) {
-                flog::warn("Failed to load icon file '{0}'", iconPath);
-                continue;
-            }
-            iconCount++;
-        }
-        if (iconCount == 0) {
-            flog::error("No application icon variants could be loaded from '{0}/icons/linux'", resDir);
+        // X11 needs _NET_WM_ICON data on the window. Wayland identifies the
+        // application through its desktop-file ID instead. Windows uses the
+        // embedded ICO resource and macOS uses the application bundle's ICNS.
+        const std::string iconPath = resDir + "/icons/sdriak.png";
+        GLFWimage icon = {};
+        icon.pixels = stbi_load(iconPath.c_str(), &icon.width, &icon.height, 0, 4);
+        if (icon.pixels == nullptr) {
+            flog::error("Failed to load application icon '{0}'", iconPath);
             return 1;
         }
-        glfwSetWindowIcon(window, iconCount, icons);
-        for (int i = 0; i < iconCount; i++) {
-            stbi_image_free(icons[i].pixels);
-        }
+        glfwSetWindowIcon(window, 1, &icon);
+        stbi_image_free(icon.pixels);
 #endif
 
         // Add callback for max/min if GLFW supports it

@@ -207,15 +207,6 @@ bundle_install_binary() {
     install_name_tool -add_rpath @loader_path/../Frameworks "$EXEC_DEST"
 }
 
-bundle_create_icns() {
-    if [ $# -ne 2 ]; then
-        echo "bundle_create_icns [iconset_path] [icns_file]";
-        return
-    fi
-
-    iconutil -c icns "$1" -o "$2.icns"
-}
-
 bundle_create_plist() {
     if [ $# -ne 8 ]; then
         echo "bundle_create_plist [bundle_name] [display_name] [identifier] [version] [signature] [exec] [icon] [plist]";

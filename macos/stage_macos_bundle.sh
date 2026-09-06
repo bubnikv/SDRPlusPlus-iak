@@ -18,7 +18,7 @@ cp -R "$REPO_ROOT/root/res"/* "$BUNDLE/Contents/Resources/"
 rm -rf "$BUNDLE/Contents/Resources/icons/windows"
 rm -rf "$BUNDLE/Contents/Resources/icons/macos"
 rm -rf "$BUNDLE/Contents/Resources/icons/linux"
-bundle_create_icns "$REPO_ROOT/root/res/icons/macos/sdriak.iconset" "$BUNDLE/Contents/Resources/sdriak"
+cp "$REPO_ROOT/root/res/icons/macos/sdriak.icns" "$BUNDLE/Contents/Resources/sdriak.icns"
 
 eval "$("$REPO_ROOT/scripts/get_version.sh" "$REPO_ROOT")"
 APP_VERSION="$VERSION"
