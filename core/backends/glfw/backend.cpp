@@ -8,7 +8,14 @@
 #include <utils/opengl_include_code.h>
 #include <version.h>
 #include <core.h>
+// Desktop integration that applies to every Unix-like platform driving GLFW's
+// X11/Wayland backends, as opposed to macOS (bundle ICNS) and Windows (ICO
+// resource), which identify the application through packaging metadata instead.
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#define SDRPP_GLFW_UNIX_DESKTOP 1
+#endif
+
+#if defined(SDRPP_GLFW_UNIX_DESKTOP)
 #include <stb_image.h>
 #endif
 
@@ -107,11 +114,14 @@ namespace backend {
     #else
         const char* glsl_version = "#version 120";
         monitor = NULL;
-    #if defined(__linux__) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3))
+        // Both must match the desktop file's basename (and its StartupWMClass)
+        // for the shell to bind the window to sdriak.desktop and pick up the
+        // hicolor icon. X11 keys off WM_CLASS, Wayland off the xdg app ID.
+    #if defined(SDRPP_GLFW_UNIX_DESKTOP) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3))
         glfwWindowHintString(GLFW_X11_CLASS_NAME, "sdriak");
         glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "sdriak");
     #endif
-    #if defined(__linux__) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 4))
+    #if defined(SDRPP_GLFW_UNIX_DESKTOP) && (GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 4))
         glfwWindowHintString(GLFW_WAYLAND_APP_ID, "sdriak");
     #endif
         for (int i = 0; i < OPENGL_VERSION_COUNT; i++) {
@@ -141,8 +151,8 @@ namespace backend {
             common::initScaleState(scaleState, resDir, xscale, userScaleFactor);
         }
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
-        // X11 needs _NET_WM_ICON data on the window. On Linux, Wayland instead
+#if defined(SDRPP_GLFW_UNIX_DESKTOP)
+        // X11 needs _NET_WM_ICON data on the window. Wayland instead
         // identifies the application through its desktop-file ID. Windows uses
         // the embedded ICO resource and macOS uses the application bundle's ICNS.
         const std::string iconPath = resDir + "/icons/sdriak.png";

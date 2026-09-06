@@ -382,7 +382,6 @@ if (MSVC)
         COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:sdrpp>/res/icons/windows"
         COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:sdrpp>/res/icons/macos"
         COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:sdrpp>/res/icons/linux"
-        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:sdrpp>/res/icons/ui"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:sdrpp>/recordings"
         COMMENT "Copying Windows runtime root skeleton")
 
@@ -478,8 +477,6 @@ if (MSVC)
             "${_sdrpp_windows_bundle_stage_dir}/res/icons/macos"
         COMMAND ${CMAKE_COMMAND} -E remove_directory
             "${_sdrpp_windows_bundle_stage_dir}/res/icons/linux"
-        COMMAND ${CMAKE_COMMAND} -E remove_directory
-            "${_sdrpp_windows_bundle_stage_dir}/res/icons/ui"
         COMMENT "Staging Windows bundle under ${SDRPP_WINDOWS_BUNDLE_STAGE_ROOT}"
         VERBATIM)
     add_dependencies(stage_windows_bundle sdrpp)
